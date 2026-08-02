@@ -10,8 +10,8 @@
 
 ## 环境门禁
 
-- [ ] PostgreSQL 迁移、种子与 Prisma E2E（由仓库 CI 的 PostgreSQL 17 服务执行）
-- [ ] Admin/API Docker 镜像构建（由仓库 CI 执行；当前开发机未安装 Docker）
+- [ ] PostgreSQL 迁移、种子与 Prisma E2E（由 CNB 构建中的 PostgreSQL 17 容器执行）
+- [ ] Admin/API Docker 镜像构建（由 CNB 构建执行；当前开发机未安装 Docker）
 - [ ] 远程仓库 CI 全部通过
 
 ## 发布动作

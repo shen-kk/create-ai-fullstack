@@ -27,8 +27,8 @@
     "db:generate": "pnpm --filter @template/api db:generate",
     "db:migrate": "pnpm --filter @template/api db:migrate",
     "db:seed": "pnpm --filter @template/api db:seed",
-    "format": "prettier --write package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps/admin/src apps/admin/package.json apps/admin/tsconfig.json apps/admin/vite.config.ts apps/api/src apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/vitest.e2e.config.ts apps/api/nest-cli.json packages scripts skills docs .github",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps/admin/src apps/admin/package.json apps/admin/tsconfig.json apps/admin/vite.config.ts apps/api/src apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/vitest.e2e.config.ts apps/api/nest-cli.json packages scripts skills docs .github"
+    "format": "prettier --write .cnb.yml package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps/admin/src apps/admin/package.json apps/admin/tsconfig.json apps/admin/vite.config.ts apps/api/src apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/vitest.e2e.config.ts apps/api/nest-cli.json packages scripts skills docs .github",
+    "format:check": "prettier --check .cnb.yml package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps/admin/src apps/admin/package.json apps/admin/tsconfig.json apps/admin/vite.config.ts apps/api/src apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/vitest.e2e.config.ts apps/api/nest-cli.json packages scripts skills docs .github"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
