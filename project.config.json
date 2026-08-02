@@ -1,0 +1,10 @@
+{
+  "$schema": "./project.config.schema.json",
+  "schemaVersion": 1,
+  "template": { "name": "adminback-template", "version": "0.1.0", "repository": "https://cnb.cool/nsmiling.com/ai-template" },
+  "project": { "name": "adminback-template", "packageScope": "@template", "displayName": "AI 友好后台模板", "description": "可复用的后台管理与 API 项目模板" },
+  "runtime": { "packageManager": "pnpm", "adminPort": 3000, "apiPort": 3001, "deployment": "local" },
+  "database": { "mode": "memory", "engine": "none", "orm": "none" },
+  "modules": { "authentication": true, "adminUsers": true, "rolesAndPermissions": true, "auditLogs": true, "serviceConfig": true, "objectStorage": true, "redis": true, "sms": true, "email": true, "payment": true },
+  "providers": { "objectStorage": "tencent_cos" }
+}

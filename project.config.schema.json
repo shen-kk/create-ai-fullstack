@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://adminback-template.local/project.config.schema.json",
+  "title": "Adminback project configuration",
+  "type": "object",
+  "required": ["schemaVersion", "template", "project", "runtime", "database", "modules"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "template": {
+      "type": "object",
+      "required": ["name", "version", "repository"],
+      "properties": {
+        "name": { "const": "adminback-template" },
+        "version": { "type": "string" },
+        "repository": { "type": "string", "format": "uri" }
+      },
+      "additionalProperties": false
+    },
+    "project": {
+      "type": "object",
+      "required": ["name", "packageScope", "displayName", "description"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,62}$" },
+        "packageScope": { "type": "string", "pattern": "^@[a-z][a-z0-9-]{1,62}$" },
+        "displayName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 240 }
+      },
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "required": ["packageManager", "adminPort", "apiPort", "deployment"],
+      "properties": {
+        "packageManager": { "const": "pnpm" },
+        "adminPort": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+        "apiPort": { "type": "integer", "minimum": 1024, "maximum": 65535 },
+        "deployment": { "enum": ["local", "docker"] }
+      },
+      "additionalProperties": false
+    },
+    "database": {
+      "type": "object",
+      "required": ["mode", "engine", "orm"],
+      "properties": {
+        "mode": { "enum": ["memory", "prisma"] },
+        "engine": { "enum": ["none", "postgresql"] },
+        "orm": { "enum": ["none", "prisma"] }
+      },
+      "additionalProperties": false
+    },
+    "modules": { "type": "object", "additionalProperties": { "type": "boolean" } },
+    "providers": {
+      "type": "object",
+      "properties": {
+        "objectStorage": {
+          "enum": ["none", "tencent_cos", "aliyun_oss", "aws_s3", "s3_compatible"]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

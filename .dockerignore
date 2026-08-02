@@ -1,0 +1,15 @@
+.git
+.github
+node_modules
+**/node_modules
+**/dist
+**/.nuxt
+**/.output
+.pnpm-store
+.turbo
+.env
+.env.*
+!.env.example
+*.log
+coverage
+服务密钥相关.doc

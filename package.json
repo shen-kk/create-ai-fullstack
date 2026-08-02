@@ -1,0 +1,45 @@
+{
+  "name": "ai-friendly-fullstack-template",
+  "private": true,
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm dev:local",
+    "dev:local": "turbo dev --filter=@template/admin --filter=@template/api",
+    "dev:admin": "pnpm --filter @template/admin dev",
+    "dev:api": "pnpm --filter @template/api dev",
+    "dev:web": "pnpm --filter @template/web dev",
+    "build": "turbo build --filter=@template/admin --filter=@template/api",
+    "lint": "turbo lint --filter=@template/admin --filter=@template/api --filter=@template/contracts",
+    "typecheck": "turbo typecheck --filter=@template/admin --filter=@template/api",
+    "test": "turbo test --filter=@template/admin --filter=@template/api --filter=@template/contracts",
+    "check": "pnpm db:generate && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "test:e2e": "turbo test:e2e --filter=@template/api",
+    "test:startup": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-local.Tests.ps1",
+    "template:init": "node scripts/template-init.mjs",
+    "template:doctor": "node scripts/template-doctor.mjs",
+    "template:sync": "node scripts/template-sync.mjs",
+    "template:provision": "node scripts/template-provision.mjs",
+    "template:verify": "node scripts/template-verify.mjs",
+    "test:template": "node --test scripts/lib/*.test.mjs",
+    "db:generate": "pnpm --filter @template/api db:generate",
+    "db:migrate": "pnpm --filter @template/api db:migrate",
+    "db:seed": "pnpm --filter @template/api db:seed",
+    "format": "prettier --write package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps/admin/src apps/admin/package.json apps/admin/tsconfig.json apps/admin/vite.config.ts apps/api/src apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/vitest.e2e.config.ts apps/api/nest-cli.json packages scripts skills docs .github",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps/admin/src apps/admin/package.json apps/admin/tsconfig.json apps/admin/vite.config.ts apps/api/src apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/vitest.e2e.config.ts apps/api/nest-cli.json packages scripts skills docs .github"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.0.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0"
+  }
+}

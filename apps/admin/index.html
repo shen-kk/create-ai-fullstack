@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="AI Friendly Template 后台管理端" />
+    <title>AI Admin</title>
+  </head>
+  <body>
+    <div id="app">
+      <main
+        id="file-protocol-help"
+        hidden
+        style="max-width: 680px; margin: 12vh auto; padding: 24px; font-family: sans-serif"
+      >
+        <h1>请通过开发服务器打开</h1>
+        <p>这是 Vue + Vite 项目，不能直接双击 HTML 文件运行。</p>
+        <pre style="padding: 16px; background: #f4f4f5; border-radius: 8px">
+pnpm --filter @template/admin dev</pre>
+        <p>启动后访问：<strong>http://localhost:3000</strong></p>
+      </main>
+    </div>
+    <script>
+      if (window.location.protocol === 'file:') {
+        document.querySelector('#file-protocol-help').hidden = false;
+      }
+    </script>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

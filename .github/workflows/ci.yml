@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: template_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d template_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/template?schema=public
+      - run: pnpm template:verify
+      - run: pnpm --filter @template/api exec prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/template_test?schema=public
+      - run: pnpm db:seed
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/template_test?schema=public
+          DEV_ADMIN_PHONE: 13800000000
+          DEV_ADMIN_PASSWORD: Admin@123456
+      - run: pnpm test:e2e
+        env:
+          E2E_DATA_SOURCE: prisma
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/template_test?schema=public
+      - run: docker build -f apps/api/Dockerfile -t adminback-api:ci .
+      - run: docker build -f apps/admin/Dockerfile -t adminback-admin:ci .

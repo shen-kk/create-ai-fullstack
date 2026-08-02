@@ -1,0 +1,26 @@
+import type {
+  IntegrationConfigSummary,
+  IntegrationKind,
+  UpdateIntegrationConfigRequest,
+} from '@template/contracts';
+import { getAccessToken } from '../auth/session';
+const base = `${window.location.protocol}//${window.location.hostname}:3001/api`;
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAccessToken();
+  const response = await fetch(`${base}${path}`, {
+    ...init,
+    signal: AbortSignal.timeout(6000),
+    headers: {
+      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!response.ok) throw new Error(`Integration request failed: ${response.status}`);
+  return response.json() as Promise<T>;
+}
+export const getIntegrations = (): Promise<IntegrationConfigSummary[]> => request('/integrations');
+export const updateIntegration = (
+  kind: IntegrationKind,
+  input: UpdateIntegrationConfigRequest,
+): Promise<IntegrationConfigSummary> =>
+  request(`/integrations/${kind}`, { method: 'PUT', body: JSON.stringify(input) });
