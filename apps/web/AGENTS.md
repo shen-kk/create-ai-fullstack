@@ -5,6 +5,8 @@
 - GSAP 只用于首页 Hero、滚动叙事等高价值编排，必须使用 `gsap.context()` 并在组件卸载时 `revert()`；普通显隐、列表和表单反馈继续使用 VueUse Motion。
 - Design System 采用 Apple 的克制与空间感、Linear 的高密度交互、Vercel 的黑白信息层级；只借鉴设计原则，不复制品牌资产或页面。
 - 页面优先组合 `ui` 与 `motion` 两层组件；动效层必须支持 `prefers-reduced-motion`，且移除后不应影响业务流程。
+- 页面切换统一使用全局轻量过渡；不要只给同级内容中的个别卡片添加入场动画。除 Hero 演示场景外，同一区域要么整体采用一致的入场节奏，要么保持静态。
+- 跨页面的成功、失败和服务端反馈使用全局 `AppToast`；字段级校验仍应靠近对应控件，按钮 hover、focus、disabled 状态必须保持 WCAG 可读对比度。
 
 - 用户端默认考虑 SSR、SEO、可访问性和弱网体验。
 - 服务端渲染所需请求使用 Nuxt `useFetch`/`useAsyncData`，不要无故退化为仅客户端请求。

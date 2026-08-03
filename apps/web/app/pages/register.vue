@@ -11,11 +11,12 @@ const form = reactive({
 const loading = ref(false);
 const sending = ref(false);
 const countdown = ref(0);
-const message = ref('');
+const { showToast } = useAppToast();
+const notify = (value: string) =>
+  showToast(value, /失败|错误|不一致|正确/.test(value) ? 'error' : 'success');
 async function submit(): Promise<void> {
-  message.value = '';
   if (form.password !== form.confirmPassword) {
-    message.value = '两次输入的密码不一致';
+    notify('两次输入的密码不一致');
     return;
   }
   loading.value = true;
@@ -29,18 +30,17 @@ async function submit(): Promise<void> {
     });
     await navigateTo('/profile');
   } catch (error) {
-    message.value = error instanceof Error ? error.message : '注册失败';
+    notify(error instanceof Error ? error.message : '注册失败');
   } finally {
     loading.value = false;
   }
 }
 async function sendCode(): Promise<void> {
   if (!/^1\d{10}$/.test(form.phone) || sending.value || countdown.value) {
-    message.value = '请先填写正确的手机号';
+    notify('请先填写正确的手机号');
     return;
   }
   sending.value = true;
-  message.value = '';
   try {
     const result = await sendVerification({
       channel: 'sms',
@@ -53,9 +53,9 @@ async function sendCode(): Promise<void> {
       countdown.value -= 1;
       if (countdown.value <= 0) window.clearInterval(timer);
     }, 1000);
-    message.value = result.developmentCode ? '开发模式验证码已自动填入' : '验证码已发送';
+    notify(result.developmentCode ? '开发模式验证码已自动填入' : '验证码已发送');
   } catch (error) {
-    message.value = error instanceof Error ? error.message : '验证码发送失败';
+    notify(error instanceof Error ? error.message : '验证码发送失败');
   } finally {
     sending.value = false;
   }
@@ -133,7 +133,6 @@ useSeoMeta({ title: '创建账号 · 澄序', description: '创建你的用户�
             minlength="8"
             placeholder="再次输入密码"
         /></label>
-        <p v-if="message" class="form-error full" role="alert">{{ message }}</p>
         <button class="button button-block full" :disabled="loading">
           {{ loading ? '正在创建…' : '创建账号' }} <span>→</span>
         </button>

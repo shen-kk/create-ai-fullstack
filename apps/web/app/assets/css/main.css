@@ -108,7 +108,7 @@ button {
   display: flex;
   align-items: center;
   gap: 27px;
-  font-size: 13px;
+  font-size: 14px;
   color: #52525b;
 }
 .site-nav > a:not([class*='inline-flex']) {
@@ -199,7 +199,7 @@ button {
 }
 .hero h1 {
   margin: 30px 0 25px;
-  font-size: clamp(54px, 5.2vw, 78px);
+  font-size: clamp(50px, 4.7vw, 68px);
   line-height: 1.03;
   letter-spacing: -0.065em;
   font-weight: 600;
@@ -458,7 +458,7 @@ button {
 }
 .section-heading h2 {
   margin: 0;
-  font-size: clamp(42px, 4vw, 62px);
+  font-size: clamp(40px, 3.7vw, 54px);
   line-height: 1.08;
   letter-spacing: -0.055em;
   font-weight: 600;
@@ -507,7 +507,7 @@ button {
   max-width: 440px;
   margin: 0;
   color: #71717a;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.75;
 }
 .feature-grid article > span {
@@ -645,7 +645,7 @@ button {
 }
 .auth-intro h1 {
   margin: 25px 0;
-  font-size: clamp(48px, 5vw, 70px);
+  font-size: clamp(46px, 4.4vw, 60px);
   line-height: 1.06;
   letter-spacing: -0.06em;
   font-weight: 600;
@@ -685,7 +685,7 @@ button {
 .muted {
   margin: 7px 0;
   color: #a1a1aa;
-  font-size: 12px;
+  font-size: 13px;
 }
 .muted a {
   color: #18181b;
@@ -701,7 +701,7 @@ button {
   gap: 8px;
   margin-bottom: 18px;
   color: #3f3f46;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
 }
 .auth-card label small {
@@ -717,6 +717,7 @@ button {
   border-radius: 10px;
   background: white;
   color: #18181b;
+  font-size: 14px;
   outline: 0;
   transition:
     border-color 0.2s,
@@ -783,7 +784,7 @@ button {
   background: #18181b;
   color: white;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   transition:
     transform 0.2s,
@@ -792,6 +793,13 @@ button {
 .button:hover {
   transform: translateY(-1px);
   background: #27272a;
+}
+.button:focus {
+  outline: none;
+}
+.button:focus-visible {
+  outline: 2px solid #a1a1aa;
+  outline-offset: 2px;
 }
 .button:disabled {
   opacity: 0.5;
@@ -807,6 +815,12 @@ button {
   background: white;
   color: #18181b;
 }
+.button-light:hover,
+.button-outline:hover {
+  border-color: var(--line-strong);
+  background: #f4f4f5;
+  color: #09090b;
+}
 .button-block {
   width: 100%;
 }
@@ -816,6 +830,85 @@ button {
   border-radius: 9px;
   font-size: 11px;
   line-height: 1.5;
+}
+
+.app-toast {
+  position: fixed;
+  z-index: 100;
+  top: 80px;
+  right: 24px;
+  width: min(390px, calc(100vw - 32px));
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 14px 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 0.94);
+  box-shadow:
+    0 20px 60px rgb(0 0 0 / 0.14),
+    0 2px 8px rgb(0 0 0 / 0.06);
+  backdrop-filter: blur(18px);
+}
+.toast-icon {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #ecfdf5;
+  color: #047857;
+  font-size: 13px;
+  font-weight: 700;
+}
+.app-toast[data-tone='error'] .toast-icon {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+.app-toast strong {
+  display: block;
+  font-size: 13px;
+}
+.app-toast p {
+  margin: 3px 0 0;
+  color: #71717a;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.app-toast button {
+  align-self: start;
+  border: 0;
+  background: transparent;
+  color: #a1a1aa;
+  cursor: pointer;
+  font-size: 18px;
+}
+.toast-enter-active,
+.toast-leave-active {
+  transition:
+    opacity 0.24s ease,
+    transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translate3d(18px, -8px, 0) scale(0.97);
+}
+.page-enter-active,
+.page-leave-active {
+  transition:
+    opacity 0.22s ease,
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 .form-error {
   border: 1px solid #fecaca;
@@ -1185,6 +1278,10 @@ button {
   .device-list article {
     align-items: stretch;
     flex-direction: column;
+  }
+  .app-toast {
+    top: 72px;
+    right: 12px;
   }
 }
 @media (prefers-reduced-motion: reduce) {

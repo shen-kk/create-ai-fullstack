@@ -4,6 +4,7 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-08-01',
   devtools: { enabled: true },
   experimental: { chromeDevtoolsProjectSettings: false },
+  app: { pageTransition: { name: 'page', mode: 'out-in' } },
   css: ['~/assets/css/main.css'],
   modules: ['shadcn-nuxt', '@vueuse/motion/nuxt'],
   shadcn: {

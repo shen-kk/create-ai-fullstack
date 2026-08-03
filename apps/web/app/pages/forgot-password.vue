@@ -2,12 +2,13 @@
 const { sendVerification } = useCustomerSession();
 const config = useRuntimeConfig();
 const form = reactive({ phone: '', code: '', newPassword: '', confirmPassword: '' });
-const message = ref('');
 const loading = ref(false);
 const sending = ref(false);
+const { showToast } = useAppToast();
+const notify = (value: string) =>
+  showToast(value, /失败|错误|不一致|检查/.test(value) ? 'error' : 'success');
 async function sendCode(): Promise<void> {
   sending.value = true;
-  message.value = '';
   try {
     const result = await sendVerification({
       channel: 'sms',
@@ -15,16 +16,16 @@ async function sendCode(): Promise<void> {
       purpose: 'reset_password',
     });
     if (result.developmentCode) form.code = result.developmentCode;
-    message.value = result.developmentCode ? '开发模式验证码已自动填入' : '验证码已发送';
+    notify(result.developmentCode ? '开发模式验证码已自动填入' : '验证码已发送');
   } catch (error) {
-    message.value = error instanceof Error ? error.message : '发送失败';
+    notify(error instanceof Error ? error.message : '发送失败');
   } finally {
     sending.value = false;
   }
 }
 async function submit(): Promise<void> {
   if (form.newPassword !== form.confirmPassword) {
-    message.value = '两次密码不一致';
+    notify('两次密码不一致');
     return;
   }
   loading.value = true;
@@ -35,10 +36,10 @@ async function submit(): Promise<void> {
       body: JSON.stringify({ phone: form.phone, code: form.code, newPassword: form.newPassword }),
     });
     if (!response.ok) throw new Error('重置失败，请检查验证码');
-    message.value = '密码已重置，即将返回登录';
+    notify('密码已重置，即将返回登录');
     setTimeout(() => navigateTo('/login'), 900);
   } catch (error) {
-    message.value = error instanceof Error ? error.message : '重置失败';
+    notify(error instanceof Error ? error.message : '重置失败');
   } finally {
     loading.value = false;
   }
@@ -81,7 +82,6 @@ useSeoMeta({ title: '找回密码 · 澄序', robots: 'noindex,nofollow' });
         ><label
           >确认密码<input v-model="form.confirmPassword" required type="password" minlength="8"
         /></label>
-        <p v-if="message" class="form-notice full">{{ message }}</p>
         <button class="button button-block full" :disabled="loading">
           {{ loading ? '处理中…' : '重置密码' }}
         </button>

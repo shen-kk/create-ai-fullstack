@@ -4,16 +4,17 @@ const form = reactive({ phone: '', password: '', code: '' });
 const mode = ref<'password' | 'code'>('password');
 const sending = ref(false);
 const loading = ref(false);
-const message = ref('');
+const { showToast } = useAppToast();
+const notify = (value: string) =>
+  showToast(value, /失败|错误|检查/.test(value) ? 'error' : 'success');
 async function submit(): Promise<void> {
-  message.value = '';
   loading.value = true;
   try {
     if (mode.value === 'password') await login({ phone: form.phone, password: form.password });
     else await loginWithCode({ phone: form.phone, code: form.code });
     await navigateTo('/profile');
   } catch (error) {
-    message.value = error instanceof Error ? error.message : '登录失败';
+    notify(error instanceof Error ? error.message : '登录失败');
   } finally {
     loading.value = false;
   }
@@ -23,9 +24,9 @@ async function sendCode(): Promise<void> {
   try {
     const result = await sendVerification({ channel: 'sms', target: form.phone, purpose: 'login' });
     if (result.developmentCode) form.code = result.developmentCode;
-    message.value = result.developmentCode ? '开发模式验证码已自动填入' : '验证码已发送';
+    notify(result.developmentCode ? '开发模式验证码已自动填入' : '验证码已发送');
   } catch (error) {
-    message.value = error instanceof Error ? error.message : '发送失败';
+    notify(error instanceof Error ? error.message : '发送失败');
   } finally {
     sending.value = false;
   }
@@ -83,7 +84,6 @@ useSeoMeta({ title: '登录 · 澄序', description: '登录你的账号。' });
             </button>
           </div></label
         >
-        <p v-if="message" class="form-error" role="alert">{{ message }}</p>
         <button class="button button-block" :disabled="loading">
           {{ loading ? '正在登录…' : '登录' }} <span>→</span>
         </button>

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { HealthResponse } from '@template/contracts';
 import MotionHeroStage from '../components/motion/HeroStage.vue';
-import MotionReveal from '../components/motion/MotionReveal.vue';
 
 const config = useRuntimeConfig();
 const { data: health } = await useFetch<HealthResponse>('/health', {
@@ -55,7 +54,7 @@ useSeoMeta({
         </div>
       </div>
       <div class="feature-grid">
-        <MotionReveal
+        <article
           v-for="(item, index) in [
             ['独立身份', '用户账号与后台管理员完全隔离，手机号注册登录，边界清晰。'],
             ['可靠会话', '短期令牌与 HttpOnly 刷新会话协作，支持轮换与设备撤销。'],
@@ -63,15 +62,12 @@ useSeoMeta({
             ['响应式系统', '统一设计令牌覆盖桌面与移动端，并尊重减少动态效果。'],
           ]"
           :key="item[0]"
-          :delay="index * 70"
         >
-          <article>
-            <b>0{{ index + 1 }}</b>
-            <h3>{{ item[0] }}</h3>
-            <p>{{ item[1] }}</p>
-            <span>了解能力 ↗</span>
-          </article>
-        </MotionReveal>
+          <b>0{{ index + 1 }}</b>
+          <h3>{{ item[0] }}</h3>
+          <p>{{ item[1] }}</p>
+          <span>了解能力 ↗</span>
+        </article>
       </div>
     </section>
 

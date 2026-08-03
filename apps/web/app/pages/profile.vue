@@ -11,6 +11,13 @@ const emailBinding = reactive({ email: '', code: '' });
 const emailMessage = ref('');
 const devices = ref<CustomerSessionDevice[]>([]);
 const deviceMessage = ref('');
+const { showToast } = useAppToast();
+watch([profileMessage, passwordMessage, emailMessage, deviceMessage], (values, previous) => {
+  values.forEach((value, index) => {
+    if (value && value !== previous[index])
+      showToast(value, /失败|错误/.test(value) ? 'error' : 'success');
+  });
+});
 async function loadDevices(): Promise<void> {
   try {
     devices.value = await authenticated<CustomerSessionDevice[]>('/sessions');
@@ -155,7 +162,6 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
                 type="url"
                 placeholder="https://...（选填）"
             /></label>
-            <p v-if="profileMessage" class="form-notice full" role="status">{{ profileMessage }}</p>
             <div class="form-actions full">
               <button class="button" type="submit">保存资料</button>
             </div>
@@ -189,7 +195,6 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
               </button>
             </article>
           </div>
-          <p v-if="deviceMessage" class="form-notice">{{ deviceMessage }}</p>
           <div class="form-actions">
             <button class="button button-outline" @click="revokeOthers">退出其他设备</button>
           </div>
@@ -217,7 +222,6 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
                 </button>
               </div></label
             >
-            <p v-if="emailMessage" class="form-notice full">{{ emailMessage }}</p>
             <div class="form-actions full">
               <button class="button" type="submit">验证并绑定</button>
             </div>
@@ -254,9 +258,6 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
                 autocomplete="new-password"
                 minlength="8"
             /></label>
-            <p v-if="passwordMessage" class="form-notice full" role="status">
-              {{ passwordMessage }}
-            </p>
             <div class="form-actions full">
               <button class="button button-outline" type="submit">更新密码</button>
             </div>

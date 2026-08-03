@@ -11,6 +11,7 @@ onMounted(() => {
 <template>
   <div v-if="project.modules.userWeb && project.modules.customerAuthentication" class="app-shell">
     <AppHeader />
+    <AppToast />
     <NuxtRouteAnnouncer />
     <NuxtPage />
     <AppFooter />
