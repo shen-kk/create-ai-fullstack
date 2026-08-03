@@ -15,6 +15,7 @@ import {
 const root = new URL('../', import.meta.url);
 const args = new Set(process.argv.slice(2));
 const defaultsMode = args.has('--defaults');
+const userWebMode = args.has('--user-web');
 const dryRun = args.has('--dry-run');
 const presetArgument = process.argv
   .slice(2)
@@ -72,10 +73,10 @@ const replaceWorkspaceScope = async (nextScope) => {
   );
   const currentScope = String(contractsPackage.name).split('/')[0];
   if (currentScope === nextScope) return;
-  const allowed = /\.(?:ts|vue|json|html|mjs|yaml|yml)$/;
+  const allowed = /\.(?:ts|vue|json|html|mjs|yaml|yml|md)$/;
   const visit = async (directory) => {
     for (const entry of await readdir(directory, { withFileTypes: true })) {
-      if (['node_modules', 'dist', '.nuxt', '.output'].includes(entry.name)) continue;
+      if (['.git', 'node_modules', 'dist', '.nuxt', '.output'].includes(entry.name)) continue;
       const url = new URL(`${entry.name}${entry.isDirectory() ? '/' : ''}`, directory);
       if (entry.isDirectory()) await visit(url);
       else if (allowed.test(entry.name)) {
@@ -85,14 +86,7 @@ const replaceWorkspaceScope = async (nextScope) => {
       }
     }
   };
-  await visit(new URL('apps/', root));
-  await visit(new URL('packages/', root));
-  for (const path of ['package.json', 'pnpm-lock.yaml', 'turbo.json']) {
-    const url = new URL(path, root);
-    const source = await readFile(url, 'utf8');
-    if (source.includes(`${currentScope}/`))
-      await writeFile(url, source.replaceAll(`${currentScope}/`, `${nextScope}/`), 'utf8');
-  }
+  await visit(root);
   console.log(`[RENAME] 工作区包命名空间 ${currentScope} → ${nextScope}`);
 };
 
@@ -151,7 +145,8 @@ try {
   const adminName = await ask('初始管理员名称', '系统管理员');
   const adminPassword = `Adm!${randomBytes(18).toString('base64url')}`;
   const objectStorage = preset === 'custom' ? await yes('启用对象存储配置能力', true) : true;
-  const userWeb = await yes('启用用户端（注册、登录、个人中心和后台用户管理）', false);
+  const userWeb =
+    userWebMode || (await yes('启用用户端（注册、登录、个人中心和后台用户管理）', false));
   const objectStorageProvider = objectStorage
     ? await choose('默认对象存储平台', [
         { value: 'tencent_cos', label: '腾讯云 COS' },

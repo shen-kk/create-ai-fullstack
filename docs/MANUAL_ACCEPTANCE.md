@@ -1,0 +1,80 @@
+# 全新项目手工验收
+
+本清单用于冻结候选版本的最终人工验收。不要在模板源目录执行初始化；请从 Git 仓库创建全新目录。
+
+## 1. 创建项目
+
+```bash
+git clone --depth 1 https://cnb.cool/nsmiling.com/ai-template manual-acceptance
+cd manual-acceptance
+pnpm install --frozen-lockfile
+pnpm template:init
+pnpm install --frozen-lockfile
+pnpm template:doctor
+```
+
+验收点：
+
+- 项目名、显示名称、包命名空间和端口与输入一致。
+- `template:doctor` 全部通过，不应出现过期生成文件。
+- `.env` 存在且被 Git 忽略；终端不回显初始密码和签名密钥。
+- `docs/ai/PROJECT.md` 反映本次选择，不包含任何密钥。
+- 仓库全文不应再有作为包名的 `@template/*`。
+
+## 2. 启动与健康检查
+
+```bash
+pnpm dev:local
+```
+
+验收点：
+
+- Admin、API 和已选择的 Web 都能一次启动，不出现空白页或端口拒绝。
+- `/api/health/live` 返回 `ok`。内存模式不代表 PostgreSQL 就绪；数据库模式必须另行检查 `/api/health/ready`。
+- 重复运行启动命令时，只替换当前项目的旧进程，不结束其他程序。
+
+## 3. 后台管理
+
+- 使用 `.env` 中的管理员手机号与初始密码登录，首次登录后修改密码。
+- 验证登录恢复、退出、403、404 和移动端菜单。
+- 创建管理员、编辑资料、停用/启用、分配角色。
+- 创建自定义角色，分别验证菜单权限和操作权限。
+- 检查审计日志包含操作者、请求 ID、结果和来源 IP，不包含密码或密钥。
+- 服务配置保存后只显示已配置字段，不回显密钥明文。
+
+## 4. 用户端（仅启用时）
+
+- 验证首页 SSR、注册、密码登录、验证码登录和找回密码。
+- 刷新页面后会话能恢复；Access Token 过期时不重复弹出错误。
+- 个人中心四个分组可切换：资料、联系方式、安全设置、登录设备。
+- 未配置对象存储时，上传头像应显示中文配置提示，不应写入本地文件。
+- 配置腾讯云 COS 后，JPG/PNG/WebP 头像可上传且顶部、侧栏同步更新；超过 2 MB 或错误类型被拒绝。
+- 邮箱绑定、修改密码、查看设备和退出其他设备均生效。
+- 后台“用户端用户”能查询新用户；停用后其已发放 Token 不再可用。
+
+## 5. 能力裁剪
+
+再创建一个不启用用户端的 quick 项目：
+
+- `pnpm dev` / `pnpm check` 不启动、测试或构建 Web。
+- API 不注册用户端认证接口。
+- Admin 不显示用户端用户、验证码发送记录及相关权限。
+
+## 6. 最终命令
+
+```bash
+pnpm check
+pnpm test:e2e
+pnpm template:doctor
+```
+
+以上全部通过后，再检查 `git status` 不包含 `.env`、数据库导出、日志、`node_modules` 或构建产物。
+
+## 外部环境验收
+
+以下项目必须使用真实环境，不能用内存模式结果代替：
+
+- PostgreSQL 迁移、种子、重启持久化和备份恢复。
+- Redis 多实例限流/会话（项目实际启用对应适配后）。
+- 腾讯云 COS、腾讯云短信和 SMTP 的真实发送/上传。
+- Docker 镜像构建、Compose、HTTPS、反向代理、Cookie 与跨域。

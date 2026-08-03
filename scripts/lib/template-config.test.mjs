@@ -80,6 +80,8 @@ test('plans generate, deploy and seed for prisma mode', () => {
     database: { mode: 'prisma', engine: 'postgresql', orm: 'prisma' },
   });
   assert.equal(commands.length, 4);
+  assert.equal(commands[0][1], '@demo-project/contracts');
+  assert.equal(commands[1][1], '@demo-project/api');
   assert.deepEqual(commands[2].slice(-3), ['prisma', 'migrate', 'deploy']);
 });
 test('renders a secret-free runtime module', () => {

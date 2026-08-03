@@ -210,7 +210,9 @@ export class VerificationService {
       return;
     }
     const record = memory.find((item) => item.id === id);
-    if (record) valid ? (record.consumedAt = new Date()) : (record.attempts += 1);
+    if (!record) return;
+    if (valid) record.consumedAt = new Date();
+    else record.attempts += 1;
   }
   private async markDelivery(
     id: string,
@@ -313,7 +315,7 @@ export class VerificationService {
     const read = (): Promise<string> =>
       new Promise((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('SMTP_TIMEOUT')), 10000);
-        socket.once('data', (data) => {
+        socket.once('data', (data: Buffer) => {
           clearTimeout(timer);
           resolve(data.toString());
         });

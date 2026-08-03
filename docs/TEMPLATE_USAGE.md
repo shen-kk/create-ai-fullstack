@@ -61,4 +61,4 @@ pnpm template:init -- --defaults --dry-run
 
 发布模板前运行 `pnpm template:verify`。它会在系统临时目录创建不包含 Git 历史、依赖、构建产物和本地密钥的副本，执行真实 quick 初始化与 Doctor，并检查项目声明和 AI 记忆中不存在敏感字段；完成后自动清理临时目录。调试失败现场时可追加 `--keep`。
 
-冻结版本前还应执行 `pnpm template:verify -- --full`。完整模式会在干净副本中安装锁定依赖、刷新命名空间链接、生成 Prisma Client，并执行后台/API 的测试与生产构建；它不会连接业务数据库。
+冻结版本前还应执行 `pnpm template:verify -- --full`。完整模式会在干净副本中启用用户端能力，安装锁定依赖、刷新命名空间链接、生成 Prisma Client，并执行 Admin、API、Web 和共享契约的格式、Lint、类型、测试与生产构建；它不会连接业务数据库。完整的人工流程见 `docs/MANUAL_ACCEPTANCE.md`。

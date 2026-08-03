@@ -13,3 +13,4 @@ project.config.json
 docs/ai/PROJECT.md
 apps/admin/src/generated/project.ts
 apps/api/src/generated/project.ts
+apps/web/app/generated/project.ts

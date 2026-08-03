@@ -62,7 +62,7 @@ try {
     console.log('[FULL] 在初始化前安装锁定依赖，模拟文档推荐的新项目流程。');
     runCommand(pnpm, pnpmArgs(['install', '--frozen-lockfile']));
   }
-  run('template-init.mjs', ['--defaults', '--preset=quick']);
+  run('template-init.mjs', ['--defaults', '--preset=quick', '--user-web']);
   run('template-doctor.mjs');
   const config = await readFile(join(target, 'project.config.json'), 'utf8');
   const context = await readFile(join(target, 'docs', 'ai', 'PROJECT.md'), 'utf8');
@@ -80,6 +80,9 @@ try {
     throw new Error('项目声明或 AI 记忆包含敏感字段');
   if (contractsPackage.name !== '@admin-project/contracts')
     throw new Error(`包命名空间未替换：${contractsPackage.name}`);
+  const initialized = JSON.parse(config);
+  if (!initialized.modules.userWeb || !initialized.modules.customerAuthentication)
+    throw new Error('用户端能力未按验收参数启用');
   console.log('[PASS] 全新目录初始化、配置检查和敏感信息隔离验证通过。');
   if (full) {
     console.log('[FULL] 刷新新命名空间的工作区链接。');

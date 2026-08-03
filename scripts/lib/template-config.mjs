@@ -157,11 +157,12 @@ export function provisionCommands(config) {
   if (config.database.mode === 'memory') return [];
   if (config.database.mode !== 'prisma' || config.database.engine !== 'postgresql')
     throw new Error('当前只支持 PostgreSQL + Prisma 自动部署');
+  const scope = config.project.packageScope;
   return [
-    ['--filter', '@template/contracts', 'build'],
-    ['--filter', '@template/api', 'db:generate'],
-    ['--filter', '@template/api', 'exec', 'prisma', 'migrate', 'deploy'],
-    ['--filter', '@template/api', 'db:seed'],
+    ['--filter', `${scope}/contracts`, 'build'],
+    ['--filter', `${scope}/api`, 'db:generate'],
+    ['--filter', `${scope}/api`, 'exec', 'prisma', 'migrate', 'deploy'],
+    ['--filter', `${scope}/api`, 'db:seed'],
   ];
 }
 

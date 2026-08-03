@@ -4,7 +4,9 @@ import { VerificationService } from './verification.service.js';
 const createService = (): VerificationService =>
   new VerificationService(
     {} as never,
-    { runtimeConfig: async () => ({ enabled: false, values: {}, secrets: {} }) } as never,
+    {
+      runtimeConfig: () => Promise.resolve({ enabled: false, values: {}, secrets: {} }),
+    } as never,
   );
 
 describe('VerificationService', () => {
