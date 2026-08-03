@@ -6,6 +6,7 @@
   "runtime": { "packageManager": "pnpm", "adminPort": 3000, "apiPort": 3001, "webPort": 3002, "deployment": "local" },
   "database": { "mode": "memory", "engine": "none", "orm": "none" },
   "localization": { "defaultLocale": "zh-CN", "supportedLocales": ["zh-CN"] },
+  "ui": { "web": { "businessComponents": "shadcn-vue", "motion": "vueuse-motion" } },
   "modules": { "authentication": true, "customerAuthentication": true, "userWeb": true, "adminUsers": true, "rolesAndPermissions": true, "auditLogs": true, "serviceConfig": true, "objectStorage": true, "redis": true, "sms": true, "email": true, "payment": true },
   "providers": { "objectStorage": "tencent_cos" }
 }

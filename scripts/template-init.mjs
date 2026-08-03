@@ -193,6 +193,12 @@ try {
       orm: databaseMode === 'prisma' ? 'prisma' : 'none',
     },
     localization: { defaultLocale, supportedLocales: [defaultLocale] },
+    ui: {
+      web: {
+        businessComponents: 'shadcn-vue',
+        motion: 'vueuse-motion',
+      },
+    },
     modules,
     providers: { objectStorage: objectStorageProvider },
   };

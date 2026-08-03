@@ -10,6 +10,7 @@
     "runtime",
     "database",
     "localization",
+    "ui",
     "modules"
   ],
   "properties": {
@@ -68,6 +69,22 @@
           "items": { "enum": ["zh-CN"] },
           "minItems": 1,
           "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "ui": {
+      "type": "object",
+      "required": ["web"],
+      "properties": {
+        "web": {
+          "type": "object",
+          "required": ["businessComponents", "motion"],
+          "properties": {
+            "businessComponents": { "const": "shadcn-vue" },
+            "motion": { "const": "vueuse-motion" }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

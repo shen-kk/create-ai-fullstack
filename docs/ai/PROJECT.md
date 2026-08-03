@@ -20,6 +20,8 @@
 - 数据库：`none`
 - ORM：`none`
 - 默认语言：`zh-CN`
+- 用户端业务组件：`shadcn-vue`
+- 用户端动效：`vueuse-motion`
 - 默认对象存储：`tencent_cos`
 
 ## 已启用能力

@@ -10,6 +10,12 @@ export const project = {
       "zh-CN"
     ]
   },
+  "ui": {
+    "web": {
+      "businessComponents": "shadcn-vue",
+      "motion": "vueuse-motion"
+    }
+  },
   "modules": {
     "authentication": true,
     "customerAuthentication": true,

@@ -60,6 +60,11 @@ export function validateProjectConfig(config) {
   )
     errors.push('当前版本默认语言必须为 zh-CN');
   if (
+    config?.ui?.web?.businessComponents !== 'shadcn-vue' ||
+    config?.ui?.web?.motion !== 'vueuse-motion'
+  )
+    errors.push('用户端 UI 必须使用 shadcn-vue 业务组件与 VueUse Motion 动效层');
+  if (
     config?.database?.mode === 'prisma' &&
     (config.database.engine !== 'postgresql' || config.database.orm !== 'prisma')
   )
@@ -123,6 +128,8 @@ export function renderProjectContext(config) {
 - 数据库：\`${config.database.engine}\`
 - ORM：\`${config.database.orm}\`
 - 默认语言：\`${config.localization.defaultLocale}\`
+- 用户端业务组件：\`${config.ui.web.businessComponents}\`
+- 用户端动效：\`${config.ui.web.motion}\`
 - 默认对象存储：\`${config.providers.objectStorage}\`
 
 ## 已启用能力
@@ -155,5 +162,5 @@ export function provisionCommands(config) {
 }
 
 export function renderRuntimeProject(config) {
-  return `// 此文件由 pnpm template:init / template:sync 自动生成，请勿手工修改。\nexport const project = ${JSON.stringify({ name: config.project.name, packageScope: config.project.packageScope, displayName: config.project.displayName, description: config.project.description, localization: config.localization, modules: config.modules, providers: config.providers }, null, 2)} as const;\n`;
+  return `// 此文件由 pnpm template:init / template:sync 自动生成，请勿手工修改。\nexport const project = ${JSON.stringify({ name: config.project.name, packageScope: config.project.packageScope, displayName: config.project.displayName, description: config.project.description, localization: config.localization, ui: config.ui, modules: config.modules, providers: config.providers }, null, 2)} as const;\n`;
 }
