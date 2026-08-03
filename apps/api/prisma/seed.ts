@@ -1,6 +1,7 @@
 import { PermissionType, PrismaClient, UserStatus } from '@prisma/client';
 import { permissionCatalog } from '@template/contracts';
-import { randomBytes, scrypt } from 'node:crypto';
+import { createCipheriv, createHash, randomBytes, scrypt } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
 
 const prisma = new PrismaClient();
@@ -10,6 +11,50 @@ async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(16);
   const hash = (await scryptAsync(password, salt, 64)) as Buffer;
   return `scrypt$${salt.toString('base64url')}$${hash.toString('base64url')}`;
+}
+
+interface BootstrapIntegration {
+  kind: string;
+  enabled: boolean;
+  values: Record<string, string>;
+  secrets: Record<string, string>;
+}
+
+function encryptSecrets(value: Record<string, string>): string {
+  const key = createHash('sha256')
+    .update(process.env.CONFIG_ENCRYPTION_KEY ?? 'development-config-key-change-me')
+    .digest();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const body = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), body]).toString('base64');
+}
+
+async function seedIntegrationConfigs(): Promise<void> {
+  const path = process.env.TEMPLATE_BOOTSTRAP_FILE;
+  if (!path) return;
+  const source = JSON.parse(await readFile(path, 'utf8')) as {
+    integrations?: BootstrapIntegration[];
+  };
+  for (const item of source.integrations ?? []) {
+    const secrets = Object.fromEntries(
+      Object.entries(item.secrets).filter(([, value]) => value.trim().length > 0),
+    );
+    await prisma.integrationConfig.upsert({
+      where: { kind: item.kind },
+      create: {
+        kind: item.kind,
+        enabled: item.enabled,
+        values: item.values,
+        encryptedSecrets: encryptSecrets(secrets),
+      },
+      update: {
+        enabled: item.enabled,
+        values: item.values,
+        encryptedSecrets: encryptSecrets(secrets),
+      },
+    });
+  }
 }
 
 async function main(): Promise<void> {
@@ -48,6 +93,7 @@ async function main(): Promise<void> {
     update: {
       name,
       email: process.env.DEV_ADMIN_EMAIL ?? 'admin@example.com',
+      passwordHash,
       status: UserStatus.ACTIVE,
     },
     create: {
@@ -64,6 +110,7 @@ async function main(): Promise<void> {
     update: {},
     create: { userId: user.id, roleId: role.id },
   });
+  await seedIntegrationConfigs();
 }
 
 void main()

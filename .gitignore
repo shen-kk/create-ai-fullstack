@@ -9,6 +9,7 @@ coverage
 .env
 .env.*
 !.env.example
+.template-bootstrap.json
 apps/api/prisma/*.db
 apps/api/prisma/*.db-journal
 .idea

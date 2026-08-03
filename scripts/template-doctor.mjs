@@ -125,6 +125,12 @@ try {
 } catch {
   add('FAIL', '本地环境变量', '缺少 .env，请先运行 pnpm template:init');
 }
+if (await exists('.template-bootstrap.json'))
+  add(
+    'WARN',
+    '一次性服务密钥',
+    '等待加密入库；修正连接后运行 pnpm template:provision，成功后会自动删除',
+  );
 for (const item of checks) console.log(`[${item.status}] ${item.name} - ${item.detail}`);
 const failed = checks.filter((item) => item.status === 'FAIL').length,
   warned = checks.filter((item) => item.status === 'WARN').length;

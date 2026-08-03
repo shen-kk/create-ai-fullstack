@@ -25,7 +25,13 @@ const filter = (path) => {
   const segments = relative.split(/[/\\]/).filter(Boolean);
   if (segments.some((segment) => excluded.has(segment))) return false;
   const name = segments.at(-1) ?? '';
-  if (name === '.env' || name.startsWith('.env.backup-') || name.endsWith('.log')) return false;
+  if (
+    name === '.env' ||
+    name === '.template-bootstrap.json' ||
+    name.startsWith('.env.backup-') ||
+    name.endsWith('.log')
+  )
+    return false;
   return true;
 };
 const run = (script, args = []) => {

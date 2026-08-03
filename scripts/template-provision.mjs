@@ -1,6 +1,8 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
+import { connect as connectTcp } from 'node:net';
+import { connect as connectTls } from 'node:tls';
 import process from 'node:process';
 import { parseEnv, provisionCommands, validateProjectConfig } from './lib/template-config.mjs';
 
@@ -9,7 +11,53 @@ const root = new URL('../', import.meta.url),
 const args = new Set(process.argv.slice(2)),
   dryRun = args.has('--dry-run'),
   confirmed = args.has('--yes');
-const executable = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
+const pnpmEntry = process.env.npm_execpath;
+const executable = pnpmEntry
+  ? process.execPath
+  : process.platform === 'win32'
+    ? 'pnpm.cmd'
+    : 'pnpm';
+
+const checkRedis = async (item) => {
+  const target = new URL(item.values.url);
+  if (!['redis:', 'rediss:'].includes(target.protocol))
+    throw new Error('Redis URL 必须使用 redis:// 或 rediss://');
+  await new Promise((resolve, reject) => {
+    const socket =
+      target.protocol === 'rediss:'
+        ? connectTls({ host: target.hostname, port: Number(target.port || 6380) })
+        : connectTcp({ host: target.hostname, port: Number(target.port || 6379) });
+    const timer = setTimeout(() => socket.destroy(new Error('Redis 连接超时')), 5000);
+    let response = '';
+    socket.setEncoding('utf8');
+    socket.once('error', reject);
+    socket.on('data', (chunk) => {
+      response += chunk;
+      if (response.includes('+PONG')) {
+        clearTimeout(timer);
+        socket.end();
+        resolve();
+      } else if (response.includes('-ERR') || response.includes('-WRONGPASS')) {
+        clearTimeout(timer);
+        socket.destroy();
+        reject(new Error('Redis 鉴权失败'));
+      }
+    });
+    socket.once('connect', () => {
+      const password = item.secrets.password || decodeURIComponent(target.password);
+      const username = decodeURIComponent(target.username);
+      const commands = [];
+      if (password) {
+        const parts = username ? ['AUTH', username, password] : ['AUTH', password];
+        commands.push(
+          `*${parts.length}\r\n${parts.map((part) => `$${Buffer.byteLength(part)}\r\n${part}\r\n`).join('')}`,
+        );
+      }
+      commands.push('*1\r\n$4\r\nPING\r\n');
+      socket.write(commands.join(''));
+    });
+  });
+};
 
 try {
   const config = JSON.parse(await readFile(new URL('project.config.json', root), 'utf8'));
@@ -38,9 +86,26 @@ try {
     }
   }
   const childEnv = { ...process.env, ...envFile };
+  const bootstrapUrl = new URL('.template-bootstrap.json', root);
+  try {
+    const bootstrap = JSON.parse(await readFile(bootstrapUrl, 'utf8'));
+    childEnv.TEMPLATE_BOOTSTRAP_FILE = decodeURIComponent(
+      bootstrapUrl.pathname.replace(/^\/(?=[A-Za-z]:)/, ''),
+    );
+    const redis = bootstrap.integrations?.find((item) => item.kind === 'redis' && item.enabled);
+    if (redis) {
+      console.log('[CHECK] 正在校验 Redis 连接与鉴权。');
+      await checkRedis(redis);
+      console.log('[PASS] Redis 连接与鉴权通过。');
+    }
+  } catch (error) {
+    if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ENOENT'))
+      throw error;
+  }
   for (const command of commands) {
     console.log(`[RUN] pnpm ${command.join(' ')}`);
-    const result = spawnSync(executable, command, {
+    const commandArgs = pnpmEntry ? [pnpmEntry, ...command] : command;
+    const result = spawnSync(executable, commandArgs, {
       cwd: rootPath,
       env: childEnv,
       stdio: 'inherit',
@@ -48,6 +113,10 @@ try {
     });
     if (result.error) throw result.error;
     if (result.status !== 0) throw new Error(`命令执行失败，退出码 ${result.status ?? 'unknown'}`);
+  }
+  if (childEnv.TEMPLATE_BOOTSTRAP_FILE) {
+    await rm(bootstrapUrl, { force: true });
+    console.log('[CLEAN] 服务密钥已加密写入数据库，一次性引导文件已删除。');
   }
   console.log('[DONE] 数据库迁移与初始管理员创建完成。');
 } catch (error) {

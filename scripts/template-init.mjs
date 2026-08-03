@@ -36,6 +36,10 @@ const yes = async (label, fallback = true) =>
   ['y', 'yes', '是'].includes(
     (await ask(`${label} [${fallback ? 'Y/n' : 'y/N'}]`, fallback ? 'y' : 'n')).toLowerCase(),
   );
+const optional = async (label) => (await ask(label, '')).trim();
+const askRequired = (label, fallback = '') =>
+  ask(label, fallback, (value) => value.trim().length > 0);
+const portValidator = (value) => Number(value) >= 1024 && Number(value) <= 65535;
 const choose = async (label, options, fallbackIndex = 0) => {
   if (rl) {
     console.log(`\n${label}`);
@@ -51,6 +55,135 @@ const choose = async (label, options, fallbackIndex = 0) => {
   return options[answer - 1].value;
 };
 const secret = () => randomBytes(32).toString('base64url');
+const integration = (kind, enabled, values, secrets = {}) => ({ kind, enabled, values, secrets });
+const collectIntegrationBootstrap = async (modules, objectStorageProvider, database) => {
+  const items = [];
+  if (database.mode === 'prisma')
+    items.push(
+      integration(
+        'sql',
+        true,
+        {
+          engine: 'postgresql',
+          host: database.host,
+          port: String(database.port),
+          database: database.name,
+          username: database.username,
+        },
+        { password: database.password },
+      ),
+    );
+  if (modules.redis && (await yes('现在填写并校验 Redis 配置', false))) {
+    const provider = await choose('Redis 部署平台', [
+      { value: 'self_hosted', label: '自建 Redis' },
+      { value: 'tencent_redis', label: '腾讯云 Redis' },
+      { value: 'aliyun_redis', label: '阿里云 Redis' },
+    ]);
+    const redisTarget = new URL(await ask('Redis URL', 'redis://127.0.0.1:6379'));
+    const urlPassword = decodeURIComponent(redisTarget.password);
+    redisTarget.password = '';
+    items.push(
+      integration(
+        'redis',
+        true,
+        { provider, url: redisTarget.toString() },
+        { password: (await optional('Redis 密码（无密码直接回车）')) || urlPassword },
+      ),
+    );
+  }
+  if (modules.objectStorage && (await yes('现在填写对象存储配置', false)))
+    items.push(
+      integration(
+        'object_storage',
+        true,
+        {
+          provider: objectStorageProvider,
+          endpoint: await optional('对象存储 Endpoint（腾讯云 COS 可留空）'),
+          bucket: await ask('Bucket', 'example-1250000000'),
+          region: await ask('区域', 'ap-guangzhou'),
+          accessKeyId: await askRequired('Access Key ID / SecretId'),
+        },
+        { secretAccessKey: await askRequired('Access Key Secret / SecretKey') },
+      ),
+    );
+  if (modules.sms && (await yes('现在填写短信服务配置', false))) {
+    const provider = await choose('短信服务商', [
+      { value: 'tencent_sms', label: '腾讯云短信' },
+      { value: 'aliyun_sms', label: '阿里云短信' },
+    ]);
+    items.push(
+      integration(
+        'sms',
+        true,
+        {
+          provider,
+          region: await ask('区域', 'ap-guangzhou'),
+          accessKeyId: await askRequired('Access Key ID / SecretId'),
+          signName: await askRequired('短信签名'),
+          appId: await askRequired('短信应用 SDK AppID'),
+          templateId: await askRequired('验证码模板 ID'),
+        },
+        { accessKeySecret: await askRequired('Access Key Secret / SecretKey') },
+      ),
+    );
+  }
+  if (modules.email && (await yes('现在填写 SMTP 邮件配置', false)))
+    items.push(
+      integration(
+        'email',
+        true,
+        {
+          provider: 'smtp',
+          host: await ask('SMTP 主机', 'smtp.example.com'),
+          port: await ask('SMTP 端口', '465'),
+          username: await askRequired('SMTP 用户名'),
+          from: await askRequired('发件地址'),
+          secure: (await yes('使用 SSL/TLS', true)) ? 'true' : 'false',
+        },
+        { password: await askRequired('SMTP 密码/授权码') },
+      ),
+    );
+  if (modules.payment && (await yes('现在填写支付配置', false))) {
+    const provider = await choose('支付渠道', [
+      { value: 'wechat_pay', label: '微信支付' },
+      { value: 'alipay', label: '支付宝' },
+      { value: 'stripe', label: 'Stripe' },
+    ]);
+    items.push(
+      integration(
+        'payment',
+        true,
+        { provider, merchantId: await askRequired('商户号') },
+        {
+          apiKey: await askRequired('API Key'),
+          privateKey: await askRequired('私钥'),
+          webhookSecret: await askRequired('回调密钥'),
+        },
+      ),
+    );
+  }
+  const required = {
+    sql: ['engine', 'host', 'port', 'database', 'username', 'password'],
+    redis: ['provider', 'url'],
+    object_storage: ['provider', 'bucket', 'region', 'accessKeyId', 'secretAccessKey'],
+    sms: [
+      'provider',
+      'region',
+      'accessKeyId',
+      'accessKeySecret',
+      'signName',
+      'appId',
+      'templateId',
+    ],
+    email: ['provider', 'host', 'port', 'username', 'password', 'from'],
+    payment: ['provider', 'merchantId', 'apiKey', 'privateKey', 'webhookSecret'],
+  };
+  for (const item of items)
+    for (const key of required[item.kind] ?? [])
+      if (!(item.values[key] ?? item.secrets[key] ?? '').trim())
+        throw new Error(`${item.kind}.${key} 为必填配置，请重新运行初始化向导`);
+  return items;
+};
 const formatWorkspaceIfAvailable = async () => {
   const prettierUrl = new URL('node_modules/prettier/bin/prettier.cjs', root);
   try {
@@ -132,13 +265,25 @@ try {
             { value: 'memory', label: '内存预览（零依赖）' },
             { value: 'prisma', label: 'PostgreSQL + Prisma' },
           ]);
-  const databaseUrl =
+  const database =
     databaseMode === 'prisma'
-      ? await ask(
-          'PostgreSQL DATABASE_URL',
-          'postgresql://postgres:postgres@localhost:5432/admin_project?schema=public',
-        )
-      : 'postgresql://postgres:postgres@localhost:5432/template?schema=public';
+      ? {
+          mode: 'prisma',
+          host: await ask('PostgreSQL 主机', '127.0.0.1'),
+          port: Number(await ask('PostgreSQL 端口', '5432', portValidator)),
+          name: await ask('PostgreSQL 数据库名', name.replaceAll('-', '_')),
+          username: await ask('PostgreSQL 用户名', 'postgres'),
+          password: await askRequired('PostgreSQL 密码'),
+        }
+      : {
+          mode: 'memory',
+          host: '127.0.0.1',
+          port: 5432,
+          name: 'template',
+          username: 'postgres',
+          password: 'postgres',
+        };
+  const databaseUrl = `postgresql://${encodeURIComponent(database.username)}:${encodeURIComponent(database.password)}@${database.host}:${database.port}/${encodeURIComponent(database.name)}?schema=public`;
   const adminPhone = await ask('初始管理员手机号', '13800000000', (value) =>
     /^1\d{10}$/.test(value),
   );
@@ -172,6 +317,7 @@ try {
     modules.sms = true;
     modules.redis = true;
   }
+  console.log(`\n[CHOICE] 用户端：${userWeb ? '启用' : '不启用'}`);
   const config = {
     $schema: './project.config.schema.json',
     schemaVersion: 1,
@@ -201,6 +347,14 @@ try {
   };
   const configErrors = validateProjectConfig(config);
   if (configErrors.length) throw new Error(`项目配置无效：${configErrors.join('；')}`);
+  const bootstrapIntegrations =
+    databaseMode === 'prisma'
+      ? await collectIntegrationBootstrap(modules, objectStorageProvider, database)
+      : [];
+  const provisionNow =
+    databaseMode === 'prisma' && !defaultsMode
+      ? await yes('配置完成后立即校验连接、初始化数据库并创建管理员', true)
+      : false;
   const env = [
     'NODE_ENV=development',
     `ADMIN_PORT=${adminPort}`,
@@ -237,6 +391,12 @@ try {
       'utf8',
     );
     await writeFile(new URL('.env', root), env, 'utf8');
+    if (bootstrapIntegrations.length)
+      await writeFile(
+        new URL('.template-bootstrap.json', root),
+        `${JSON.stringify({ integrations: bootstrapIntegrations }, null, 2)}\n`,
+        'utf8',
+      );
     await writeFile(new URL('docs/ai/PROJECT.md', root), renderProjectContext(config), 'utf8');
     await writeFile(
       new URL('apps/admin/src/generated/project.ts', root),
@@ -257,9 +417,32 @@ try {
     await formatWorkspaceIfAvailable();
     console.log('\n[DONE] 已生成 project.config.json、.env 与 docs/ai/PROJECT.md');
     console.log('初始管理员密码已随机生成并仅写入 .env 的 DEV_ADMIN_PASSWORD，请首次登录后修改。');
-    console.log(
-      `下一步：重新运行 pnpm install 刷新工作区链接，再运行 pnpm template:doctor${databaseMode === 'prisma' ? '，确认后运行 pnpm template:provision' : ''}，最后 pnpm dev:local`,
-    );
+    if (provisionNow) {
+      const pnpmEntry = process.env.npm_execpath;
+      const executable = pnpmEntry
+        ? process.execPath
+        : process.platform === 'win32'
+          ? 'pnpm.cmd'
+          : 'pnpm';
+      const run = (args) => {
+        const commandArgs = pnpmEntry ? [pnpmEntry, ...args] : args;
+        const result = spawnSync(executable, commandArgs, {
+          cwd: fileURLToPath(root),
+          stdio: 'inherit',
+          env: process.env,
+          shell: false,
+        });
+        if (result.error) throw result.error;
+        if (result.status !== 0)
+          throw new Error(`自动初始化失败，退出码 ${result.status ?? 'unknown'}`);
+      };
+      console.log('\n[SETUP] 刷新工作区链接并校验数据库配置。');
+      run(['install', '--frozen-lockfile']);
+      run(['template:provision', '--', '--yes']);
+    } else
+      console.log(
+        `下一步：重新运行 pnpm install 刷新工作区链接，再运行 pnpm template:doctor${databaseMode === 'prisma' ? '，确认后运行 pnpm template:provision' : ''}，最后 pnpm dev:local`,
+      );
   }
 } finally {
   rl?.close();

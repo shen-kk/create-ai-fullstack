@@ -4,6 +4,8 @@
 
 ## 当前事实
 
+- 初始化向导的 quick、standard、custom 交互模式均显式询问是否启用用户端并输出最终选择；PostgreSQL 按主机、端口、库名、用户名、密码分项收集。正式数据库可在向导结尾立即刷新 workspace、校验连接、部署迁移、创建初始管理员。初始化填写的 SQL/Redis/对象存储/短信/邮件/支付配置通过 Git 忽略的一次性文件传递，种子程序使用 `CONFIG_ENCRYPTION_KEY` 加密写入 `IntegrationConfig`，成功后删除；Redis 配置在入库前执行 PING/鉴权校验。
+
 - 冻结候选验收已覆盖启用用户端的全新临时目录：锁定依赖安装、`template:init`、全仓库包命名空间替换、Doctor 19/19、Prisma Client 生成、格式/Lint/类型/测试以及 Admin/API/Web 生产构建。能力调度和数据库部署命令必须从 `project.packageScope` 生成，不得再硬编码 `@template/*`。手工验收流程见 `docs/MANUAL_ACCEPTANCE.md`。
 - 用户端 `/profile` 使用左侧分组设置导航，分为个人资料、联系方式、安全设置和登录设备；顶部账号区通过鼠标移入、键盘聚焦或点击展开个人中心/退出菜单。用户头像只能通过 `POST /api/customer-auth/avatar` 上传 JPG、PNG 或 WebP（最大 2 MB）到已配置的对象存储；不接受手工 URL 且不提供本地文件兜底，未配置时返回稳定错误码并显示中文提示。
 - 用户端现有账户 API 已全部收口到 `useCustomerSession`：注册、密码/验证码登录、找回密码、会话恢复与退出、资料编辑、邮箱绑定、修改密码和设备会话管理均使用共享契约的类型化方法。请求默认 12 秒超时，稳定错误码映射为中文；Access Token 过期时仅发起一次并发刷新并重试原请求。撤销设备会话后，API 对后续 Access Token 请求同步校验会话有效性。
