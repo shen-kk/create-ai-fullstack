@@ -80,6 +80,8 @@ const definitions: Record<
       field('accessKeyId', 'Access Key ID'),
       field('accessKeySecret', 'Access Key Secret', true),
       field('signName', '短信签名'),
+      field('appId', '短信应用 SDK AppID'),
+      field('templateId', '验证码模板 ID'),
     ],
   },
   email: {
@@ -96,6 +98,10 @@ const definitions: Record<
       field('username', '用户名'),
       field('password', '密码', true),
       field('from', '发件地址'),
+      field('secure', '使用 SSL/TLS', false, false, [
+        { value: 'true', label: '是' },
+        { value: 'false', label: '否' },
+      ]),
     ],
   },
   payment: {

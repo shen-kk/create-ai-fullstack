@@ -47,12 +47,16 @@ if (config) {
     add('FAIL', 'AI 项目记忆', '缺少 docs/ai/PROJECT.md，请运行 pnpm template:sync');
   }
   const runtimeExpected = renderRuntimeProject(config);
-  for (const path of ['apps/admin/src/generated/project.ts', 'apps/api/src/generated/project.ts']) {
+  for (const path of [
+    'apps/admin/src/generated/project.ts',
+    'apps/api/src/generated/project.ts',
+    'apps/web/app/generated/project.ts',
+  ]) {
     try {
       const runtime = await readFile(new URL(path, root), 'utf8');
       add(
         runtime === runtimeExpected ? 'PASS' : 'FAIL',
-        `运行时能力 ${path.includes('/admin/') ? 'Admin' : 'API'}`,
+        `运行时能力 ${path.includes('/admin/') ? 'Admin' : path.includes('/web/') ? 'Web' : 'API'}`,
         runtime === runtimeExpected ? '与项目声明一致' : '内容过期，请运行 pnpm template:sync',
       );
     } catch {
@@ -83,7 +87,13 @@ try {
 try {
   const env = parseEnv(await readFile(new URL('.env', root), 'utf8'));
   add('PASS', '本地环境变量', '.env 已生成且被 Git 忽略');
-  for (const key of ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET', 'CONFIG_ENCRYPTION_KEY'])
+  for (const key of [
+    'JWT_ACCESS_SECRET',
+    'JWT_REFRESH_SECRET',
+    'CUSTOMER_JWT_ACCESS_SECRET',
+    'CUSTOMER_JWT_REFRESH_SECRET',
+    'CONFIG_ENCRYPTION_KEY',
+  ])
     add(
       (env[key]?.length ?? 0) >= 32 ? 'PASS' : 'FAIL',
       key,

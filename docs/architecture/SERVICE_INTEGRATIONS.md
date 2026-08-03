@@ -24,12 +24,14 @@
 - 接入条件：实现邮箱验证、密码重置或通知邮件时。
 - 建议配置：`SMTP_HOST`、`SMTP_PORT`、`SMTP_USER`、`SMTP_PASSWORD`、`MAIL_FROM`、`MAIL_TEMPLATE_ID`。
 - 模板内容进入源码或模板文件；SMTP 密码只能进入密钥管理服务。
+- 已实现 TLS SMTP 验证码发送；非 TLS SMTP 明确拒绝。腾讯云 SES、阿里云邮件推送仍需对应适配器。
 
 ### 短信服务
 
 - 接入条件：产品明确需要手机号验证或短信通知时。
 - 建议配置：`SMS_PROVIDER`、`SMS_API_BASE_URL`、`SMS_API_TOKEN`。
 - 必须实现发送频率限制、验证码摘要存储、短有效期和防重放。
+- 已实现腾讯云短信 TC3 签名适配；后台需配置 SecretId、SecretKey、短信应用 AppID、签名和模板 ID。
 
 ### 支付服务
 

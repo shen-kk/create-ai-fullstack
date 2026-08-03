@@ -1,6 +1,8 @@
 const productionSecretNames = [
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_SECRET',
+  'CUSTOMER_JWT_ACCESS_SECRET',
+  'CUSTOMER_JWT_REFRESH_SECRET',
   'CONFIG_ENCRYPTION_KEY',
 ] as const;
 

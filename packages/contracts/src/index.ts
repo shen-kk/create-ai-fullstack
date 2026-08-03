@@ -88,6 +88,12 @@ export interface PermissionOption {
 export const permissionCatalog = [
   { code: 'menu.dashboard', description: '显示工作台菜单', type: 'menu', groupCode: 'dashboard' },
   { code: 'menu.users', description: '显示用户管理菜单', type: 'menu', groupCode: 'users' },
+  {
+    code: 'menu.customers',
+    description: '显示用户端用户菜单',
+    type: 'menu',
+    groupCode: 'customers',
+  },
   { code: 'menu.roles', description: '显示角色权限菜单', type: 'menu', groupCode: 'roles' },
   { code: 'menu.audit', description: '显示操作日志菜单', type: 'menu', groupCode: 'audit' },
   { code: 'menu.system', description: '显示系统信息菜单', type: 'menu', groupCode: 'system' },
@@ -99,6 +105,18 @@ export const permissionCatalog = [
   },
   { code: 'users.read', description: '查看用户', type: 'action', groupCode: 'users' },
   { code: 'users.write', description: '创建和修改用户', type: 'action', groupCode: 'users' },
+  {
+    code: 'customers.read',
+    description: '查看用户端用户',
+    type: 'action',
+    groupCode: 'customers',
+  },
+  {
+    code: 'customers.write',
+    description: '修改用户端用户状态',
+    type: 'action',
+    groupCode: 'customers',
+  },
   { code: 'roles.manage', description: '管理角色与权限', type: 'action', groupCode: 'roles' },
   { code: 'audit.read', description: '查看审计日志', type: 'action', groupCode: 'audit' },
   { code: 'system.read', description: '查看系统运行信息', type: 'action', groupCode: 'system' },
@@ -163,6 +181,83 @@ export interface UpdateProfileRequest {
   avatarUrl?: string | null;
 }
 export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export type CustomerStatus = 'active' | 'disabled';
+export interface CustomerProfile {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  avatarUrl: string | null;
+  status: CustomerStatus;
+  createdAt: string;
+  phoneVerifiedAt: string | null;
+  emailVerifiedAt: string | null;
+}
+export interface CustomerSummary extends CustomerProfile {
+  lastActiveAt: string | null;
+}
+export interface CustomerListQuery {
+  keyword?: string;
+  status?: CustomerStatus;
+  page?: number;
+  pageSize?: number;
+}
+export type CustomerListResponse = PageResult<CustomerSummary>;
+export interface ChangeCustomerStatusRequest {
+  status: CustomerStatus;
+}
+export interface CustomerSession {
+  accessToken: string;
+  expiresIn: number;
+  customer: CustomerProfile;
+}
+export interface CustomerRegisterRequest {
+  phone: string;
+  password: string;
+  name: string;
+  email?: string;
+  verificationCode: string;
+}
+export interface CustomerLoginRequest {
+  phone: string;
+  password: string;
+}
+export type VerificationChannel = 'sms' | 'email';
+export type VerificationPurpose = 'register' | 'login' | 'reset_password' | 'bind_contact';
+export interface SendVerificationCodeRequest {
+  channel: VerificationChannel;
+  target: string;
+  purpose: VerificationPurpose;
+}
+export interface SendVerificationCodeResponse {
+  expiresIn: number;
+  retryAfter: number;
+  developmentCode?: string;
+}
+export interface VerificationCodeLoginRequest {
+  phone: string;
+  code: string;
+}
+export interface ResetCustomerPasswordRequest {
+  phone: string;
+  code: string;
+  newPassword: string;
+}
+export interface BindCustomerContactRequest {
+  channel: VerificationChannel;
+  target: string;
+  code: string;
+}
+export interface UpdateCustomerProfileRequest {
+  name: string;
+  email?: string | null;
+  avatarUrl?: string | null;
+}
+export interface ChangeCustomerPasswordRequest {
   currentPassword: string;
   newPassword: string;
 }

@@ -1,6 +1,6 @@
 # 当前项目上下文
 
-最后核对：2026-08-02
+最后核对：2026-08-03
 
 ## 当前事实
 
@@ -31,7 +31,9 @@
 - OpenAPI 已声明 Bearer Access Token、HttpOnly Refresh Cookie 及模块标签；依据 ADR-0005，共享 TypeScript 契约是单仓库权威来源，当前不生成内部客户端，外部 SDK 在具体项目需要时再启用完整响应 Schema 门禁。
 - 权限目录按 ADR-0003 分为 `menu` 与 `action`，通过 `groupCode` 归组；Admin 菜单/路由检查 `menu.*`，API 只以业务操作权限作为数据安全边界。数据库迁移 `20260802000200_permission_taxonomy` 已加入，待 PostgreSQL 执行验证。
 - Windows `dev-local.cmd` 会通过 `scripts/prepare-local.ps1` 检测 3000/3001：只替换命令行属于当前工作区的旧服务，发现外部程序占用时拒绝误杀；重复启动已实际验证。
-- 当前版本明确不开发用户端：`apps/web` 仅保留下一版本骨架，不参与默认启动、CI 核心门禁或本版本冻结标准；当前只完成 `apps/admin`、`apps/api`、共享契约、模板工具、测试与文档。
+- `apps/web` 已恢复为正式用户端模板并纳入默认启动、检查和构建；提供 SSR 首页、手机号验证码注册、密码/验证码登录、短信找回密码、会话恢复、个人中心、邮箱验证绑定和响应式布局。验证码按用途隔离，5 分钟过期、60 秒重发限制、5 次错误上限、摘要存储且单次消费；开发内存模式可回显测试码，生产禁止回显。腾讯云短信与 TLS SMTP 只由 API 消费后台加密服务配置。
+- 用户端账号使用独立 `Customer`、`CustomerRefreshSession`、`/api/customer-auth/*` 与 `customer_refresh` Cookie，不复用后台管理员身份或权限；决策见 ADR-0006。
+- 用户端是初始化时显式选择的可选能力：`userWeb` 与 `customerAuthentication` 必须成对启停；关闭时不注册用户端 API、不启动/构建 Web，也不显示用户端权限和后台“用户端用户”菜单。启用时后台提供查询、筛选、分页和状态管理，停用账号会撤销其全部 Refresh Session，Access Token 请求也会重新确认账号仍启用。
 - Admin 已移除内容、订单等行业业务占位入口；工作台只展示用户、角色、审计和健康检查的真实接口数据，所有卡片和快捷入口均可访问。`/system` 通过 `system.read` 展示非敏感运行信息。模板不预置具体行业模块，初始化后的项目按需选择。
 - Admin 使用统一线性 SVG 图标和分组侧边栏；筛选与状态选择使用可控圆角浮层的 `AppSelect`，不依赖无法统一样式的浏览器原生下拉菜单。侧边栏账号区进入 `/profile`。
 - 个人中心支持修改显示名称、HTTPS 头像地址和密码；`PATCH /api/auth/profile` 与 `POST /api/auth/password` 均要求 Access Token，密码修改校验当前密码并重新生成 scrypt 哈希。Prisma 迁移 `20260802000400_user_profile` 增加 `avatarUrl`。

@@ -7,14 +7,14 @@
   },
   "scripts": {
     "dev": "pnpm dev:local",
-    "dev:local": "turbo dev --filter=@template/admin --filter=@template/api",
+    "dev:local": "node scripts/run-enabled.mjs dev",
     "dev:admin": "pnpm --filter @template/admin dev",
     "dev:api": "pnpm --filter @template/api dev",
     "dev:web": "pnpm --filter @template/web dev",
-    "build": "turbo build --filter=@template/admin --filter=@template/api",
-    "lint": "turbo lint --filter=@template/admin --filter=@template/api --filter=@template/contracts",
-    "typecheck": "turbo typecheck --filter=@template/admin --filter=@template/api",
-    "test": "turbo test --filter=@template/admin --filter=@template/api --filter=@template/contracts",
+    "build": "node scripts/run-enabled.mjs build",
+    "lint": "node scripts/run-enabled.mjs lint",
+    "typecheck": "node scripts/run-enabled.mjs typecheck",
+    "test": "node scripts/run-enabled.mjs test",
     "check": "pnpm db:generate && pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "test:e2e": "turbo test:e2e --filter=@template/api",
     "test:startup": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/prepare-local.Tests.ps1",
@@ -27,8 +27,8 @@
     "db:generate": "pnpm --filter @template/api db:generate",
     "db:migrate": "pnpm --filter @template/api db:migrate",
     "db:seed": "pnpm --filter @template/api db:seed",
-    "format": "prettier --write .cnb.yml package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps/admin/src apps/admin/package.json apps/admin/tsconfig.json apps/admin/vite.config.ts apps/api/src apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/vitest.e2e.config.ts apps/api/nest-cli.json packages scripts skills docs .github",
-    "format:check": "prettier --check .cnb.yml package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps/admin/src apps/admin/package.json apps/admin/tsconfig.json apps/admin/vite.config.ts apps/api/src apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/vitest.e2e.config.ts apps/api/nest-cli.json packages scripts skills docs .github"
+    "format": "prettier --write .cnb.yml package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps/admin/src apps/admin/package.json apps/admin/tsconfig.json apps/admin/vite.config.ts apps/api/src apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/vitest.e2e.config.ts apps/api/nest-cli.json apps/web/app apps/web/package.json apps/web/tsconfig.json apps/web/nuxt.config.ts apps/web/AGENTS.md packages scripts skills docs .github",
+    "format:check": "prettier --check .cnb.yml package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps/admin/src apps/admin/package.json apps/admin/tsconfig.json apps/admin/vite.config.ts apps/api/src apps/api/prisma apps/api/package.json apps/api/tsconfig.json apps/api/vitest.e2e.config.ts apps/api/nest-cli.json apps/web/app apps/web/package.json apps/web/tsconfig.json apps/web/nuxt.config.ts apps/web/AGENTS.md packages scripts skills docs .github"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

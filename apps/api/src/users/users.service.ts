@@ -16,6 +16,7 @@ import type { CreateRoleDto } from './dto/create-role.dto.js';
 import type { UpdateRoleDto } from './dto/update-role.dto.js';
 import { hashScryptPassword } from '../auth/password-hash.js';
 import { AuditService } from '../audit/audit.service.js';
+import { project } from '../generated/project.js';
 
 export interface UserAuditContext {
   actorId?: string;
@@ -103,8 +104,10 @@ export class UsersService {
     return user;
   }
 
-  listPermissions(): Promise<PermissionOption[]> {
-    return this.repository.listPermissions();
+  async listPermissions(): Promise<PermissionOption[]> {
+    const permissions = await this.repository.listPermissions();
+    if (project.modules.userWeb && project.modules.customerAuthentication) return permissions;
+    return permissions.filter((permission) => permission.groupCode !== 'customers');
   }
   async createRole(input: CreateRoleDto, context: UserAuditContext = {}): Promise<RoleOption> {
     const role = await this.repository.createRole(input);

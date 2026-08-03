@@ -10,6 +10,8 @@ export function presetModules(preset) {
   if (preset === 'standard')
     return {
       ...coreModules,
+      customerAuthentication: false,
+      userWeb: false,
       objectStorage: true,
       redis: true,
       sms: false,
@@ -18,6 +20,8 @@ export function presetModules(preset) {
     };
   return {
     ...coreModules,
+    customerAuthentication: false,
+    userWeb: false,
     objectStorage: true,
     redis: false,
     sms: false,
@@ -39,12 +43,16 @@ export function validateProjectConfig(config) {
   if (!/^@[a-z][a-z0-9-]{1,62}$/.test(config?.project?.packageScope ?? ''))
     errors.push('project.packageScope 格式无效');
   const adminPort = config?.runtime?.adminPort,
-    apiPort = config?.runtime?.apiPort;
+    apiPort = config?.runtime?.apiPort,
+    webPort = config?.runtime?.webPort;
   if (!Number.isInteger(adminPort) || adminPort < 1024 || adminPort > 65535)
     errors.push('runtime.adminPort 无效');
   if (!Number.isInteger(apiPort) || apiPort < 1024 || apiPort > 65535)
     errors.push('runtime.apiPort 无效');
-  if (adminPort === apiPort) errors.push('Admin 与 API 端口不能相同');
+  if (!Number.isInteger(webPort) || webPort < 1024 || webPort > 65535)
+    errors.push('runtime.webPort 无效');
+  if (new Set([adminPort, apiPort, webPort]).size !== 3)
+    errors.push('Admin、API 与 Web 端口不能相同');
   if (!['memory', 'prisma'].includes(config?.database?.mode)) errors.push('database.mode 无效');
   if (
     config?.database?.mode === 'prisma' &&
@@ -53,6 +61,10 @@ export function validateProjectConfig(config) {
     errors.push('Prisma 模式当前只支持 PostgreSQL');
   for (const [name, enabled] of Object.entries(coreModules))
     if (config?.modules?.[name] !== enabled) errors.push(`核心模块 ${name} 必须启用`);
+  if (config?.modules?.userWeb !== config?.modules?.customerAuthentication)
+    errors.push('userWeb 与 customerAuthentication 必须同时启用或停用');
+  if (config?.modules?.userWeb && (!config?.modules?.sms || !config?.modules?.redis))
+    errors.push('启用用户端身份时必须同时启用 sms 与 redis');
   if (
     config?.modules?.objectStorage &&
     (!config?.providers?.objectStorage || config.providers.objectStorage === 'none')
@@ -101,6 +113,7 @@ export function renderProjectContext(config) {
 
 - 后台端口：\`${config.runtime.adminPort}\`
 - API 端口：\`${config.runtime.apiPort}\`
+- 用户端口：\`${config.runtime.webPort}\`
 - 数据模式：\`${config.database.mode}\`
 - 数据库：\`${config.database.engine}\`
 - ORM：\`${config.database.orm}\`
@@ -119,7 +132,7 @@ ${disabled}
 - 开始开发前以 \`project.config.json\` 和本文件确认项目边界。
 - 不得使用未启用能力；如需求需要，应先更新项目声明并说明影响。
 - 密码、数据库连接串和服务密钥只存在于环境变量或加密配置中，不得写入本文档。
-- 模板当前冻结 \`apps/web\`，除非项目所有者明确恢复用户端开发。
+- 用户端身份与后台管理员身份必须保持隔离；具体项目不得绕过 API 直接访问数据层。
 `;
 }
 

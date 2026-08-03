@@ -6,6 +6,8 @@
 - `standard`: PostgreSQL + Prisma with Redis, object storage, and email capabilities declared.
 - `custom`: choose only capabilities the repository currently implements.
 
+Every preset separately asks whether to enable the user-facing Web. This choice controls the Nuxt app, customer identity API, customer permissions, and Admin customer management together.
+
 ## Configuration boundaries
 
 - Commit `project.config.json`; it contains non-secret capability declarations.

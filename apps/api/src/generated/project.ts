@@ -2,10 +2,12 @@
 export const project = {
   "name": "adminback-template",
   "packageScope": "@template",
-  "displayName": "AI 友好后台模板",
-  "description": "可复用的后台管理与 API 项目模板",
+  "displayName": "AI 友好全栈模板",
+  "description": "可复用的后台管理、用户端与 API 项目模板",
   "modules": {
     "authentication": true,
+    "customerAuthentication": true,
+    "userWeb": true,
     "adminUsers": true,
     "rolesAndPermissions": true,
     "auditLogs": true,

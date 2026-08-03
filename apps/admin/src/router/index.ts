@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { getCurrentUser, restoreSession } from '../auth/session';
+import { project } from '../generated/project';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -14,6 +15,15 @@ export const router = createRouter({
       component: () => import('../views/UsersView.vue'),
       meta: { title: '管理员', permissions: ['menu.users', 'users.read'] },
     },
+    ...(project.modules.userWeb && project.modules.customerAuthentication
+      ? [
+          {
+            path: '/customers',
+            component: () => import('../views/CustomersView.vue'),
+            meta: { title: '用户端用户', permissions: ['menu.customers', 'customers.read'] },
+          },
+        ]
+      : []),
     {
       path: '/logs',
       component: () => import('../views/AuditLogsView.vue'),

@@ -22,7 +22,7 @@ const valid = {
     displayName: '演示项目',
     description: '测试',
   },
-  runtime: { adminPort: 3000, apiPort: 3001 },
+  runtime: { adminPort: 3000, apiPort: 3001, webPort: 3002 },
   database: { mode: 'memory', engine: 'none', orm: 'none' },
   modules: presetModules('quick'),
   providers: { objectStorage: 'tencent_cos' },
@@ -30,9 +30,30 @@ const valid = {
 test('accepts a valid quick preset', () => assert.deepEqual(validateProjectConfig(valid), []));
 test('rejects conflicting ports', () =>
   assert.ok(
-    validateProjectConfig({ ...valid, runtime: { adminPort: 3000, apiPort: 3000 } }).some((item) =>
-      item.includes('端口'),
-    ),
+    validateProjectConfig({
+      ...valid,
+      runtime: { adminPort: 3000, apiPort: 3000, webPort: 3002 },
+    }).some((item) => item.includes('端口')),
+  ));
+test('requires user web and customer authentication to change together', () =>
+  assert.ok(
+    validateProjectConfig({
+      ...valid,
+      modules: { ...valid.modules, userWeb: true, customerAuthentication: false },
+    }).some((item) => item.includes('同时启用或停用')),
+  ));
+test('requires sms and redis for the user identity baseline', () =>
+  assert.ok(
+    validateProjectConfig({
+      ...valid,
+      modules: {
+        ...valid.modules,
+        userWeb: true,
+        customerAuthentication: true,
+        sms: false,
+        redis: false,
+      },
+    }).some((item) => item.includes('sms 与 redis')),
   ));
 test('parses values containing equals signs', () =>
   assert.equal(parseEnv('TOKEN=a=b=c\n').TOKEN, 'a=b=c'));
@@ -49,8 +70,8 @@ test('plans generate, deploy and seed for prisma mode', () => {
     ...valid,
     database: { mode: 'prisma', engine: 'postgresql', orm: 'prisma' },
   });
-  assert.equal(commands.length, 3);
-  assert.deepEqual(commands[1].slice(-3), ['prisma', 'migrate', 'deploy']);
+  assert.equal(commands.length, 4);
+  assert.deepEqual(commands[2].slice(-3), ['prisma', 'migrate', 'deploy']);
 });
 test('renders a secret-free runtime module', () => {
   const output = renderRuntimeProject(valid);

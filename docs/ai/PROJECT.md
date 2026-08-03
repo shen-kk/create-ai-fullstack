@@ -5,9 +5,9 @@
 ## 项目
 
 - 英文标识：`adminback-template`
-- 显示名称：AI 友好后台模板
+- 显示名称：AI 友好全栈模板
 - 包命名空间：`@template`
-- 用途：可复用的后台管理与 API 项目模板
+- 用途：可复用的后台管理、用户端与 API 项目模板
 - 模板版本：`0.1.0`
 - 模板仓库：https://cnb.cool/nsmiling.com/ai-template
 
@@ -15,6 +15,7 @@
 
 - 后台端口：`3000`
 - API 端口：`3001`
+- 用户端口：`3002`
 - 数据模式：`memory`
 - 数据库：`none`
 - ORM：`none`
@@ -23,6 +24,8 @@
 ## 已启用能力
 
 - `authentication`
+- `customerAuthentication`
+- `userWeb`
 - `adminUsers`
 - `rolesAndPermissions`
 - `auditLogs`
@@ -42,4 +45,4 @@
 - 开始开发前以 `project.config.json` 和本文件确认项目边界。
 - 不得使用未启用能力；如需求需要，应先更新项目声明并说明影响。
 - 密码、数据库连接串和服务密钥只存在于环境变量或加密配置中，不得写入本文档。
-- 模板当前冻结 `apps/web`，除非项目所有者明确恢复用户端开发。
+- 用户端身份与后台管理员身份必须保持隔离；具体项目不得绕过 API 直接访问数据层。

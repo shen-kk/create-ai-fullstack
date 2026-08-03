@@ -31,6 +31,7 @@ interface MenuItem {
   implemented: boolean;
   permissions: string[];
   icon: 'home' | 'users' | 'shield' | 'logs' | 'system';
+  enabled?: boolean;
 }
 
 interface MenuGroup {
@@ -49,6 +50,20 @@ const menuGroups: MenuGroup[] = [
         implemented: true,
         permissions: ['menu.dashboard'],
         icon: 'home',
+      },
+    ],
+  },
+  {
+    label: '用户运营',
+    items: [
+      {
+        label: '用户端用户',
+        path: '/customers',
+        badge: '',
+        implemented: true,
+        enabled: project.modules.userWeb && project.modules.customerAuthentication,
+        permissions: ['menu.customers', 'customers.read'],
+        icon: 'users',
       },
     ],
   },
@@ -99,6 +114,7 @@ const menuGroups: MenuGroup[] = [
   },
 ];
 function canAccess(item: MenuItem): boolean {
+  if (item.enabled === false) return false;
   const granted = new Set(currentUser.value?.permissions ?? []);
   return item.permissions.every((permission) => granted.has(permission));
 }

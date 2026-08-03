@@ -125,6 +125,9 @@ try {
   const apiPort = Number(
     await ask('API 端口', 3001, (value) => Number(value) >= 1024 && Number(value) <= 65535),
   );
+  const webPort = Number(
+    preset === 'custom' ? await ask('用户端端口', '3002', portValidator) : '3002',
+  );
   const databaseMode =
     preset === 'quick'
       ? 'memory'
@@ -147,6 +150,7 @@ try {
   const adminName = await ask('初始管理员名称', '系统管理员');
   const adminPassword = `Adm!${randomBytes(18).toString('base64url')}`;
   const objectStorage = preset === 'custom' ? await yes('启用对象存储配置能力', true) : true;
+  const userWeb = await yes('启用用户端（注册、登录、个人中心和后台用户管理）', false);
   const objectStorageProvider = objectStorage
     ? await choose('默认对象存储平台', [
         { value: 'tencent_cos', label: '腾讯云 COS' },
@@ -159,13 +163,19 @@ try {
     preset === 'custom'
       ? {
           ...presetModules('quick'),
+          userWeb,
+          customerAuthentication: userWeb,
           objectStorage,
           redis: await yes('启用 Redis 配置能力', false),
           sms: await yes('启用短信配置能力', false),
           email: await yes('启用邮件配置能力', false),
           payment: await yes('启用支付配置能力', false),
         }
-      : presetModules(preset);
+      : { ...presetModules(preset), userWeb, customerAuthentication: userWeb };
+  if (userWeb) {
+    modules.sms = true;
+    modules.redis = true;
+  }
   const config = {
     $schema: './project.config.schema.json',
     schemaVersion: 1,
@@ -175,7 +185,7 @@ try {
       repository: 'https://cnb.cool/nsmiling.com/ai-template',
     },
     project: { name, packageScope, displayName, description },
-    runtime: { packageManager: 'pnpm', adminPort, apiPort, deployment: 'local' },
+    runtime: { packageManager: 'pnpm', adminPort, apiPort, webPort, deployment: 'local' },
     database: {
       mode: databaseMode,
       engine: databaseMode === 'prisma' ? 'postgresql' : 'none',
@@ -190,14 +200,16 @@ try {
     'NODE_ENV=development',
     `ADMIN_PORT=${adminPort}`,
     `API_PORT=${apiPort}`,
-    'WEB_PORT=3002',
+    `WEB_PORT=${webPort}`,
     `DATABASE_URL=${databaseUrl}`,
     `DATA_SOURCE=${databaseMode === 'prisma' ? 'prisma' : 'memory'}`,
     `PUBLIC_API_BASE_URL=http://localhost:${apiPort}/api`,
     `ADMIN_ORIGIN=http://localhost:${adminPort}`,
-    'WEB_ORIGIN=http://localhost:3002',
+    `WEB_ORIGIN=http://localhost:${webPort}`,
     `JWT_ACCESS_SECRET=${secret()}`,
     `JWT_REFRESH_SECRET=${secret()}`,
+    `CUSTOMER_JWT_ACCESS_SECRET=${secret()}`,
+    `CUSTOMER_JWT_REFRESH_SECRET=${secret()}`,
     `CONFIG_ENCRYPTION_KEY=${secret()}`,
     'DEV_ADMIN_EMAIL=admin@example.com',
     `DEV_ADMIN_PHONE=${adminPhone}`,
@@ -228,6 +240,11 @@ try {
     );
     await writeFile(
       new URL('apps/api/src/generated/project.ts', root),
+      renderRuntimeProject(config),
+      'utf8',
+    );
+    await writeFile(
+      new URL('apps/web/app/generated/project.ts', root),
       renderRuntimeProject(config),
       'utf8',
     );

@@ -9,9 +9,21 @@ import { AuditModule } from './audit/audit.module.js';
 import { StructuredLogger } from './logging/structured-logger.js';
 import { HttpLoggingMiddleware } from './logging/http-logging.middleware.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
+import { CustomerAuthModule } from './customer-auth/customer-auth.module.js';
+import { project } from './generated/project.js';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, AuditModule, HealthModule, UsersModule, IntegrationsModule],
+  imports: [
+    DatabaseModule,
+    AuthModule,
+    ...(project.modules.userWeb && project.modules.customerAuthentication
+      ? [CustomerAuthModule]
+      : []),
+    AuditModule,
+    HealthModule,
+    UsersModule,
+    IntegrationsModule,
+  ],
   providers: [StructuredLogger, HttpLoggingMiddleware],
 })
 export class AppModule implements NestModule {

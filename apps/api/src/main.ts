@@ -45,6 +45,11 @@ async function bootstrap(): Promise<void> {
       { type: 'apiKey', in: 'cookie', description: 'HttpOnly Refresh Token，仅由浏览器发送' },
       'template_refresh',
     )
+    .addCookieAuth(
+      'customer_refresh',
+      { type: 'apiKey', in: 'cookie', description: '用户端 HttpOnly Refresh Token' },
+      'customer_refresh',
+    )
     .build();
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, openApi));
 

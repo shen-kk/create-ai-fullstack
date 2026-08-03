@@ -22,6 +22,11 @@ try {
     renderRuntimeProject(config),
     'utf8',
   );
+  await writeFile(
+    new URL('apps/web/app/generated/project.ts', root),
+    renderRuntimeProject(config),
+    'utf8',
+  );
   console.log('[DONE] AI 项目记忆已与 project.config.json 同步。');
 } catch (error) {
   console.error(`[FAIL] 同步失败：${error instanceof Error ? error.message : '未知错误'}`);

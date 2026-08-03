@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { IntegrationConfigSummary } from '@template/contracts';
 import { onMounted, ref } from 'vue';
-import { getIntegrations, updateIntegration } from '../api/integrations';
+import { getIntegrations, testIntegrationDelivery, updateIntegration } from '../api/integrations';
 import AppSelect from '../components/AppSelect.vue';
 
 const items = ref<IntegrationConfigSummary[]>([]);
@@ -13,6 +13,8 @@ const editing = ref<IntegrationConfigSummary>();
 const values = ref<Record<string, string>>({}),
   secrets = ref<Record<string, string>>({}),
   enabled = ref(false);
+const testTarget = ref('');
+const testing = ref(false);
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -23,6 +25,21 @@ async function load(): Promise<void> {
     error.value = '服务配置加载失败，请检查权限与 API。';
   } finally {
     loading.value = false;
+  }
+}
+async function testDelivery(): Promise<void> {
+  if (!editing.value || (editing.value.kind !== 'sms' && editing.value.kind !== 'email')) return;
+  testing.value = true;
+  notice.value = '';
+  try {
+    const result = await testIntegrationDelivery(editing.value.kind, testTarget.value);
+    notice.value = result.developmentCode
+      ? `开发模式发送成功，验证码：${result.developmentCode}`
+      : '测试消息已发送，请检查接收端。';
+  } catch {
+    notice.value = '发送测试失败，请先保存并启用完整配置，再检查服务商状态。';
+  } finally {
+    testing.value = false;
   }
 }
 function open(item: IntegrationConfigSummary): void {
@@ -131,6 +148,22 @@ onMounted(load);
         <p class="permission-help">
           密钥经过 AES-256-GCM 加密存储。对象存储不提供本地文件兜底；头像上传当前支持腾讯云 COS。
         </p>
+        <div v-if="editing.kind === 'sms' || editing.kind === 'email'" class="integration-test">
+          <label
+            ><span>测试接收{{ editing.kind === 'sms' ? '手机号' : '邮箱' }}</span
+            ><input
+              v-model.trim="testTarget"
+              :type="editing.kind === 'email' ? 'email' : 'text'"
+              placeholder="保存配置后可发送测试" /></label
+          ><button
+            type="button"
+            class="secondary-button"
+            :disabled="testing || !testTarget"
+            @click="testDelivery"
+          >
+            {{ testing ? '发送中…' : '发送测试' }}
+          </button>
+        </div>
         <footer>
           <button type="button" class="secondary-button" @click="editing = undefined">取消</button
           ><button class="primary-button" :disabled="saving">
