@@ -65,6 +65,15 @@ const menuGroups: MenuGroup[] = [
         permissions: ['menu.customers', 'customers.read'],
         icon: 'users',
       },
+      {
+        label: '验证码记录',
+        path: '/verification-deliveries',
+        badge: '',
+        implemented: true,
+        enabled: project.modules.userWeb && project.modules.customerAuthentication,
+        permissions: ['menu.verification', 'verification.read'],
+        icon: 'logs',
+      },
     ],
   },
   {

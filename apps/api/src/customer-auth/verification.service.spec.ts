@@ -13,6 +13,8 @@ describe('VerificationService', () => {
     const result = await service.send('sms', '13900000021', 'register');
     expect(result.developmentCode).toMatch(/^\d{6}$/);
     await service.consume('sms', '13900000021', 'register', result.developmentCode ?? '');
+    const deliveries = await service.list({ channel: 'sms', status: 'consumed' });
+    expect(deliveries.items.some((item) => item.targetMasked === '139****0021')).toBe(true);
     await expect(
       service.consume('sms', '13900000021', 'register', result.developmentCode ?? ''),
     ).rejects.toThrow('VERIFICATION_CODE_INVALID');

@@ -1,6 +1,19 @@
-import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  NotFoundException,
+  Param,
+  Patch,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
-import type { CustomerProfile, CustomerSession } from '@template/contracts';
+import type { CustomerProfile, CustomerSession, CustomerSessionDevice } from '@template/contracts';
 import type { Request, Response } from 'express';
 import { AuditService } from '../audit/audit.service.js';
 import { LoginRateLimiter } from '../auth/login-rate-limiter.service.js';
@@ -17,6 +30,7 @@ import {
   VerificationCodeLoginDto,
 } from './dto/customer.dto.js';
 import { VerificationService } from './verification.service.js';
+import { CustomerSessionRepository } from './customer-session.repository.js';
 import type { SendVerificationCodeResponse } from '@template/contracts';
 
 const cookieName = 'customer_refresh';
@@ -29,6 +43,7 @@ export class CustomerAuthController {
     private readonly audit: AuditService,
     private readonly loginLimiter: LoginRateLimiter,
     private readonly verification: VerificationService,
+    private readonly sessions: CustomerSessionRepository,
   ) {}
   @Post('verification/send') @HttpCode(200) sendVerification(
     @Body() input: SendVerificationCodeDto,
@@ -107,7 +122,7 @@ export class CustomerAuthController {
     );
   }
   @Get('me') @ApiBearerAuth() @UseGuards(CustomerAccessGuard) me(
-    @Req() request: Request & { customer: CustomerProfile },
+    @Req() request: Request & { customer: CustomerProfile & { sessionId: string } },
   ): CustomerProfile {
     return request.customer;
   }
@@ -147,6 +162,31 @@ export class CustomerAuthController {
     @Req() request: Request & { customer: CustomerProfile },
   ): Promise<CustomerProfile> {
     return this.auth.bindContact(request.customer.id, input.channel, input.target, input.code);
+  }
+  @Get('sessions') @ApiBearerAuth() @UseGuards(CustomerAccessGuard) sessionsList(
+    @Req() request: Request & { customer: CustomerProfile & { sessionId: string } },
+  ): Promise<CustomerSessionDevice[]> {
+    return this.sessions.list(request.customer.id, request.customer.sessionId);
+  }
+  @Delete('sessions/others')
+  @HttpCode(204)
+  @ApiBearerAuth()
+  @UseGuards(CustomerAccessGuard)
+  async revokeOtherSessions(
+    @Req() request: Request & { customer: CustomerProfile & { sessionId: string } },
+  ): Promise<void> {
+    await this.sessions.revokeOthers(request.customer.id, request.customer.sessionId);
+  }
+  @Delete('sessions/:id')
+  @HttpCode(204)
+  @ApiBearerAuth()
+  @UseGuards(CustomerAccessGuard)
+  async revokeSession(
+    @Param('id') id: string,
+    @Req() request: Request & { customer: CustomerProfile },
+  ): Promise<void> {
+    if (!(await this.sessions.revokeById(request.customer.id, id)))
+      throw new NotFoundException('CUSTOMER_SESSION_NOT_FOUND');
   }
   private async respond(
     result: Promise<CustomerSession & { refreshToken: string }>,

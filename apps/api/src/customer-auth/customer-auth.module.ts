@@ -12,6 +12,7 @@ import { AdminCustomersController } from './admin-customers.controller.js';
 import { IntegrationsModule } from '../integrations/integrations.module.js';
 import { VerificationService } from './verification.service.js';
 import { AdminVerificationController } from './admin-verification.controller.js';
+import { AdminVerificationLogsController } from './admin-verification-logs.controller.js';
 
 @Module({
   imports: [
@@ -25,7 +26,12 @@ import { AdminVerificationController } from './admin-verification.controller.js'
         'development-customer-access-secret',
     }),
   ],
-  controllers: [CustomerAuthController, AdminCustomersController, AdminVerificationController],
+  controllers: [
+    CustomerAuthController,
+    AdminCustomersController,
+    AdminVerificationController,
+    AdminVerificationLogsController,
+  ],
   providers: [
     CustomerAuthService,
     CustomerAccessGuard,

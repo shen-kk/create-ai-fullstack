@@ -22,6 +22,11 @@ export const router = createRouter({
             component: () => import('../views/CustomersView.vue'),
             meta: { title: '用户端用户', permissions: ['menu.customers', 'customers.read'] },
           },
+          {
+            path: '/verification-deliveries',
+            component: () => import('../views/VerificationDeliveriesView.vue'),
+            meta: { title: '验证码记录', permissions: ['menu.verification', 'verification.read'] },
+          },
         ]
       : []),
     {

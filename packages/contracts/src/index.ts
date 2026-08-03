@@ -96,6 +96,12 @@ export const permissionCatalog = [
   },
   { code: 'menu.roles', description: '显示角色权限菜单', type: 'menu', groupCode: 'roles' },
   { code: 'menu.audit', description: '显示操作日志菜单', type: 'menu', groupCode: 'audit' },
+  {
+    code: 'menu.verification',
+    description: '显示验证码记录菜单',
+    type: 'menu',
+    groupCode: 'verification',
+  },
   { code: 'menu.system', description: '显示系统信息菜单', type: 'menu', groupCode: 'system' },
   {
     code: 'menu.integrations',
@@ -119,6 +125,12 @@ export const permissionCatalog = [
   },
   { code: 'roles.manage', description: '管理角色与权限', type: 'action', groupCode: 'roles' },
   { code: 'audit.read', description: '查看审计日志', type: 'action', groupCode: 'audit' },
+  {
+    code: 'verification.read',
+    description: '查看验证码发送记录',
+    type: 'action',
+    groupCode: 'verification',
+  },
   { code: 'system.read', description: '查看系统运行信息', type: 'action', groupCode: 'system' },
   {
     code: 'integrations.manage',
@@ -252,6 +264,33 @@ export interface BindCustomerContactRequest {
   target: string;
   code: string;
 }
+export interface CustomerSessionDevice {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  expiresAt: string;
+  current: boolean;
+}
+export interface VerificationDeliverySummary {
+  id: string;
+  channel: VerificationChannel;
+  purpose: VerificationPurpose;
+  targetMasked: string;
+  status: 'sent' | 'failed' | 'consumed' | 'expired';
+  attempts: number;
+  failureCode: string | null;
+  createdAt: string;
+  consumedAt: string | null;
+}
+export interface VerificationDeliveryQuery {
+  channel?: VerificationChannel;
+  purpose?: VerificationPurpose;
+  status?: 'sent' | 'failed' | 'consumed' | 'expired';
+  page?: number;
+  pageSize?: number;
+}
+export type VerificationDeliveryListResponse = PageResult<VerificationDeliverySummary>;
 export interface UpdateCustomerProfileRequest {
   name: string;
   email?: string | null;

@@ -108,13 +108,15 @@ export class CustomerAuthService {
   async logout(token?: string): Promise<void> {
     if (token) await this.sessions.revoke(hashRefreshToken(token));
   }
-  async verifyAccess(token: string): Promise<CustomerProfile> {
-    const payload = await this.jwt.verifyAsync<CustomerProfile & { audience: string }>(token);
-    if (payload.audience !== 'customer')
+  async verifyAccess(token: string): Promise<CustomerProfile & { sessionId: string }> {
+    const payload = await this.jwt.verifyAsync<CustomerProfile & { audience: string; sid: string }>(
+      token,
+    );
+    if (payload.audience !== 'customer' || !payload.sid)
       throw new UnauthorizedException('INVALID_CUSTOMER_ACCESS_TOKEN');
     const customer = await this.customers.findActiveById(payload.id);
     if (!customer) throw new UnauthorizedException('INVALID_CUSTOMER_ACCESS_TOKEN');
-    return customer;
+    return { ...customer, sessionId: payload.sid };
   }
   async update(
     id: string,
@@ -145,17 +147,19 @@ export class CustomerAuthService {
     customer: CustomerProfile,
     metadata: { ipAddress?: string; userAgent?: string },
   ): Promise<CustomerSession & { refreshToken: string }> {
-    const payload = { ...customer, audience: 'customer' as const };
-    const accessToken = await this.jwt.signAsync(payload, { expiresIn: '15m' });
     const refreshToken = await this.jwt.signAsync(
       { sub: customer.id, audience: 'customer', jti: randomUUID() },
       { secret: this.refreshSecret, expiresIn: refreshLifetimeSeconds },
     );
-    await this.sessions.create(
+    const sessionId = await this.sessions.create(
       customer.id,
       hashRefreshToken(refreshToken),
       new Date(Date.now() + refreshLifetimeSeconds * 1000),
       metadata,
+    );
+    const accessToken = await this.jwt.signAsync(
+      { ...customer, audience: 'customer' as const, sid: sessionId },
+      { expiresIn: '15m' },
     );
     return { accessToken, refreshToken, expiresIn: 900, customer };
   }

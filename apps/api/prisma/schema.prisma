@@ -152,6 +152,9 @@ model VerificationCode {
   expiresAt   DateTime
   consumedAt  DateTime?
   createdAt   DateTime @default(now())
+  targetMasked String
+  deliveryStatus String @default("sent")
+  failureCode String?
 
   @@index([targetHash, purpose, createdAt])
   @@index([expiresAt])

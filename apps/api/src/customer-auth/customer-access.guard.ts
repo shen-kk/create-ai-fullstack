@@ -7,7 +7,9 @@ import { CustomerAuthService } from './customer-auth.service.js';
 export class CustomerAccessGuard implements CanActivate {
   constructor(private readonly auth: CustomerAuthService) {}
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest<Request & { customer: CustomerProfile }>();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { customer: CustomerProfile & { sessionId: string } }>();
     const [scheme, token] = request.headers.authorization?.split(' ') ?? [];
     if (scheme !== 'Bearer' || !token)
       throw new UnauthorizedException('CUSTOMER_ACCESS_TOKEN_REQUIRED');

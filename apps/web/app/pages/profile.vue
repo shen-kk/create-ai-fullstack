@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { project } from '../generated/project';
+import type { CustomerSessionDevice } from '@template/contracts';
 definePageMeta({ middleware: 'customer-auth' });
 const { customer, authenticated, updateProfile, sendVerification } = useCustomerSession();
 const profile = reactive({ name: '', email: '', avatarUrl: '' });
@@ -8,6 +9,34 @@ const profileMessage = ref('');
 const passwordMessage = ref('');
 const emailBinding = reactive({ email: '', code: '' });
 const emailMessage = ref('');
+const devices = ref<CustomerSessionDevice[]>([]);
+const deviceMessage = ref('');
+async function loadDevices(): Promise<void> {
+  try {
+    devices.value = await authenticated<CustomerSessionDevice[]>('/sessions');
+  } catch {
+    deviceMessage.value = '登录设备加载失败';
+  }
+}
+async function revokeDevice(id: string): Promise<void> {
+  try {
+    await authenticated(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    deviceMessage.value = '该设备已退出';
+    await loadDevices();
+  } catch {
+    deviceMessage.value = '退出设备失败';
+  }
+}
+async function revokeOthers(): Promise<void> {
+  try {
+    await authenticated('/sessions/others', { method: 'DELETE' });
+    deviceMessage.value = '其他设备已全部退出';
+    await loadDevices();
+  } catch {
+    deviceMessage.value = '操作失败';
+  }
+}
+onMounted(loadDevices);
 watch(
   customer,
   (value) => {
@@ -131,6 +160,39 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
               <button class="button" type="submit">保存资料</button>
             </div>
           </form>
+        </section>
+        <section class="settings-card">
+          <div class="settings-title">
+            <div>
+              <h2>登录设备</h2>
+              <p>查看仍可刷新登录状态的设备，并远程退出异常会话。</p>
+            </div>
+            <b>04</b>
+          </div>
+          <div v-if="!devices.length" class="loading-card">暂无其他有效会话</div>
+          <div v-else class="device-list">
+            <article v-for="device in devices" :key="device.id">
+              <div>
+                <strong>{{ device.current ? '当前设备' : '其他设备' }}</strong>
+                <p>{{ device.userAgent || '未知浏览器' }}</p>
+                <small
+                  >{{ device.ipAddress || '未知 IP' }} ·
+                  {{ new Date(device.createdAt).toLocaleString('zh-CN') }}</small
+                >
+              </div>
+              <button
+                v-if="!device.current"
+                class="button button-light"
+                @click="revokeDevice(device.id)"
+              >
+                退出此设备
+              </button>
+            </article>
+          </div>
+          <p v-if="deviceMessage" class="form-notice">{{ deviceMessage }}</p>
+          <div class="form-actions">
+            <button class="button button-outline" @click="revokeOthers">退出其他设备</button>
+          </div>
         </section>
         <section v-if="project.modules.email" class="settings-card">
           <div class="settings-title">
