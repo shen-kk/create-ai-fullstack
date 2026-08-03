@@ -24,6 +24,7 @@ const valid = {
   },
   runtime: { adminPort: 3000, apiPort: 3001, webPort: 3002 },
   database: { mode: 'memory', engine: 'none', orm: 'none' },
+  localization: { defaultLocale: 'zh-CN', supportedLocales: ['zh-CN'] },
   modules: presetModules('quick'),
   providers: { objectStorage: 'tencent_cos' },
 };

@@ -4,6 +4,8 @@
 
 ## 当前事实
 
+- UI 默认语言为 `zh-CN`；状态枚举和错误码在 API/数据库保持英文稳定代码，Admin/Web 必须通过中文映射展示，不直接输出状态码。初始化声明包含 `localization`，未来增加多语言时必须让模板使用者显式选择。
+
 - 仓库采用 pnpm workspace + Turborepo。
 - 三个可部署应用分别为 `admin`、`web`、`api`。
 - API 是业务规则和数据访问的唯一入口。

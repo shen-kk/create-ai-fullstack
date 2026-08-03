@@ -3,6 +3,7 @@ import type { AuditLogSummary } from '@template/contracts';
 import { computed, onMounted, ref } from 'vue';
 import { getAuditLogs } from '../api/audit';
 import AppSelect from '../components/AppSelect.vue';
+import { auditResultLabel } from '../status-labels';
 
 const logs = ref<AuditLogSummary[]>([]);
 const loading = ref(false);
@@ -155,7 +156,7 @@ onMounted(load);
               <td>{{ log.actorId || '系统' }}</td>
               <td>
                 <span class="user-status" :class="log.result === 'success' ? 'active' : 'disabled'"
-                  ><i />{{ log.result }}</span
+                  ><i />{{ auditResultLabel(log.result) }}</span
                 >
               </td>
               <td>

@@ -3,6 +3,7 @@ import type { VerificationDeliverySummary } from '@template/contracts';
 import { onMounted, ref } from 'vue';
 import { getVerificationDeliveries } from '../api/verification';
 import AppSelect from '../components/AppSelect.vue';
+import { integrationErrorLabel, verificationStatusLabel } from '../status-labels';
 const items = ref<VerificationDeliverySummary[]>([]),
   loading = ref(false),
   error = ref('');
@@ -94,10 +95,10 @@ onMounted(load);
               <td>{{ purposeLabel[item.purpose] }}</td>
               <td>
                 <span :class="['status-badge', item.status === 'failed' ? 'disabled' : 'active']">{{
-                  item.status
+                  verificationStatusLabel(item.status)
                 }}</span
                 ><small v-if="item.failureCode" style="display: block">{{
-                  item.failureCode
+                  integrationErrorLabel(item.failureCode)
                 }}</small>
               </td>
               <td>{{ item.attempts }}</td>

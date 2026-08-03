@@ -119,6 +119,7 @@ try {
     (value) => value.length >= 2 && value.length <= 80,
   );
   const description = await ask('项目简介', '内部运营后台');
+  const defaultLocale = await choose('默认界面语言', [{ value: 'zh-CN', label: '简体中文' }]);
   const adminPort = Number(
     await ask('后台端口', 3000, (value) => Number(value) >= 1024 && Number(value) <= 65535),
   );
@@ -191,6 +192,7 @@ try {
       engine: databaseMode === 'prisma' ? 'postgresql' : 'none',
       orm: databaseMode === 'prisma' ? 'prisma' : 'none',
     },
+    localization: { defaultLocale, supportedLocales: [defaultLocale] },
     modules,
     providers: { objectStorage: objectStorageProvider },
   };

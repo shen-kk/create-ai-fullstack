@@ -55,6 +55,11 @@ export function validateProjectConfig(config) {
     errors.push('Admin、API 与 Web 端口不能相同');
   if (!['memory', 'prisma'].includes(config?.database?.mode)) errors.push('database.mode 无效');
   if (
+    config?.localization?.defaultLocale !== 'zh-CN' ||
+    !config?.localization?.supportedLocales?.includes('zh-CN')
+  )
+    errors.push('当前版本默认语言必须为 zh-CN');
+  if (
     config?.database?.mode === 'prisma' &&
     (config.database.engine !== 'postgresql' || config.database.orm !== 'prisma')
   )
@@ -117,6 +122,7 @@ export function renderProjectContext(config) {
 - 数据模式：\`${config.database.mode}\`
 - 数据库：\`${config.database.engine}\`
 - ORM：\`${config.database.orm}\`
+- 默认语言：\`${config.localization.defaultLocale}\`
 - 默认对象存储：\`${config.providers.objectStorage}\`
 
 ## 已启用能力
@@ -149,5 +155,5 @@ export function provisionCommands(config) {
 }
 
 export function renderRuntimeProject(config) {
-  return `// 此文件由 pnpm template:init / template:sync 自动生成，请勿手工修改。\nexport const project = ${JSON.stringify({ name: config.project.name, packageScope: config.project.packageScope, displayName: config.project.displayName, description: config.project.description, modules: config.modules, providers: config.providers }, null, 2)} as const;\n`;
+  return `// 此文件由 pnpm template:init / template:sync 自动生成，请勿手工修改。\nexport const project = ${JSON.stringify({ name: config.project.name, packageScope: config.project.packageScope, displayName: config.project.displayName, description: config.project.description, localization: config.localization, modules: config.modules, providers: config.providers }, null, 2)} as const;\n`;
 }

@@ -19,6 +19,7 @@
 - 数据模式：`memory`
 - 数据库：`none`
 - ORM：`none`
+- 默认语言：`zh-CN`
 - 默认对象存储：`tencent_cos`
 
 ## 已启用能力

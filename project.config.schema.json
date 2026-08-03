@@ -3,7 +3,15 @@
   "$id": "https://adminback-template.local/project.config.schema.json",
   "title": "Adminback project configuration",
   "type": "object",
-  "required": ["schemaVersion", "template", "project", "runtime", "database", "modules"],
+  "required": [
+    "schemaVersion",
+    "template",
+    "project",
+    "runtime",
+    "database",
+    "localization",
+    "modules"
+  ],
   "properties": {
     "$schema": { "type": "string" },
     "schemaVersion": { "const": 1 },
@@ -47,6 +55,20 @@
         "mode": { "enum": ["memory", "prisma"] },
         "engine": { "enum": ["none", "postgresql"] },
         "orm": { "enum": ["none", "prisma"] }
+      },
+      "additionalProperties": false
+    },
+    "localization": {
+      "type": "object",
+      "required": ["defaultLocale", "supportedLocales"],
+      "properties": {
+        "defaultLocale": { "enum": ["zh-CN"] },
+        "supportedLocales": {
+          "type": "array",
+          "items": { "enum": ["zh-CN"] },
+          "minItems": 1,
+          "uniqueItems": true
+        }
       },
       "additionalProperties": false
     },
