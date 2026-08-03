@@ -10,8 +10,11 @@ import {
   Post,
   Req,
   Res,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import type { CustomerProfile, CustomerSession, CustomerSessionDevice } from '@template/contracts';
 import type { Request, Response } from 'express';
@@ -32,6 +35,7 @@ import {
 import { VerificationService } from './verification.service.js';
 import { CustomerSessionRepository } from './customer-session.repository.js';
 import type { SendVerificationCodeResponse } from '@template/contracts';
+import { AvatarStorageService, type AvatarFile } from '../integrations/avatar-storage.service.js';
 
 const cookieName = 'customer_refresh';
 
@@ -44,6 +48,7 @@ export class CustomerAuthController {
     private readonly loginLimiter: LoginRateLimiter,
     private readonly verification: VerificationService,
     private readonly sessions: CustomerSessionRepository,
+    private readonly avatars: AvatarStorageService,
   ) {}
   @Post('verification/send') @HttpCode(200) sendVerification(
     @Body() input: SendVerificationCodeDto,
@@ -139,6 +144,21 @@ export class CustomerAuthController {
       ...this.auditMetadata(request),
     });
     return customer;
+  }
+  @Post('avatar')
+  @ApiBearerAuth()
+  @UseGuards(CustomerAccessGuard)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 2 * 1024 * 1024 } }))
+  async uploadAvatar(
+    @UploadedFile() file: AvatarFile | undefined,
+    @Req() request: Request & { customer: CustomerProfile },
+  ): Promise<CustomerProfile> {
+    const avatarUrl = await this.avatars.upload(request.customer.id, file);
+    return this.auth.update(request.customer.id, {
+      name: request.customer.name,
+      email: request.customer.email,
+      avatarUrl,
+    });
   }
   @Post('password')
   @HttpCode(204)

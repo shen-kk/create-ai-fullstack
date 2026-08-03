@@ -5,6 +5,7 @@ definePageMeta({ middleware: 'customer-auth' });
 const {
   customer,
   updateProfile,
+  uploadAvatar,
   changePassword: changeCustomerPassword,
   bindContact,
   listSessions,
@@ -20,6 +21,16 @@ const emailBinding = reactive({ email: '', code: '' });
 const emailMessage = ref('');
 const devices = ref<CustomerSessionDevice[]>([]);
 const deviceMessage = ref('');
+const avatarInput = ref<HTMLInputElement | null>(null);
+const avatarUploading = ref(false);
+type ProfileSection = 'profile' | 'contact' | 'security' | 'devices';
+const activeSection = ref<ProfileSection>('profile');
+const sections: Array<{ id: ProfileSection; label: string; description: string }> = [
+  { id: 'profile', label: '个人资料', description: '名称与头像' },
+  { id: 'contact', label: '联系方式', description: '手机与邮箱' },
+  { id: 'security', label: '安全设置', description: '密码与验证' },
+  { id: 'devices', label: '登录设备', description: '会话与访问' },
+];
 const { showToast } = useAppToast();
 watch([profileMessage, passwordMessage, emailMessage, deviceMessage], (values, previous) => {
   values.forEach((value, index) => {
@@ -83,6 +94,22 @@ async function saveProfile(): Promise<void> {
     profileMessage.value = error instanceof Error ? error.message : '保存失败';
   }
 }
+async function selectAvatar(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  avatarUploading.value = true;
+  try {
+    const updated = await uploadAvatar(file);
+    profile.avatarUrl = updated.avatarUrl ?? '';
+    profileMessage.value = '头像已更新';
+  } catch (error) {
+    profileMessage.value = error instanceof Error ? error.message : '头像上传失败';
+  } finally {
+    avatarUploading.value = false;
+    input.value = '';
+  }
+}
 async function sendEmailCode(): Promise<void> {
   try {
     const result = await sendVerification({
@@ -126,148 +153,288 @@ async function changePassword(): Promise<void> {
     passwordMessage.value = error instanceof Error ? error.message : '修改失败';
   }
 }
+function formatDate(value: string): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
+}
 useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
 </script>
 <template>
-  <main class="profile-page section-wrap">
-    <header class="profile-heading">
-      <p class="eyebrow"><span /> ACCOUNT</p>
-      <h1>个人中心</h1>
-      <p>管理你的公开资料和账号安全。</p>
-    </header>
-    <div v-if="customer" class="profile-layout">
-      <aside class="profile-summary">
-        <div class="avatar-large">{{ customer.name.slice(0, 1) }}</div>
-        <h2>{{ customer.name }}</h2>
-        <p>{{ customer.phone }}</p>
-        <span>账号状态正常</span>
-      </aside>
-      <div class="settings-stack">
-        <section class="settings-card">
-          <div class="settings-title">
+  <main class="profile-page">
+    <div class="profile-container">
+      <header class="profile-heading">
+        <div>
+          <p class="eyebrow"><span /> ACCOUNT SETTINGS</p>
+          <h1>账号设置</h1>
+          <p>在一个地方管理你的个人资料、联系方式与账号安全。</p>
+        </div>
+        <div v-if="customer" class="profile-heading-account">
+          <div class="avatar-heading">
+            <img v-if="customer.avatarUrl" :src="customer.avatarUrl" alt="" /><template v-else>{{
+              customer.name.slice(0, 1)
+            }}</template>
+          </div>
+          <div>
+            <strong>{{ customer.name }}</strong
+            ><span>{{ customer.phone }}</span>
+          </div>
+        </div>
+      </header>
+
+      <div v-if="customer" class="profile-layout">
+        <aside class="profile-sidebar">
+          <div class="profile-identity">
+            <div class="avatar-large">
+              <img v-if="customer.avatarUrl" :src="customer.avatarUrl" alt="" /><template v-else>{{
+                customer.name.slice(0, 1)
+              }}</template>
+            </div>
             <div>
-              <h2>基本资料</h2>
-              <p>这些信息用于产品内的身份展示。</p>
+              <h2>{{ customer.name }}</h2>
+              <p>{{ customer.phone }}</p>
             </div>
-            <b>01</b>
+            <span class="account-badge"><i /> 账号正常</span>
           </div>
-          <form class="form-grid" @submit.prevent="saveProfile">
-            <label>称呼<input v-model.trim="profile.name" required maxlength="40" /></label
-            ><label
-              >联系邮箱<input
-                v-model.trim="profile.email"
-                type="email"
-                readonly
-                placeholder="请在安全设置中验证绑定" /></label
-            ><label class="full"
-              >头像 URL<input
-                v-model.trim="profile.avatarUrl"
-                type="url"
-                placeholder="https://...（选填）"
-            /></label>
-            <div class="form-actions full">
-              <button class="button" type="submit">保存资料</button>
-            </div>
-          </form>
-        </section>
-        <section class="settings-card">
-          <div class="settings-title">
-            <div>
-              <h2>登录设备</h2>
-              <p>查看仍可刷新登录状态的设备，并远程退出异常会话。</p>
-            </div>
-            <b>04</b>
-          </div>
-          <div v-if="!devices.length" class="loading-card">暂无其他有效会话</div>
-          <div v-else class="device-list">
-            <article v-for="device in devices" :key="device.id">
-              <div>
-                <strong>{{ device.current ? '当前设备' : '其他设备' }}</strong>
-                <p>{{ device.userAgent || '未知浏览器' }}</p>
-                <small
-                  >{{ device.ipAddress || '未知 IP' }} ·
-                  {{ new Date(device.createdAt).toLocaleString('zh-CN') }}</small
-                >
-              </div>
-              <button
-                v-if="!device.current"
-                class="button button-light"
-                @click="revokeDevice(device.id)"
-              >
-                退出此设备
-              </button>
-            </article>
-          </div>
-          <div class="form-actions">
-            <button class="button button-outline" @click="revokeOthers">退出其他设备</button>
-          </div>
-        </section>
-        <section v-if="project.modules.email" class="settings-card">
-          <div class="settings-title">
-            <div>
-              <h2>验证邮箱</h2>
-              <p>用于账号找回、验证和通知，密钥始终由服务端使用。</p>
-            </div>
-            <b>02</b>
-          </div>
-          <form class="form-grid" @submit.prevent="bindEmail">
-            <label class="full"
-              >邮箱<input v-model.trim="emailBinding.email" required type="email" /></label
-            ><label class="full"
-              >邮箱验证码
-              <div class="code-input">
-                <input v-model.trim="emailBinding.code" required maxlength="6" /><button
-                  type="button"
-                  class="button button-light"
-                  @click="sendEmailCode"
-                >
-                  发送验证码
-                </button>
-              </div></label
+          <nav class="profile-menu" aria-label="账号设置">
+            <button
+              v-for="(section, index) in sections"
+              :key="section.id"
+              type="button"
+              :class="{ active: activeSection === section.id }"
+              @click="activeSection = section.id"
             >
-            <div class="form-actions full">
-              <button class="button" type="submit">验证并绑定</button>
-            </div>
-          </form>
-        </section>
-        <section class="settings-card">
-          <div class="settings-title">
-            <div>
-              <h2>修改密码</h2>
-              <p>建议使用至少 8 位且不重复的密码。</p>
-            </div>
-            <b>02</b>
+              <span class="profile-menu-icon">
+                <svg v-if="index === 0" viewBox="0 0 24 24">
+                  <path d="M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z" />
+                </svg>
+                <svg v-else-if="index === 1" viewBox="0 0 24 24">
+                  <path d="M4 5h16v14H4zM4 7l8 6 8-6" />
+                </svg>
+                <svg v-else-if="index === 2" viewBox="0 0 24 24">
+                  <path d="M7 11V8a5 5 0 0 1 10 0v3M5 11h14v10H5zM12 15v2" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24"><path d="M5 4h14v16H5zM9 17h6M8 7h8v6H8z" /></svg>
+              </span>
+              <span
+                ><strong>{{ section.label }}</strong
+                ><small>{{ section.description }}</small></span
+              >
+              <b>›</b>
+            </button>
+          </nav>
+          <div class="profile-sidebar-foot">
+            <span>账号 ID</span><code>{{ customer.id.slice(0, 12) }}</code>
           </div>
-          <form class="form-grid" @submit.prevent="changePassword">
-            <label class="full"
-              >当前密码<input
-                v-model="passwords.currentPassword"
-                required
-                type="password"
-                autocomplete="current-password"
-                minlength="8" /></label
-            ><label
-              >新密码<input
-                v-model="passwords.newPassword"
-                required
-                type="password"
-                autocomplete="new-password"
-                minlength="8" /></label
-            ><label
-              >确认新密码<input
-                v-model="passwords.confirmPassword"
-                required
-                type="password"
-                autocomplete="new-password"
-                minlength="8"
-            /></label>
-            <div class="form-actions full">
-              <button class="button button-outline" type="submit">更新密码</button>
+        </aside>
+
+        <div class="settings-panel">
+          <section v-if="activeSection === 'profile'" class="settings-card">
+            <div class="settings-title">
+              <div>
+                <span class="settings-kicker">PROFILE</span>
+                <h2>个人资料</h2>
+                <p>这些信息将用于产品内的身份展示。</p>
+              </div>
+              <div class="settings-avatar-preview">
+                <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="当前头像" />
+                <span v-else>{{ profile.name.slice(0, 1) || '用' }}</span>
+              </div>
             </div>
-          </form>
-        </section>
+            <form class="form-grid" @submit.prevent="saveProfile">
+              <div class="avatar-upload-row full">
+                <div class="avatar-upload-preview">
+                  <img v-if="profile.avatarUrl" :src="profile.avatarUrl" alt="当前头像" />
+                  <span v-else>{{ profile.name.slice(0, 1) || '用' }}</span>
+                </div>
+                <div>
+                  <strong>个人头像</strong>
+                  <p>支持 JPG、PNG 或 WebP，文件不超过 2 MB。</p>
+                  <button
+                    class="button button-light button-small"
+                    type="button"
+                    :disabled="avatarUploading"
+                    @click="avatarInput?.click()"
+                  >
+                    {{ avatarUploading ? '正在上传…' : '上传新头像' }}
+                  </button>
+                </div>
+                <input
+                  ref="avatarInput"
+                  class="visually-hidden"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  @change="selectAvatar"
+                />
+              </div>
+              <label class="full"
+                >显示名称<input
+                  v-model.trim="profile.name"
+                  required
+                  maxlength="40"
+                  placeholder="请输入显示名称"
+                /><small>最多 40 个字符</small></label
+              >
+              <div class="form-actions full settings-footer">
+                <p>保存后立即同步到当前账号。</p>
+                <button class="button" type="submit">保存更改</button>
+              </div>
+            </form>
+          </section>
+
+          <section v-else-if="activeSection === 'contact'" class="settings-card">
+            <div class="settings-title">
+              <div>
+                <span class="settings-kicker">CONTACT</span>
+                <h2>联系方式</h2>
+                <p>管理账号的主要联系方式与验证状态。</p>
+              </div>
+              <span class="verified-pill">手机已验证</span>
+            </div>
+            <div class="contact-current">
+              <div>
+                <span>登录手机号</span><strong>{{ customer.phone }}</strong>
+              </div>
+              <b>已验证</b>
+            </div>
+            <form
+              v-if="project.modules.email"
+              class="form-grid contact-form"
+              @submit.prevent="bindEmail"
+            >
+              <label class="full"
+                >邮箱地址<input
+                  v-model.trim="emailBinding.email"
+                  required
+                  type="email"
+                  :placeholder="profile.email || 'name@example.com'"
+                /><small>{{
+                  profile.email ? `当前已绑定 ${profile.email}` : '绑定后可用于接收账号通知。'
+                }}</small></label
+              >
+              <label class="full"
+                >邮箱验证码
+                <div class="code-input">
+                  <input
+                    v-model.trim="emailBinding.code"
+                    required
+                    maxlength="6"
+                    placeholder="6 位验证码"
+                  />
+                  <button type="button" class="button button-light" @click="sendEmailCode">
+                    获取验证码
+                  </button>
+                </div>
+              </label>
+              <div class="form-actions full settings-footer">
+                <p>邮箱变更必须先完成验证。</p>
+                <button class="button" type="submit">验证并绑定</button>
+              </div>
+            </form>
+          </section>
+
+          <section v-else-if="activeSection === 'security'" class="settings-card">
+            <div class="settings-title">
+              <div>
+                <span class="settings-kicker">SECURITY</span>
+                <h2>修改密码</h2>
+                <p>定期更新密码，避免在多个站点使用相同密码。</p>
+              </div>
+              <div class="security-shield">
+                <svg viewBox="0 0 24 24">
+                  <path d="M12 3l7 3v5c0 4.8-2.8 8.2-7 10-4.2-1.8-7-5.2-7-10V6l7-3Z" />
+                </svg>
+              </div>
+            </div>
+            <form class="form-grid" @submit.prevent="changePassword">
+              <label class="full"
+                >当前密码<input
+                  v-model="passwords.currentPassword"
+                  required
+                  type="password"
+                  autocomplete="current-password"
+                  minlength="8"
+                  placeholder="输入当前密码"
+              /></label>
+              <label
+                >新密码<input
+                  v-model="passwords.newPassword"
+                  required
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="8"
+                  placeholder="至少 8 位"
+              /></label>
+              <label
+                >确认新密码<input
+                  v-model="passwords.confirmPassword"
+                  required
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="8"
+                  placeholder="再次输入"
+              /></label>
+              <div class="password-advice full"><i />建议包含大小写字母、数字和特殊符号。</div>
+              <div class="form-actions full settings-footer">
+                <p>更新后请使用新密码登录。</p>
+                <button class="button" type="submit">更新密码</button>
+              </div>
+            </form>
+          </section>
+
+          <section v-else class="settings-card">
+            <div class="settings-title">
+              <div>
+                <span class="settings-kicker">DEVICES</span>
+                <h2>登录设备</h2>
+                <p>查看有效会话，并远程退出不再使用的设备。</p>
+              </div>
+              <span class="device-count">{{ devices.length }} 个会话</span>
+            </div>
+            <div v-if="!devices.length" class="profile-empty">
+              <span>○</span><strong>暂无有效会话</strong>
+              <p>完成登录后设备将出现在这里。</p>
+            </div>
+            <div v-else class="device-list">
+              <article
+                v-for="device in devices"
+                :key="device.id"
+                :class="{ current: device.current }"
+              >
+                <div class="device-icon">
+                  <svg viewBox="0 0 24 24"><path d="M4 5h16v12H4zM8 21h8M12 17v4" /></svg>
+                </div>
+                <div class="device-copy">
+                  <div>
+                    <strong>{{ device.current ? '当前设备' : '其他设备' }}</strong
+                    ><span v-if="device.current">当前</span>
+                  </div>
+                  <p>{{ device.userAgent || '未知浏览器' }}</p>
+                  <small
+                    >{{ device.ipAddress || '未知 IP' }} · {{ formatDate(device.createdAt) }}</small
+                  >
+                </div>
+                <button
+                  v-if="!device.current"
+                  class="button button-light button-small"
+                  @click="revokeDevice(device.id)"
+                >
+                  退出
+                </button>
+              </article>
+            </div>
+            <div class="form-actions settings-footer">
+              <p>如发现陌生设备，建议立即退出并修改密码。</p>
+              <button class="button button-outline" @click="revokeOthers">退出其他设备</button>
+            </div>
+          </section>
+        </div>
       </div>
+      <div v-else class="loading-card">正在恢复账号信息…</div>
     </div>
-    <div v-else class="loading-card">正在恢复账号信息…</div>
   </main>
 </template>

@@ -179,6 +179,16 @@ describe('Admin API HTTP workflow', () => {
       customer: { name: string; email: string | null };
     };
 
+    const avatarBody = new FormData();
+    avatarBody.append('file', new Blob(['avatar'], { type: 'image/png' }), 'avatar.png');
+    const avatar = await fetch(`${baseUrl}/customer-auth/avatar`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${primary.accessToken}` },
+      body: avatarBody,
+    });
+    expect(avatar.status).toBe(503);
+    expect(await avatar.json()).toMatchObject({ code: 'OBJECT_STORAGE_NOT_CONFIGURED' });
+
     const update = await fetch(`${baseUrl}/customer-auth/profile`, {
       method: 'PATCH',
       headers: {

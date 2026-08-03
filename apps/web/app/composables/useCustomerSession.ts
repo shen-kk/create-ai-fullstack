@@ -35,6 +35,13 @@ const errorLabels: Record<string, string> = {
   EMAIL_PROVIDER_ADAPTER_REQUIRED: '邮件服务暂不可用，请联系管理员',
   SMS_DELIVERY_FAILED: '短信发送失败，请稍后重试',
   EMAIL_DELIVERY_FAILED: '邮件发送失败，请稍后重试',
+  AVATAR_FILE_REQUIRED: '请选择要上传的头像',
+  AVATAR_FILE_TYPE_INVALID: '仅支持 JPG、PNG 或 WebP 图片',
+  AVATAR_FILE_TOO_LARGE: '头像大小不能超过 2 MB',
+  OBJECT_STORAGE_NOT_CONFIGURED: '对象存储尚未配置，请联系管理员',
+  OBJECT_STORAGE_CONFIG_INCOMPLETE: '对象存储配置不完整，请联系管理员',
+  OBJECT_STORAGE_ADAPTER_UNAVAILABLE: '对象存储服务暂不可用，请联系管理员',
+  OBJECT_STORAGE_UPLOAD_FAILED: '头像上传失败，请稍后重试',
   LOGIN_RATE_LIMITED: '尝试次数过多，请稍后再试',
   RATE_LIMITED: '请求过于频繁，请稍后再试',
   VALIDATION_ERROR: '请检查填写内容是否完整正确',
@@ -145,7 +152,9 @@ export function useCustomerSession() {
       ...init,
       credentials: 'include',
       headers: {
-        ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(init.body && !(typeof FormData !== 'undefined' && init.body instanceof FormData)
+          ? { 'Content-Type': 'application/json' }
+          : {}),
         Authorization: `Bearer ${accessToken.value}`,
         ...init.headers,
       },
@@ -210,6 +219,13 @@ export function useCustomerSession() {
     customer.value = updated;
     return updated;
   }
+  async function uploadAvatar(file: File): Promise<CustomerProfile> {
+    const body = new FormData();
+    body.append('file', file);
+    const updated = await authenticated<CustomerProfile>('/avatar', { method: 'POST', body });
+    customer.value = updated;
+    return updated;
+  }
   async function changePassword(input: ChangeCustomerPasswordRequest): Promise<void> {
     await authenticated('/password', { method: 'POST', body: JSON.stringify(input) });
   }
@@ -239,6 +255,7 @@ export function useCustomerSession() {
     logout,
     authenticated,
     updateProfile,
+    uploadAvatar,
     changePassword,
     bindContact,
     listSessions,
