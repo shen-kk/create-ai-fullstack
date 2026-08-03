@@ -1,5 +1,7 @@
 # AI-Friendly Full-Stack Template
 
+> 第一次创建项目请按照 [中文分步使用手册](docs/GETTING_STARTED.md)，从环境准备、初始化、启动一路操作到验收。
+
 从 Git 模板创建新项目后，执行 `pnpm template:init` 完成交互式初始化，再运行 `pnpm template:doctor` 检查配置。完整说明见 [`docs/TEMPLATE_USAGE.md`](docs/TEMPLATE_USAGE.md)。
 
 面向 AI 协作开发的后台管理端、用户端与服务端 Monorepo 模板。后台管理员和用户端账号使用独立身份边界，模板不预置行业业务。
