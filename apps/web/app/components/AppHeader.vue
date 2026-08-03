@@ -4,9 +4,7 @@ const { customer, logout } = useCustomerSession();
 const menuOpen = ref(false);
 watch(
   () => route.fullPath,
-  () => {
-    menuOpen.value = false;
-  },
+  () => (menuOpen.value = false),
 );
 async function signOut(): Promise<void> {
   await logout();
@@ -28,19 +26,19 @@ async function signOut(): Promise<void> {
         <span /><span />
       </button>
       <nav :class="['site-nav', { open: menuOpen }]" aria-label="主导航">
-        <NuxtLink to="/">首页</NuxtLink>
+        <NuxtLink to="/">产品</NuxtLink>
         <a href="/#capabilities">能力</a>
-        <a href="/#about">关于</a>
+        <a href="/#principles">原则</a>
         <template v-if="customer">
-          <NuxtLink class="nav-profile" to="/profile"
-            ><span class="avatar-mini">{{ customer.name.slice(0, 1) }}</span
-            >{{ customer.name }}</NuxtLink
-          >
+          <NuxtLink class="nav-profile" to="/profile">
+            <span class="avatar-mini">{{ customer.name.slice(0, 1) }}</span>
+            {{ customer.name }}
+          </NuxtLink>
           <button class="nav-quiet" type="button" @click="signOut">退出</button>
         </template>
         <template v-else>
           <NuxtLink to="/login">登录</NuxtLink>
-          <NuxtLink class="button button-small" to="/register">立即注册</NuxtLink>
+          <Button as-child size="sm"><NuxtLink to="/register">开始使用</NuxtLink></Button>
         </template>
       </nav>
     </div>

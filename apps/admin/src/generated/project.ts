@@ -13,7 +13,9 @@ export const project = {
   "ui": {
     "web": {
       "businessComponents": "shadcn-vue",
-      "motion": "vueuse-motion"
+      "motion": "vueuse-motion",
+      "orchestration": "gsap",
+      "designStandard": "apple-linear-vercel"
     }
   },
   "modules": {

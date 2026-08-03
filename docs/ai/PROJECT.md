@@ -22,6 +22,8 @@
 - 默认语言：`zh-CN`
 - 用户端业务组件：`shadcn-vue`
 - 用户端动效：`vueuse-motion`
+- 用户端动画编排：`gsap`
+- 用户端设计标准：`apple-linear-vercel`
 - 默认对象存储：`tencent_cos`
 
 ## 已启用能力

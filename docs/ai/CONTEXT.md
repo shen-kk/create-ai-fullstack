@@ -4,7 +4,7 @@
 
 ## 当前事实
 
-- 用户端以 shadcn-vue 作为按钮、表单、弹窗、选择器等业务组件基础，以 VueUse Motion 作为可选动效增强层。`components/ui` 不依赖动效，`components/motion` 不承载业务状态，并尊重 SSR 与减少动态效果偏好。
+- 用户端以 shadcn-vue 作为业务组件基础，VueUse Motion 处理常规过渡，GSAP 只处理首页等高价值动画编排；自定义 Design System 采用 Apple 的克制与空间感、Linear 的交互密度和 Vercel 的黑白层级。`components/ui` 不依赖动效，`components/motion` 不承载业务状态，并尊重 SSR 与减少动态效果偏好。
 
 - UI 默认语言为 `zh-CN`；状态枚举和错误码在 API/数据库保持英文稳定代码，Admin/Web 必须通过中文映射展示，不直接输出状态码。初始化声明包含 `localization`，未来增加多语言时必须让模板使用者显式选择。
 

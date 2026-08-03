@@ -61,7 +61,9 @@ export function validateProjectConfig(config) {
     errors.push('当前版本默认语言必须为 zh-CN');
   if (
     config?.ui?.web?.businessComponents !== 'shadcn-vue' ||
-    config?.ui?.web?.motion !== 'vueuse-motion'
+    config?.ui?.web?.motion !== 'vueuse-motion' ||
+    config?.ui?.web?.orchestration !== 'gsap' ||
+    config?.ui?.web?.designStandard !== 'apple-linear-vercel'
   )
     errors.push('用户端 UI 必须使用 shadcn-vue 业务组件与 VueUse Motion 动效层');
   if (
@@ -130,6 +132,8 @@ export function renderProjectContext(config) {
 - 默认语言：\`${config.localization.defaultLocale}\`
 - 用户端业务组件：\`${config.ui.web.businessComponents}\`
 - 用户端动效：\`${config.ui.web.motion}\`
+- 用户端动画编排：\`${config.ui.web.orchestration}\`
+- 用户端设计标准：\`${config.ui.web.designStandard}\`
 - 默认对象存储：\`${config.providers.objectStorage}\`
 
 ## 已启用能力

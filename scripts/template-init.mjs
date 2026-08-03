@@ -197,6 +197,8 @@ try {
       web: {
         businessComponents: 'shadcn-vue',
         motion: 'vueuse-motion',
+        orchestration: 'gsap',
+        designStandard: 'apple-linear-vercel',
       },
     },
     modules,

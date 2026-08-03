@@ -9,9 +9,11 @@
 用户端使用两层 UI 结构：
 
 - `apps/web/app/components/ui`：以 shadcn-vue 为基础，承载按钮、输入框、表单、弹窗、选择器等稳定业务交互。
-- `apps/web/app/components/motion`：使用 VueUse Motion，承载入场、反馈与状态切换等渐进增强。
+- `apps/web/app/components/motion`：VueUse Motion 承载常规入场、反馈与状态切换；GSAP 只负责首页 Hero、滚动叙事等高价值编排。
 
 动效层不得保存业务状态，关闭动效后业务流程必须完整可用，并尊重 `prefers-reduced-motion`。SSR 首屏内容不得依赖客户端动画执行后才可见。
+
+自定义 Design System 借鉴 Apple 的克制与空间感、Linear 的高密度交互和 Vercel 的黑白信息层级，但不复制其品牌资产、页面或专有视觉元素。GSAP 动画必须使用 `gsap.context()` 限定作用域并在卸载时 `revert()`。
 
 ## 原因
 

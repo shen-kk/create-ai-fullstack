@@ -79,10 +79,12 @@
       "properties": {
         "web": {
           "type": "object",
-          "required": ["businessComponents", "motion"],
+          "required": ["businessComponents", "motion", "orchestration", "designStandard"],
           "properties": {
             "businessComponents": { "const": "shadcn-vue" },
-            "motion": { "const": "vueuse-motion" }
+            "motion": { "const": "vueuse-motion" },
+            "orchestration": { "const": "gsap" },
+            "designStandard": { "const": "apple-linear-vercel" }
           },
           "additionalProperties": false
         }
