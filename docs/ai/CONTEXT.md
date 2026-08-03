@@ -4,6 +4,7 @@
 
 ## 当前事实
 
+- 用户端现有账户 API 已全部收口到 `useCustomerSession`：注册、密码/验证码登录、找回密码、会话恢复与退出、资料编辑、邮箱绑定、修改密码和设备会话管理均使用共享契约的类型化方法。请求默认 12 秒超时，稳定错误码映射为中文；Access Token 过期时仅发起一次并发刷新并重试原请求。撤销设备会话后，API 对后续 Access Token 请求同步校验会话有效性。
 - 用户端以 shadcn-vue 作为业务组件基础，VueUse Motion 处理常规过渡，GSAP 只处理首页等高价值动画编排；自定义 Design System 采用 Apple 的克制与空间感、Linear 的交互密度和 Vercel 的黑白层级。`components/ui` 不依赖动效，`components/motion` 不承载业务状态，并尊重 SSR 与减少动态效果偏好。
 - 用户端跨页面反馈统一使用右上角 `AppToast`，认证表单不再用撑开布局的行内服务端提示；页面使用统一轻量过渡，不允许只给同级内容中的个别卡片添加入场动画。所有按钮必须明确设计 hover、focus 和 disabled 对比度。
 

@@ -115,7 +115,8 @@ export class CustomerAuthService {
     if (payload.audience !== 'customer' || !payload.sid)
       throw new UnauthorizedException('INVALID_CUSTOMER_ACCESS_TOKEN');
     const customer = await this.customers.findActiveById(payload.id);
-    if (!customer) throw new UnauthorizedException('INVALID_CUSTOMER_ACCESS_TOKEN');
+    if (!customer || !(await this.sessions.isActive(payload.id, payload.sid)))
+      throw new UnauthorizedException('INVALID_CUSTOMER_ACCESS_TOKEN');
     return { ...customer, sessionId: payload.sid };
   }
   async update(

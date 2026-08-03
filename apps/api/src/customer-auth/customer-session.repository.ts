@@ -79,6 +79,21 @@ export class CustomerSessionRepository {
     const item = this.sessions.find((session) => session.tokenHash === tokenHash);
     if (item) item.revokedAt = new Date();
   }
+  async isActive(customerId: string, id: string): Promise<boolean> {
+    if (process.env.DATA_SOURCE === 'prisma') {
+      const count = await this.prisma.customerRefreshSession.count({
+        where: { id, customerId, revokedAt: null, expiresAt: { gt: new Date() } },
+      });
+      return count === 1;
+    }
+    return this.sessions.some(
+      (session) =>
+        session.id === id &&
+        session.customerId === customerId &&
+        !session.revokedAt &&
+        session.expiresAt > new Date(),
+    );
+  }
   async revokeAll(customerId: string): Promise<void> {
     if (process.env.DATA_SOURCE === 'prisma') {
       await this.prisma.customerRefreshSession.updateMany({

@@ -144,4 +144,124 @@ describe('Admin API HTTP workflow', () => {
     });
     expect(rejected.status).toBe(401);
   });
+
+  it('supports the complete customer account and device lifecycle', async () => {
+    const phone = '13900000002';
+    const sendCode = async (
+      channel: 'sms' | 'email',
+      target: string,
+      purpose: 'register' | 'login' | 'reset_password' | 'bind_contact',
+    ): Promise<string> => {
+      const response = await fetch(`${baseUrl}/customer-auth/verification/send`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ channel, target, purpose }),
+      });
+      expect(response.status).toBe(200);
+      const payload = (await response.json()) as { developmentCode?: string };
+      expect(payload.developmentCode).toMatch(/^\d{6}$/);
+      return payload.developmentCode ?? '';
+    };
+    const registerCode = await sendCode('sms', phone, 'register');
+    const register = await fetch(`${baseUrl}/customer-auth/register`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': 'e2e-primary-device' },
+      body: JSON.stringify({
+        phone,
+        password: 'Customer@123',
+        name: '稳定版用户',
+        verificationCode: registerCode,
+      }),
+    });
+    expect(register.status).toBe(201);
+    const primary = (await register.json()) as {
+      accessToken: string;
+      customer: { name: string; email: string | null };
+    };
+
+    const update = await fetch(`${baseUrl}/customer-auth/profile`, {
+      method: 'PATCH',
+      headers: {
+        authorization: `Bearer ${primary.accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ name: '稳定版用户已更新' }),
+    });
+    expect(update.status).toBe(200);
+    expect(await update.json()).toMatchObject({ name: '稳定版用户已更新' });
+
+    const email = 'stable-customer@example.com';
+    const bindCode = await sendCode('email', email, 'bind_contact');
+    const bind = await fetch(`${baseUrl}/customer-auth/contact/bind`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${primary.accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ channel: 'email', target: email, code: bindCode }),
+    });
+    expect(bind.status).toBe(201);
+    expect(await bind.json()).toMatchObject({ email });
+
+    const loginCode = await sendCode('sms', phone, 'login');
+    const secondaryLogin = await fetch(`${baseUrl}/customer-auth/login/code`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': 'e2e-secondary-device' },
+      body: JSON.stringify({ phone, code: loginCode }),
+    });
+    expect(secondaryLogin.status).toBe(201);
+    const secondary = (await secondaryLogin.json()) as { accessToken: string };
+
+    const sessions = await fetch(`${baseUrl}/customer-auth/sessions`, {
+      headers: { authorization: `Bearer ${primary.accessToken}` },
+    });
+    expect(sessions.status).toBe(200);
+    const devices = (await sessions.json()) as Array<{ id: string; current: boolean }>;
+    expect(devices).toHaveLength(2);
+    expect(devices.filter((device) => device.current)).toHaveLength(1);
+
+    const revokeOthers = await fetch(`${baseUrl}/customer-auth/sessions/others`, {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${primary.accessToken}` },
+    });
+    expect(revokeOthers.status).toBe(204);
+    const secondaryRejected = await fetch(`${baseUrl}/customer-auth/me`, {
+      headers: { authorization: `Bearer ${secondary.accessToken}` },
+    });
+    expect(secondaryRejected.status).toBe(401);
+
+    const passwordChange = await fetch(`${baseUrl}/customer-auth/password`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${primary.accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        currentPassword: 'Customer@123',
+        newPassword: 'Customer@456',
+      }),
+    });
+    expect(passwordChange.status).toBe(204);
+
+    const resetCode = await sendCode('sms', phone, 'reset_password');
+    const reset = await fetch(`${baseUrl}/customer-auth/password/reset`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ phone, code: resetCode, newPassword: 'Customer@789' }),
+    });
+    expect(reset.status).toBe(204);
+    const passwordLogin = await fetch(`${baseUrl}/customer-auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ phone, password: 'Customer@789' }),
+    });
+    expect(passwordLogin.status).toBe(201);
+
+    const logoutCookie = passwordLogin.headers.get('set-cookie')?.split(';')[0] ?? '';
+    const logout = await fetch(`${baseUrl}/customer-auth/logout`, {
+      method: 'POST',
+      headers: { cookie: logoutCookie },
+    });
+    expect(logout.status).toBe(204);
+  });
 });

@@ -17,9 +17,30 @@ describe('CustomerSessionRepository', () => {
       userAgent: 'Other',
     });
     expect(await repository.list('customer-1', currentId)).toHaveLength(2);
+    expect(await repository.isActive('customer-1', currentId)).toBe(true);
     expect(await repository.revokeOthers('customer-1', currentId)).toBe(1);
     const remaining = await repository.list('customer-1', currentId);
     expect(remaining).toHaveLength(1);
     expect(remaining[0]?.current).toBe(true);
+  });
+
+  it('reports revoked and expired sessions as inactive', async () => {
+    const repository = new CustomerSessionRepository({} as never);
+    const revokedId = await repository.create(
+      'customer-1',
+      'revoked',
+      new Date(Date.now() + 60000),
+      {},
+    );
+    const expiredId = await repository.create(
+      'customer-1',
+      'expired',
+      new Date(Date.now() - 1000),
+      {},
+    );
+    await repository.revokeById('customer-1', revokedId);
+    expect(await repository.isActive('customer-1', revokedId)).toBe(false);
+    expect(await repository.isActive('customer-1', expiredId)).toBe(false);
+    expect(await repository.isActive('another-customer', expiredId)).toBe(false);
   });
 });

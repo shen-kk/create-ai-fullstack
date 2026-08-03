@@ -2,7 +2,16 @@
 import { project } from '../generated/project';
 import type { CustomerSessionDevice } from '@template/contracts';
 definePageMeta({ middleware: 'customer-auth' });
-const { customer, authenticated, updateProfile, sendVerification } = useCustomerSession();
+const {
+  customer,
+  updateProfile,
+  changePassword: changeCustomerPassword,
+  bindContact,
+  listSessions,
+  revokeSession,
+  revokeOtherSessions,
+  sendVerification,
+} = useCustomerSession();
 const profile = reactive({ name: '', email: '', avatarUrl: '' });
 const passwords = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' });
 const profileMessage = ref('');
@@ -20,14 +29,14 @@ watch([profileMessage, passwordMessage, emailMessage, deviceMessage], (values, p
 });
 async function loadDevices(): Promise<void> {
   try {
-    devices.value = await authenticated<CustomerSessionDevice[]>('/sessions');
+    devices.value = await listSessions();
   } catch {
     deviceMessage.value = '登录设备加载失败';
   }
 }
 async function revokeDevice(id: string): Promise<void> {
   try {
-    await authenticated(`/sessions/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    await revokeSession(id);
     deviceMessage.value = '该设备已退出';
     await loadDevices();
   } catch {
@@ -36,7 +45,7 @@ async function revokeDevice(id: string): Promise<void> {
 }
 async function revokeOthers(): Promise<void> {
   try {
-    await authenticated('/sessions/others', { method: 'DELETE' });
+    await revokeOtherSessions();
     deviceMessage.value = '其他设备已全部退出';
     await loadDevices();
   } catch {
@@ -89,16 +98,13 @@ async function sendEmailCode(): Promise<void> {
 }
 async function bindEmail(): Promise<void> {
   try {
-    await authenticated('/contact/bind', {
-      method: 'POST',
-      body: JSON.stringify({
-        channel: 'email',
-        target: emailBinding.email,
-        code: emailBinding.code,
-      }),
+    const updated = await bindContact({
+      channel: 'email',
+      target: emailBinding.email,
+      code: emailBinding.code,
     });
-    emailMessage.value = '邮箱已验证并绑定，刷新后生效';
-    await navigateTo('/profile', { replace: true });
+    profile.email = updated.email ?? '';
+    emailMessage.value = '邮箱已验证并绑定';
   } catch (error) {
     emailMessage.value = error instanceof Error ? error.message : '绑定失败';
   }
@@ -110,12 +116,9 @@ async function changePassword(): Promise<void> {
     return;
   }
   try {
-    await authenticated('/password', {
-      method: 'POST',
-      body: JSON.stringify({
-        currentPassword: passwords.currentPassword,
-        newPassword: passwords.newPassword,
-      }),
+    await changeCustomerPassword({
+      currentPassword: passwords.currentPassword,
+      newPassword: passwords.newPassword,
     });
     Object.assign(passwords, { currentPassword: '', newPassword: '', confirmPassword: '' });
     passwordMessage.value = '密码已更新';

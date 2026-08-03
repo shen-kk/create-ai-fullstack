@@ -1,6 +1,5 @@
 <script setup lang="ts">
-const { sendVerification } = useCustomerSession();
-const config = useRuntimeConfig();
+const { resetPassword, sendVerification } = useCustomerSession();
 const form = reactive({ phone: '', code: '', newPassword: '', confirmPassword: '' });
 const loading = ref(false);
 const sending = ref(false);
@@ -30,12 +29,7 @@ async function submit(): Promise<void> {
   }
   loading.value = true;
   try {
-    const response = await fetch(`${config.public.apiBaseUrl}/customer-auth/password/reset`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: form.phone, code: form.code, newPassword: form.newPassword }),
-    });
-    if (!response.ok) throw new Error('重置失败，请检查验证码');
+    await resetPassword({ phone: form.phone, code: form.code, newPassword: form.newPassword });
     notify('密码已重置，即将返回登录');
     setTimeout(() => navigateTo('/login'), 900);
   } catch (error) {
