@@ -1,6 +1,7 @@
 import type { AuthUser, ChangePasswordRequest, UpdateProfileRequest } from '@template/contracts';
 import { getAccessToken } from '../auth/session';
-const base = `${window.location.protocol}//${window.location.hostname}:3001/api`;
+import { apiBaseUrl } from './base';
+const base = apiBaseUrl;
 async function request<T>(path: string, method: 'PATCH' | 'POST', body: object): Promise<T> {
   const token = getAccessToken();
   const response = await fetch(`${base}${path}`, {

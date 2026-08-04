@@ -1,10 +1,10 @@
 import type { AuthSession, AuthUser, LoginRequest } from '@template/contracts';
+import { apiBaseUrl } from '../api/base';
 
 const tokenKey = 'template_access_token';
 const userKey = 'template_auth_user';
 const versionKey = 'template_session_version';
 const currentSessionVersion = '4';
-const base = `${window.location.protocol}//${window.location.hostname}:3001/api`;
 
 export const getAccessToken = (): string | null => sessionStorage.getItem(tokenKey);
 export function getCurrentUser(): AuthUser | null {
@@ -32,7 +32,7 @@ export function saveCurrentUser(user: AuthUser): void {
 }
 
 export async function login(input: LoginRequest): Promise<AuthUser> {
-  const response = await fetch(`${base}/auth/login`, {
+  const response = await fetch(`${apiBaseUrl}/auth/login`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -50,14 +50,16 @@ export async function restoreSession(): Promise<boolean> {
     const token = getAccessToken();
     if (token && getCurrentUser()) return true;
     if (token) {
-      const me = await fetch(`${base}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      const me = await fetch(`${apiBaseUrl}/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (me.ok) {
         sessionStorage.setItem(userKey, JSON.stringify((await me.json()) as AuthUser));
         return true;
       }
       clearSession();
     }
-    const response = await fetch(`${base}/auth/refresh`, {
+    const response = await fetch(`${apiBaseUrl}/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
     });
@@ -75,7 +77,7 @@ export async function restoreSession(): Promise<boolean> {
 
 export async function logout(): Promise<void> {
   try {
-    await fetch(`${base}/auth/logout`, { method: 'POST', credentials: 'include' });
+    await fetch(`${apiBaseUrl}/auth/logout`, { method: 'POST', credentials: 'include' });
   } catch {
     /* Local logout must still complete when the API is unavailable. */
   }

@@ -1,10 +1,5 @@
 import type { HealthResponse } from '@template/contracts';
-
-const configuredBaseUrl: unknown = import.meta.env['VITE_API_BASE_URL'];
-const apiBaseUrl =
-  typeof configuredBaseUrl === 'string'
-    ? configuredBaseUrl
-    : `${window.location.protocol}//${window.location.hostname}:3001/api`;
+import { apiBaseUrl } from './base';
 
 export async function getHealth(): Promise<HealthResponse> {
   const response = await fetch(`${apiBaseUrl}/health`, { signal: AbortSignal.timeout(4000) });

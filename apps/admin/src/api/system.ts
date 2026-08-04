@@ -1,7 +1,8 @@
 import type { SystemInfoResponse } from '@template/contracts';
 import { getAccessToken } from '../auth/session';
+import { apiBaseUrl } from './base';
 
-const base = `${window.location.protocol}//${window.location.hostname}:3001/api`;
+const base = apiBaseUrl;
 
 export async function getSystemInfo(): Promise<SystemInfoResponse> {
   const token = getAccessToken();

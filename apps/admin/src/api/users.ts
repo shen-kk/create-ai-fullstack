@@ -9,12 +9,7 @@ import type {
   UserSummary,
 } from '@template/contracts';
 import { getAccessToken } from '../auth/session';
-
-const configuredBaseUrl: unknown = import.meta.env['VITE_API_BASE_URL'];
-const apiBaseUrl =
-  typeof configuredBaseUrl === 'string'
-    ? configuredBaseUrl
-    : `${window.location.protocol}//${window.location.hostname}:3001/api`;
+import { apiBaseUrl } from './base';
 
 export async function getUsers(query: UserListQuery): Promise<UserListResponse> {
   const params = new URLSearchParams();

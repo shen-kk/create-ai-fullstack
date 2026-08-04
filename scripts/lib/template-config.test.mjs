@@ -89,5 +89,6 @@ test('renders a secret-free runtime module', () => {
   assert.match(output, /demo-project/);
   assert.match(output, /rolesAndPermissions/);
   assert.match(output, /"mode": "memory"/);
+  assert.match(output, /"apiPort": 3001/);
   assert.doesNotMatch(output, /DATABASE_URL|password/i);
 });

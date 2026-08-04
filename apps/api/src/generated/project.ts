@@ -4,6 +4,13 @@ export const project = {
   "packageScope": "@template",
   "displayName": "AI 友好全栈模板",
   "description": "可复用的后台管理、用户端与 API 项目模板",
+  "runtime": {
+    "packageManager": "pnpm",
+    "adminPort": 3000,
+    "apiPort": 3001,
+    "webPort": 3002,
+    "deployment": "local"
+  },
   "database": {
     "mode": "memory",
     "engine": "none",

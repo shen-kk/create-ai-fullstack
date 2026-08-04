@@ -167,5 +167,5 @@ export function provisionCommands(config) {
 }
 
 export function renderRuntimeProject(config) {
-  return `// 此文件由 pnpm template:init / template:sync 自动生成，请勿手工修改。\nexport const project = ${JSON.stringify({ name: config.project.name, packageScope: config.project.packageScope, displayName: config.project.displayName, description: config.project.description, database: config.database, localization: config.localization, ui: config.ui, modules: config.modules, providers: config.providers }, null, 2)} as const;\n`;
+  return `// 此文件由 pnpm template:init / template:sync 自动生成，请勿手工修改。\nexport const project = ${JSON.stringify({ name: config.project.name, packageScope: config.project.packageScope, displayName: config.project.displayName, description: config.project.description, runtime: config.runtime, database: config.database, localization: config.localization, ui: config.ui, modules: config.modules, providers: config.providers }, null, 2)} as const;\n`;
 }
