@@ -433,7 +433,10 @@ try {
     await replaceWorkspaceScope(packageScope);
     await formatWorkspaceIfAvailable();
     console.log('\n[DONE] 已生成 project.config.json、.env 与 docs/ai/PROJECT.md');
-    console.log('初始管理员密码已随机生成并仅写入 .env 的 DEV_ADMIN_PASSWORD，请首次登录后修改。');
+    console.log(`初始管理员手机号：${adminPhone}`);
+    console.log(
+      '初始管理员随机密码仅保存在项目根目录 .env 的 DEV_ADMIN_PASSWORD，请复制完整值登录并在首次登录后修改。',
+    );
     if (provisionNow) {
       const pnpmEntry = process.env.npm_execpath;
       const executable = pnpmEntry

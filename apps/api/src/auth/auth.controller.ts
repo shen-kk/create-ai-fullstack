@@ -19,6 +19,7 @@ export class AuthController {
     private readonly loginLimiter: LoginRateLimiter,
   ) {}
   @Post('login')
+  @HttpCode(200)
   async login(
     @Body() input: LoginDto,
     @Req() request: Request,

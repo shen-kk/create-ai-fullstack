@@ -4,8 +4,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { login } from '../auth/session';
 import { project } from '../generated/project';
 
-const phone = ref('13800000000'),
-  password = ref('Admin@123456'),
+const phone = ref(''),
+  password = ref(''),
   error = ref(''),
   submitting = ref(false);
 const router = useRouter(),
@@ -92,7 +92,10 @@ async function submit(): Promise<void> {
             {{ submitting ? '正在安全登录…' : '登录管理后台' }}
           </button>
         </form>
-        <p class="demo-tip">开发账号仅用于本地预览，生产环境请在初始化时设置独立账号。</p>
+        <p class="demo-tip">
+          初始手机号和随机密码保存在项目根目录 <code>.env</code> 的
+          <code>DEV_ADMIN_PHONE</code>、<code>DEV_ADMIN_PASSWORD</code>，首次登录后请立即修改密码。
+        </p>
       </div>
     </section>
   </main>

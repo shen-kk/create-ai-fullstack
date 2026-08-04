@@ -4,6 +4,8 @@
 
 ## 当前事实
 
+- Admin 登录页不预填固定演示账号或 `Admin@123456`；初始化管理员使用 `.env` 中每个项目独立生成的 `DEV_ADMIN_PHONE` / `DEV_ADMIN_PASSWORD`。初始化结束只显示手机号和密码所在字段，不回显随机密码；登录接口成功状态为 HTTP 200。
+
 - `template:init` 默认进入 custom 自定义模式。Redis 连接或鉴权失败会保留在当前初始化向导并默认要求重新填写，不再结束整个初始化。开发任务调度器必须加载根目录 `.env` 并通过 Turbo `dev.env` 传给 API，确保 `DATA_SOURCE=prisma` 实际选择 Prisma 仓库而不是静默回退内存假数据。未启用用户端时 Admin 隐藏整个空“用户运营”分组，API 权限目录、角色响应和数据库种子同时移除 `customers`、`verification` 权限。
 
 - 初始化向导的 quick、standard、custom 交互模式均显式询问是否启用用户端并输出最终选择；PostgreSQL 按主机、端口、库名、用户名、密码分项收集。正式数据库可在向导结尾立即刷新 workspace、校验连接、部署迁移、创建初始管理员。初始化填写的 SQL/Redis/对象存储/短信/邮件/支付配置通过 Git 忽略的一次性文件传递，种子程序使用 `CONFIG_ENCRYPTION_KEY` 加密写入 `IntegrationConfig`，成功后删除；Redis 配置在入库前执行 PING/鉴权校验。
