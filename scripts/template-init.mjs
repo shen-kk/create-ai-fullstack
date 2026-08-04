@@ -11,6 +11,7 @@ import {
   renderRuntimeProject,
   validateProjectConfig,
 } from './lib/template-config.mjs';
+import { checkRedisConnection } from './lib/infrastructure-checks.mjs';
 
 const root = new URL('../', import.meta.url);
 const args = new Set(process.argv.slice(2));
@@ -74,22 +75,34 @@ const collectIntegrationBootstrap = async (modules, objectStorageProvider, datab
       ),
     );
   if (modules.redis && (await yes('现在填写并校验 Redis 配置', false))) {
-    const provider = await choose('Redis 部署平台', [
-      { value: 'self_hosted', label: '自建 Redis' },
-      { value: 'tencent_redis', label: '腾讯云 Redis' },
-      { value: 'aliyun_redis', label: '阿里云 Redis' },
-    ]);
-    const redisTarget = new URL(await ask('Redis URL', 'redis://127.0.0.1:6379'));
-    const urlPassword = decodeURIComponent(redisTarget.password);
-    redisTarget.password = '';
-    items.push(
-      integration(
+    while (true) {
+      const provider = await choose('Redis 部署平台', [
+        { value: 'self_hosted', label: '自建 Redis' },
+        { value: 'tencent_redis', label: '腾讯云 Redis' },
+        { value: 'aliyun_redis', label: '阿里云 Redis' },
+      ]);
+      const redisTarget = new URL(await ask('Redis URL', 'redis://127.0.0.1:6379'));
+      const urlPassword = decodeURIComponent(redisTarget.password);
+      redisTarget.password = '';
+      const redis = integration(
         'redis',
         true,
         { provider, url: redisTarget.toString() },
         { password: (await optional('Redis 密码（无密码直接回车）')) || urlPassword },
-      ),
-    );
+      );
+      try {
+        console.log('[CHECK] 正在校验 Redis 连接与鉴权。');
+        await checkRedisConnection(redis);
+        console.log('[PASS] Redis 连接与鉴权通过。');
+        items.push(redis);
+        break;
+      } catch (error) {
+        console.log(
+          `[RETRY] Redis 配置无效：${error instanceof Error ? error.message : '连接失败'}`,
+        );
+        if (!(await yes('重新填写 Redis 配置', true))) break;
+      }
+    }
   }
   if (modules.objectStorage && (await yes('现在填写对象存储配置', false)))
     items.push(
@@ -227,11 +240,15 @@ try {
   console.log('\nAdminback 模板初始化\n敏感信息只写入本机 .env，不会写入 project.config.json。\n');
   const preset =
     presetArgument ??
-    (await choose('初始化模式', [
-      { value: 'quick', label: '快速：内存预览，最少外部依赖' },
-      { value: 'standard', label: '标准：PostgreSQL、Redis、对象存储和邮件能力' },
-      { value: 'custom', label: '自定义：逐项选择基础能力' },
-    ]));
+    (await choose(
+      '初始化模式',
+      [
+        { value: 'quick', label: '快速：内存预览，最少外部依赖' },
+        { value: 'standard', label: '标准：PostgreSQL、Redis、对象存储和邮件能力' },
+        { value: 'custom', label: '自定义：逐项选择基础能力' },
+      ],
+      2,
+    ));
   if (!['quick', 'standard', 'custom'].includes(preset))
     throw new Error('PRESET_INVALID：仅支持 quick、standard、custom');
   const name = await ask('项目英文名称', 'admin-project', (value) =>

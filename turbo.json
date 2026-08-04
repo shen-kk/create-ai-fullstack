@@ -1,7 +1,30 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "dev": { "cache": false, "persistent": true },
+    "dev": {
+      "cache": false,
+      "persistent": true,
+      "env": [
+        "NODE_ENV",
+        "ADMIN_PORT",
+        "API_PORT",
+        "WEB_PORT",
+        "DATABASE_URL",
+        "DATA_SOURCE",
+        "PUBLIC_API_BASE_URL",
+        "ADMIN_ORIGIN",
+        "WEB_ORIGIN",
+        "JWT_ACCESS_SECRET",
+        "JWT_REFRESH_SECRET",
+        "CUSTOMER_JWT_ACCESS_SECRET",
+        "CUSTOMER_JWT_REFRESH_SECRET",
+        "CONFIG_ENCRYPTION_KEY",
+        "DEV_ADMIN_EMAIL",
+        "DEV_ADMIN_PHONE",
+        "DEV_ADMIN_NAME",
+        "DEV_ADMIN_PASSWORD"
+      ]
+    },
     "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".nuxt/**", "!.nuxt/cache/**"] },
     "lint": { "dependsOn": ["^build", "^lint"] },
     "typecheck": { "dependsOn": ["^build", "^typecheck"] },

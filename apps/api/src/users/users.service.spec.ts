@@ -5,6 +5,7 @@ import { MemoryUsersRepository } from './memory-users.repository.js';
 import { UsersService } from './users.service.js';
 import { AuditService } from '../audit/audit.service.js';
 import { MemoryAuditRepository } from '../audit/memory-audit.repository.js';
+import { project } from '../generated/project.js';
 
 describe('UsersService', () => {
   const service = new UsersService(
@@ -136,5 +137,39 @@ describe('UsersService', () => {
       type: 'action',
       groupCode: 'users',
     });
+  });
+
+  it('removes user-web permissions when the user-facing application is disabled', async () => {
+    const modules = project.modules as { userWeb: boolean; customerAuthentication: boolean };
+    const previous = {
+      userWeb: modules.userWeb,
+      customerAuthentication: modules.customerAuthentication,
+    };
+    modules.userWeb = false;
+    modules.customerAuthentication = false;
+    try {
+      const permissions = await service.listPermissions();
+      const roles = await service.listRoles();
+      expect(
+        permissions.some((item) => ['customers', 'verification'].includes(item.groupCode)),
+      ).toBe(false);
+      expect(
+        roles.some((role) =>
+          role.permissions.some(
+            (code) => code.startsWith('customers.') || code.startsWith('verification.'),
+          ),
+        ),
+      ).toBe(false);
+      await expect(
+        service.createRole({
+          code: 'invalid_customer_role',
+          name: '无效用户端角色',
+          permissions: ['verification.read'],
+        }),
+      ).rejects.toThrow('PERMISSION_MODULE_DISABLED');
+    } finally {
+      modules.userWeb = previous.userWeb;
+      modules.customerAuthentication = previous.customerAuthentication;
+    }
   });
 });

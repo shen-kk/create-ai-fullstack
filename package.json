@@ -8,9 +8,9 @@
   "scripts": {
     "dev": "pnpm dev:local",
     "dev:local": "node scripts/run-enabled.mjs dev",
-    "dev:admin": "pnpm --filter @template/admin dev",
-    "dev:api": "pnpm --filter @template/api dev",
-    "dev:web": "pnpm --filter @template/web dev",
+    "dev:admin": "node scripts/run-enabled.mjs dev admin",
+    "dev:api": "node scripts/run-enabled.mjs dev api",
+    "dev:web": "node scripts/run-enabled.mjs dev web",
     "build": "node scripts/run-enabled.mjs build",
     "lint": "node scripts/run-enabled.mjs lint",
     "typecheck": "node scripts/run-enabled.mjs typecheck",

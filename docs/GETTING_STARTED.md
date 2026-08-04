@@ -31,6 +31,8 @@ pnpm install --frozen-lockfile
 
 ## 第三步：选择初始化模式
 
+直接运行 `pnpm template:init` 时默认选中 `custom` 自定义模式；直接回车即可逐项选择真实数据库、用户端和服务能力。
+
 只想立即查看后台和用户端，选择快速模式：
 
 ```bash

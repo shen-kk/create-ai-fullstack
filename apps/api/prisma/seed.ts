@@ -3,6 +3,7 @@ import { permissionCatalog } from '@template/contracts';
 import { createCipheriv, createHash, randomBytes, scrypt } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
+import { project } from '../src/generated/project.js';
 
 const prisma = new PrismaClient();
 const scryptAsync = promisify(scrypt);
@@ -58,7 +59,18 @@ async function seedIntegrationConfigs(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  for (const permission of permissionCatalog) {
+  const customerGroups = new Set(['customers', 'verification']);
+  const userWebEnabled = project.modules.userWeb && project.modules.customerAuthentication;
+  const enabledPermissions = permissionCatalog.filter(
+    (permission) => userWebEnabled || !customerGroups.has(permission.groupCode),
+  );
+  const disabledPermissionCodes = permissionCatalog
+    .filter((permission) => !userWebEnabled && customerGroups.has(permission.groupCode))
+    .map((permission) => permission.code);
+  await prisma.permission.deleteMany({
+    where: { code: { in: disabledPermissionCodes } },
+  });
+  for (const permission of enabledPermissions) {
     const { code, description, groupCode } = permission;
     const type = permission.type === 'menu' ? PermissionType.MENU : PermissionType.ACTION;
     await prisma.permission.upsert({

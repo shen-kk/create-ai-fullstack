@@ -1,10 +1,9 @@
 import { readFile, rm } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
-import { connect as connectTcp } from 'node:net';
-import { connect as connectTls } from 'node:tls';
 import process from 'node:process';
 import { parseEnv, provisionCommands, validateProjectConfig } from './lib/template-config.mjs';
+import { checkRedisConnection } from './lib/infrastructure-checks.mjs';
 
 const root = new URL('../', import.meta.url),
   rootPath = decodeURIComponent(root.pathname.replace(/^\/(?=[A-Za-z]:)/, ''));
@@ -17,47 +16,6 @@ const executable = pnpmEntry
   : process.platform === 'win32'
     ? 'pnpm.cmd'
     : 'pnpm';
-
-const checkRedis = async (item) => {
-  const target = new URL(item.values.url);
-  if (!['redis:', 'rediss:'].includes(target.protocol))
-    throw new Error('Redis URL 必须使用 redis:// 或 rediss://');
-  await new Promise((resolve, reject) => {
-    const socket =
-      target.protocol === 'rediss:'
-        ? connectTls({ host: target.hostname, port: Number(target.port || 6380) })
-        : connectTcp({ host: target.hostname, port: Number(target.port || 6379) });
-    const timer = setTimeout(() => socket.destroy(new Error('Redis 连接超时')), 5000);
-    let response = '';
-    socket.setEncoding('utf8');
-    socket.once('error', reject);
-    socket.on('data', (chunk) => {
-      response += chunk;
-      if (response.includes('+PONG')) {
-        clearTimeout(timer);
-        socket.end();
-        resolve();
-      } else if (response.includes('-ERR') || response.includes('-WRONGPASS')) {
-        clearTimeout(timer);
-        socket.destroy();
-        reject(new Error('Redis 鉴权失败'));
-      }
-    });
-    socket.once('connect', () => {
-      const password = item.secrets.password || decodeURIComponent(target.password);
-      const username = decodeURIComponent(target.username);
-      const commands = [];
-      if (password) {
-        const parts = username ? ['AUTH', username, password] : ['AUTH', password];
-        commands.push(
-          `*${parts.length}\r\n${parts.map((part) => `$${Buffer.byteLength(part)}\r\n${part}\r\n`).join('')}`,
-        );
-      }
-      commands.push('*1\r\n$4\r\nPING\r\n');
-      socket.write(commands.join(''));
-    });
-  });
-};
 
 try {
   const config = JSON.parse(await readFile(new URL('project.config.json', root), 'utf8'));
@@ -95,7 +53,7 @@ try {
     const redis = bootstrap.integrations?.find((item) => item.kind === 'redis' && item.enabled);
     if (redis) {
       console.log('[CHECK] 正在校验 Redis 连接与鉴权。');
-      await checkRedis(redis);
+      await checkRedisConnection(redis);
       console.log('[PASS] Redis 连接与鉴权通过。');
     }
   } catch (error) {

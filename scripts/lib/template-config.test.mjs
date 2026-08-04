@@ -88,5 +88,6 @@ test('renders a secret-free runtime module', () => {
   const output = renderRuntimeProject(valid);
   assert.match(output, /demo-project/);
   assert.match(output, /rolesAndPermissions/);
+  assert.match(output, /"mode": "memory"/);
   assert.doesNotMatch(output, /DATABASE_URL|password/i);
 });

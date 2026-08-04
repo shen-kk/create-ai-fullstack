@@ -32,6 +32,8 @@ PostgreSQL 按主机、端口、库名、用户名和密码分项收集并生成
 - `standard`：PostgreSQL + Prisma，并声明 Redis、对象存储和邮件能力。
 - `custom`：逐项选择已实现的基础能力。
 
+直接运行初始化命令时默认选择 `custom`。Redis 校验失败会在当前向导中显示错误并重新询问连接信息，不会退出整个初始化流程。
+
 也可以跳过模式提问：`pnpm template:init -- --preset=standard`。选择能力只生成项目声明和运行配置，不会自动连接数据库或执行迁移。
 
 用户端选择是所有模式都会询问的独立问题。启用时会同时启用 `userWeb`、`customerAuthentication`、用户端权限和后台用户端用户管理；停用时 Web 不进入默认开发、检查、测试与构建，相关 API、菜单和权限目录也不生效。
@@ -66,3 +68,5 @@ pnpm template:init -- --defaults --dry-run
 发布模板前运行 `pnpm template:verify`。它会在系统临时目录创建不包含 Git 历史、依赖、构建产物和本地密钥的副本，执行真实 quick 初始化与 Doctor，并检查项目声明和 AI 记忆中不存在敏感字段；完成后自动清理临时目录。调试失败现场时可追加 `--keep`。
 
 冻结版本前还应执行 `pnpm template:verify -- --full`。完整模式会在干净副本中启用用户端能力，安装锁定依赖、刷新命名空间链接、生成 Prisma Client，并执行 Admin、API、Web 和共享契约的格式、Lint、类型、测试与生产构建；它不会连接业务数据库。完整的人工流程见 `docs/MANUAL_ACCEPTANCE.md`。
+
+验证未启用用户端的裁剪结果时运行 `pnpm template:verify -- --full --no-user-web`；该模式要求用户端能力、默认任务、后台菜单和权限目录均保持停用。

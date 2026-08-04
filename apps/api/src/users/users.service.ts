@@ -1,4 +1,4 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import type {
   PermissionOption,
   RoleOption,
@@ -82,8 +82,12 @@ export class UsersService {
     return user;
   }
 
-  listRoles(): Promise<RoleOption[]> {
-    return this.repository.listRoles();
+  async listRoles(): Promise<RoleOption[]> {
+    const roles = await this.repository.listRoles();
+    return roles.map((role) => ({
+      ...role,
+      permissions: role.permissions.filter((code) => this.isPermissionEnabled(code)),
+    }));
   }
 
   async assignRoles(
@@ -107,9 +111,10 @@ export class UsersService {
   async listPermissions(): Promise<PermissionOption[]> {
     const permissions = await this.repository.listPermissions();
     if (project.modules.userWeb && project.modules.customerAuthentication) return permissions;
-    return permissions.filter((permission) => permission.groupCode !== 'customers');
+    return permissions.filter((permission) => this.isPermissionGroupEnabled(permission.groupCode));
   }
   async createRole(input: CreateRoleDto, context: UserAuditContext = {}): Promise<RoleOption> {
+    this.assertPermissionsEnabled(input.permissions);
     const role = await this.repository.createRole(input);
     await this.audit.record({
       ...context,
@@ -126,6 +131,7 @@ export class UsersService {
     input: UpdateRoleDto,
     context: UserAuditContext = {},
   ): Promise<RoleOption> {
+    this.assertPermissionsEnabled(input.permissions);
     const role = await this.repository.updateRole(code, input);
     if (!role) throw new NotFoundException('ROLE_NOT_FOUND');
     await this.audit.record({
@@ -137,5 +143,25 @@ export class UsersService {
       metadata: { permissions: input.permissions },
     });
     return role;
+  }
+
+  private isPermissionGroupEnabled(groupCode: string): boolean {
+    if (project.modules.userWeb && project.modules.customerAuthentication) return true;
+    return !['customers', 'verification'].includes(groupCode);
+  }
+
+  private isPermissionEnabled(code: string): boolean {
+    const groupCode =
+      code.startsWith('menu.customers') || code.startsWith('customers.')
+        ? 'customers'
+        : code.startsWith('menu.verification') || code.startsWith('verification.')
+          ? 'verification'
+          : '';
+    return this.isPermissionGroupEnabled(groupCode);
+  }
+
+  private assertPermissionsEnabled(codes: string[]): void {
+    if (codes.some((code) => !this.isPermissionEnabled(code)))
+      throw new BadRequestException('PERMISSION_MODULE_DISABLED');
   }
 }

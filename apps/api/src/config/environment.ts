@@ -10,10 +10,10 @@ export function validateEnvironment(environment: NodeJS.ProcessEnv = process.env
   const port = Number(environment.API_PORT ?? 3001);
   if (!Number.isInteger(port) || port < 1 || port > 65535)
     throw new Error('API_PORT must be an integer between 1 and 65535');
-  const dataSource = environment.DATA_SOURCE ?? 'memory';
+  const initializedDataSource = String(project.database.mode);
+  const dataSource = environment.DATA_SOURCE ?? initializedDataSource;
   if (dataSource !== 'memory' && dataSource !== 'prisma')
     throw new Error('DATA_SOURCE must be either memory or prisma');
-
   if (environment.NODE_ENV === 'production') {
     if (dataSource !== 'prisma') throw new Error('DATA_SOURCE must be prisma in production');
     if (!environment.DATABASE_URL) throw new Error('DATABASE_URL is required in production');
@@ -24,4 +24,11 @@ export function validateEnvironment(environment: NodeJS.ProcessEnv = process.env
     if (!environment.ADMIN_ORIGIN || !environment.WEB_ORIGIN)
       throw new Error('ADMIN_ORIGIN and WEB_ORIGIN are required in production');
   }
+  if (!environment.DATA_SOURCE && initializedDataSource === 'prisma')
+    throw new Error('DATA_SOURCE is required for an initialized Prisma project');
+  if (dataSource !== initializedDataSource)
+    throw new Error(
+      `DATA_SOURCE ${dataSource} does not match initialized project database mode ${initializedDataSource}`,
+    );
 }
+import { project } from '../generated/project.js';

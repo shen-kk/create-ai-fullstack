@@ -39,7 +39,7 @@ interface MenuGroup {
   items: MenuItem[];
 }
 
-const menuGroups: MenuGroup[] = [
+const allMenuGroups: MenuGroup[] = [
   {
     label: '概览',
     items: [
@@ -127,6 +127,11 @@ function canAccess(item: MenuItem): boolean {
   const granted = new Set(currentUser.value?.permissions ?? []);
   return item.permissions.every((permission) => granted.has(permission));
 }
+const menuGroups = computed(() =>
+  allMenuGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => canAccess(item)) }))
+    .filter((group) => group.items.length > 0),
+);
 </script>
 
 <template>
@@ -153,7 +158,7 @@ function canAccess(item: MenuItem): boolean {
           <p class="menu-label">{{ group.label }}</p>
           <template v-for="item in group.items" :key="item.path">
             <router-link
-              v-if="item.implemented && canAccess(item)"
+              v-if="item.implemented"
               :to="item.path"
               class="menu-item"
               @click="sidebarOpen = false"

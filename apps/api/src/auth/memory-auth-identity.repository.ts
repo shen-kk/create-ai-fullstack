@@ -3,6 +3,15 @@ import type { AuthUser } from '@template/contracts';
 import { hashScryptPassword, verifyScryptPassword } from './password-hash.js';
 
 import type { AuthIdentityRepository } from './auth-identity.repository.js';
+import { project } from '../generated/project.js';
+
+const customerPermissions = new Set([
+  'menu.customers',
+  'menu.verification',
+  'customers.read',
+  'customers.write',
+  'verification.read',
+]);
 
 @Injectable()
 export class MemoryAuthIdentityRepository implements AuthIdentityRepository {
@@ -30,7 +39,11 @@ export class MemoryAuthIdentityRepository implements AuthIdentityRepository {
       'verification.read',
       'system.read',
       'integrations.manage',
-    ],
+    ].filter(
+      (permission) =>
+        (project.modules.userWeb && project.modules.customerAuthentication) ||
+        !customerPermissions.has(permission),
+    ),
   };
   private passwordHash = hashScryptPassword(process.env.DEV_ADMIN_PASSWORD ?? 'Admin@123456');
 

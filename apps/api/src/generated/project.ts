@@ -4,6 +4,11 @@ export const project = {
   "packageScope": "@template",
   "displayName": "AI 友好全栈模板",
   "description": "可复用的后台管理、用户端与 API 项目模板",
+  "database": {
+    "mode": "memory",
+    "engine": "none",
+    "orm": "none"
+  },
   "localization": {
     "defaultLocale": "zh-CN",
     "supportedLocales": [
