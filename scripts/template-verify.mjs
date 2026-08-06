@@ -69,11 +69,7 @@ try {
     console.log('[FULL] 在初始化前安装锁定依赖，模拟文档推荐的新项目流程。');
     runCommand(pnpm, pnpmArgs(['install', '--frozen-lockfile']));
   }
-  run('template-init.mjs', [
-    '--defaults',
-    '--preset=quick',
-    ...(userWeb ? ['--user-web'] : []),
-  ]);
+  run('template-init.mjs', ['--defaults', '--preset=quick', ...(userWeb ? ['--user-web'] : [])]);
   run('template-doctor.mjs');
   const config = await readFile(join(target, 'project.config.json'), 'utf8');
   const context = await readFile(join(target, 'docs', 'ai', 'PROJECT.md'), 'utf8');

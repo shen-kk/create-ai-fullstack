@@ -30,6 +30,7 @@ export class MemoryAuthIdentityRepository implements AuthIdentityRepository {
       'menu.verification',
       'menu.system',
       'menu.integrations',
+      'menu.deployments',
       'users.read',
       'users.write',
       'customers.read',
@@ -39,6 +40,9 @@ export class MemoryAuthIdentityRepository implements AuthIdentityRepository {
       'verification.read',
       'system.read',
       'integrations.manage',
+      'deployments.read',
+      'deployments.manage',
+      'deployments.execute',
     ].filter(
       (permission) =>
         (project.modules.userWeb && project.modules.customerAuthentication) ||
@@ -53,7 +57,7 @@ export class MemoryAuthIdentityRepository implements AuthIdentityRepository {
     return this.user;
   }
 
-  markActive(_id: string, _activeAt: Date): Promise<void> {
+  markActive(): Promise<void> {
     return Promise.resolve();
   }
 

@@ -7,6 +7,6 @@
   "database": { "mode": "memory", "engine": "none", "orm": "none" },
   "localization": { "defaultLocale": "zh-CN", "supportedLocales": ["zh-CN"] },
   "ui": { "web": { "businessComponents": "shadcn-vue", "motion": "vueuse-motion", "orchestration": "gsap", "designStandard": "apple-linear-vercel" } },
-  "modules": { "authentication": true, "customerAuthentication": true, "userWeb": true, "adminUsers": true, "rolesAndPermissions": true, "auditLogs": true, "serviceConfig": true, "objectStorage": true, "redis": true, "sms": true, "email": true, "payment": true },
+  "modules": { "authentication": true, "customerAuthentication": true, "userWeb": true, "adminUsers": true, "rolesAndPermissions": true, "auditLogs": true, "serviceConfig": true, "deploymentCenter": true, "objectStorage": true, "redis": true, "sms": true, "email": true, "payment": true },
   "providers": { "objectStorage": "tencent_cos" }
 }

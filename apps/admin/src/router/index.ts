@@ -54,6 +54,18 @@ export const router = createRouter({
       component: () => import('../views/IntegrationsView.vue'),
       meta: { title: '服务配置', permissions: ['menu.integrations', 'integrations.manage'] },
     },
+    ...(project.modules.deploymentCenter
+      ? [
+          {
+            path: '/deployments',
+            component: () => import('../views/DeploymentsView.vue'),
+            meta: {
+              title: '部署中心',
+              permissions: ['menu.deployments', 'deployments.read'],
+            },
+          },
+        ]
+      : []),
     {
       path: '/login',
       component: () => import('../views/LoginView.vue'),

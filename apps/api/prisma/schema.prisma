@@ -18,6 +18,30 @@ enum PermissionType {
   ACTION
 }
 
+enum DeploymentEnvironment {
+  DEVELOPMENT
+  TEST
+  STAGING
+  PRODUCTION
+  CUSTOM
+}
+
+enum DeploymentTargetStatus {
+  DRAFT
+  VERIFIED
+  UNREACHABLE
+}
+
+enum DeploymentRunStatus {
+  QUEUED
+  BUILDING
+  DEPLOYING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  ROLLED_BACK
+}
+
 model User {
   id              String           @id @default(cuid())
   phone           String           @unique
@@ -33,6 +57,7 @@ model User {
   roles           UserRole[]
   sessions        RefreshSession[]
   auditLogs       AuditLog[]       @relation("AuditActor")
+  deploymentRuns DeploymentRun[]  @relation("DeploymentActor")
 
   @@index([status, createdAt])
 }
@@ -69,6 +94,52 @@ model IntegrationConfig {
   encryptedSecrets String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+model DeploymentTarget {
+  id               String                  @id @default(cuid())
+  name             String                  @unique
+  environment      DeploymentEnvironment
+  applications     String[]
+  host             String
+  sshPort          Int                     @default(22)
+  sshUser          String
+  deployPath       String
+  accessMode       String
+  adminUrl         String?
+  apiUrl           String?
+  webUrl           String?
+  cnbRepository    String?
+  cnbEvent         String                  @default("api_trigger_deploy")
+  encryptedSecrets String?
+  status           DeploymentTargetStatus  @default(DRAFT)
+  lastVerifiedAt   DateTime?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  runs             DeploymentRun[]
+
+  @@index([environment, updatedAt])
+}
+
+model DeploymentRun {
+  id           String               @id @default(cuid())
+  targetId     String
+  actorId      String?
+  version      String
+  applications String[]
+  status       DeploymentRunStatus  @default(QUEUED)
+  currentStep  String?
+  steps        Json
+  cnbBuildId   String?
+  errorCode    String?
+  createdAt    DateTime             @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+  target       DeploymentTarget     @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  actor        User?                @relation("DeploymentActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([targetId, createdAt])
+  @@index([status, createdAt])
 }
 
 model UserRole {
