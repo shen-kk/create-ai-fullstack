@@ -53,6 +53,10 @@ export class MemoryAuthIdentityRepository implements AuthIdentityRepository {
     return this.user;
   }
 
+  markActive(_id: string, _activeAt: Date): Promise<void> {
+    return Promise.resolve();
+  }
+
   findActiveById(id: string): Promise<AuthUser | null> {
     return Promise.resolve(id === this.user.id ? this.user : null);
   }

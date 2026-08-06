@@ -5,6 +5,7 @@
 ## 当前事实
 
 - Admin 登录页不预填固定演示账号或 `Admin@123456`；初始化管理员使用 `.env` 中每个项目独立生成的 `DEV_ADMIN_PHONE` / `DEV_ADMIN_PASSWORD`。初始化结束只显示手机号和密码所在字段，不回显随机密码；登录接口成功状态为 HTTP 200。
+- Admin 管理员成功完成密码登录后更新 `User.lastActiveAt`，用户管理列表的“最近活跃”展示该真实时间；认证失败不得更新。后台 `.page-content` 不设置桌面端最大宽度，在高分辨率屏幕上使用侧边栏以外的全部可用空间。
 - Admin 的全部 API 请求统一使用 `src/api/base.ts` 解析地址：优先采用部署时的 `VITE_API_BASE_URL`，否则读取初始化生成的 `project.runtime.apiPort`。禁止在会话或业务 API 文件中硬编码 `3001`，避免自定义端口被浏览器误报为 CORS 错误。
 
 - `template:init` 默认进入 custom 自定义模式。Redis 连接或鉴权失败会保留在当前初始化向导并默认要求重新填写，不再结束整个初始化。开发任务调度器必须加载根目录 `.env` 并通过 Turbo `dev.env` 传给 API，确保 `DATA_SOURCE=prisma` 实际选择 Prisma 仓库而不是静默回退内存假数据。未启用用户端时 Admin 隐藏整个空“用户运营”分组，API 权限目录、角色响应和数据库种子同时移除 `customers`、`verification` 权限。

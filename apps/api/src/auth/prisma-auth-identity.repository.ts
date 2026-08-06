@@ -37,6 +37,10 @@ export class PrismaAuthIdentityRepository implements AuthIdentityRepository {
     return this.toAuthUser(user);
   }
 
+  async markActive(id: string, activeAt: Date): Promise<void> {
+    await this.prisma.user.update({ where: { id }, data: { lastActiveAt: activeAt } });
+  }
+
   async findActiveById(id: string): Promise<AuthUser | null> {
     const user = await this.prisma.user.findFirst({
       where: { id, status: UserStatus.ACTIVE },

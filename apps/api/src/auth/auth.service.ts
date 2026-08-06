@@ -39,6 +39,7 @@ export class AuthService {
   ): Promise<AuthSession & { refreshToken: string }> {
     const user = await this.identities.authenticate(phone, password);
     if (!user) throw new UnauthorizedException('INVALID_CREDENTIALS');
+    await this.identities.markActive(user.id, new Date());
     return this.issueSession(user, metadata);
   }
 
