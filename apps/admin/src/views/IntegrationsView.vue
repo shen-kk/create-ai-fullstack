@@ -105,7 +105,7 @@ onMounted(load);
         </button>
       </article>
     </section>
-    <div v-if="editing" class="dialog-backdrop" @click.self="editing = undefined">
+    <div v-if="editing" class="dialog-backdrop">
       <form class="user-dialog integration-dialog" @submit.prevent="save">
         <header>
           <div>

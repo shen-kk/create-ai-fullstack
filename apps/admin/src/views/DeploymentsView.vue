@@ -313,7 +313,7 @@ onMounted(load);
       </article>
     </section>
 
-    <div v-if="dialogOpen" class="dialog-backdrop" @click.self="dialogOpen = false">
+    <div v-if="dialogOpen" class="dialog-backdrop">
       <form class="user-dialog deployment-dialog" @submit.prevent="save">
         <header>
           <div>
@@ -437,11 +437,7 @@ onMounted(load);
       </form>
     </div>
 
-    <div
-      v-if="runDialogOpen && selectedTarget"
-      class="dialog-backdrop"
-      @click.self="runDialogOpen = false"
-    >
+    <div v-if="runDialogOpen && selectedTarget" class="dialog-backdrop">
       <form class="user-dialog deployment-run-dialog" @submit.prevent="deploy">
         <header>
           <div>

@@ -275,7 +275,7 @@ onMounted(loadUsers);
         </div>
       </footer>
     </section>
-    <div v-if="createOpen" class="dialog-backdrop" @click.self="createOpen = false">
+    <div v-if="createOpen" class="dialog-backdrop">
       <form class="user-dialog" @submit.prevent="submitCreate">
         <header>
           <div>
@@ -319,7 +319,7 @@ onMounted(loadUsers);
         </footer>
       </form>
     </div>
-    <div v-if="editOpen" class="dialog-backdrop" @click.self="editOpen = false">
+    <div v-if="editOpen" class="dialog-backdrop">
       <form class="user-dialog" @submit.prevent="submitEdit">
         <header>
           <div>
@@ -353,7 +353,7 @@ onMounted(loadUsers);
         </footer>
       </form>
     </div>
-    <div v-if="rolesOpen" class="dialog-backdrop" @click.self="rolesOpen = false">
+    <div v-if="rolesOpen" class="dialog-backdrop">
       <form class="user-dialog" @submit.prevent="submitRoles">
         <header>
           <div>

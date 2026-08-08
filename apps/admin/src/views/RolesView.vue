@@ -122,7 +122,7 @@ onMounted(load);
         <p v-else class="system-role-tip">系统角色受保护，不允许修改</p>
       </article>
     </div>
-    <div v-if="dialogOpen" class="dialog-backdrop" @click.self="dialogOpen = false">
+    <div v-if="dialogOpen" class="dialog-backdrop">
       <form class="user-dialog role-dialog" @submit.prevent="submit">
         <header>
           <div>
