@@ -53,7 +53,7 @@ export class UpsertDeploymentTargetDto implements UpsertDeploymentTargetRequest 
   @Transform(emptyToUndefined)
   @IsOptional()
   @IsString()
-  @Matches(/^[a-zA-Z0-9._-]+\/[a-zA-Z0-9._/-]+$/)
+  @Matches(/^(?:https?:\/\/cnb\.cool\/)?[a-zA-Z0-9._-]+\/[a-zA-Z0-9._/-]+$/)
   cnbRepository?: string;
   @Transform(emptyToUndefined)
   @IsOptional()

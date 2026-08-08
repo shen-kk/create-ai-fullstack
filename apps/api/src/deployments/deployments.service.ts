@@ -446,9 +446,16 @@ export class DeploymentsService {
       adminUrl: input.adminUrl?.trim() || null,
       apiUrl: input.apiUrl?.trim() || null,
       webUrl: input.webUrl?.trim() || null,
-      cnbRepository: input.cnbRepository?.trim() || null,
+      cnbRepository: this.normalizeCnbRepository(input.cnbRepository),
       cnbEvent: input.cnbEvent?.trim() || 'api_trigger_deploy',
     };
+  }
+
+  private normalizeCnbRepository(value?: string): string | null {
+    const raw = value?.trim();
+    if (!raw) return null;
+    const normalized = raw.replace(/^https?:\/\/cnb\.cool\//i, '').replace(/^\/+|\/+$/g, '');
+    return normalized || null;
   }
 
   private targetData(input: UpsertDeploymentTargetRequest, encryptedSecrets: string) {
