@@ -388,10 +388,9 @@ export class DeploymentsService {
   private validateTarget(input: UpsertDeploymentTargetRequest): void {
     const applications = [...new Set(input.applications)];
     this.assertApplicationsEnabled(applications);
-    if (!applications.includes('api')) throw new BadRequestException('DEPLOYMENT_API_REQUIRED');
     const requiredUrls = [
       applications.includes('admin') ? input.adminUrl : 'unused',
-      input.apiUrl,
+      applications.includes('api') ? input.apiUrl : 'unused',
       applications.includes('web') ? input.webUrl : 'unused',
     ];
     if (requiredUrls.some((url) => !url))

@@ -2540,7 +2540,7 @@ td {
   color: #7b8699;
 }
 .deployment-dialog {
-  width: min(860px, calc(100vw - 32px));
+  width: min(1040px, calc(100vw - 32px));
   max-height: calc(100vh - 40px);
   overflow-y: auto;
 }
@@ -2588,6 +2588,21 @@ td {
   background: #f7f9fc;
   border: 1px solid #e5e9f0;
   border-radius: 10px;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+.app-choice:focus-within {
+  border-color: #6d7cff;
+  background: #f0f3ff;
+  box-shadow: 0 0 0 3px rgb(109 124 255 / 18%);
+}
+.app-choice:has(input:checked) {
+  border-color: #5b6cff;
+  background: #eef1ff;
+  color: #3345b8;
 }
 .app-choice input {
   width: 16px;

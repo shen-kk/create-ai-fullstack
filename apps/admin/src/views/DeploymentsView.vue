@@ -76,7 +76,7 @@ const runStatusLabels = {
 const emptyForm = (): UpsertDeploymentTargetRequest => ({
   name: '',
   environment: 'test',
-  applications: ['admin', 'api'],
+  applications: ['admin'],
   host: '',
   sshPort: 22,
   sshUser: 'deploy',
@@ -128,7 +128,6 @@ function openEdit(target: DeploymentTargetSummary): void {
   dialogOpen.value = true;
 }
 function toggleApplication(application: DeployableApplication, checked: boolean): void {
-  if (application === 'api') return;
   const values = new Set(form.value.applications);
   if (checked) values.add(application);
   else values.delete(application);
@@ -348,14 +347,11 @@ onMounted(load);
             <input
               type="checkbox"
               :checked="form.applications.includes(application.value)"
-              :disabled="application.value === 'api'"
               @change="
                 toggleApplication(application.value, ($event.target as HTMLInputElement).checked)
               "
             />
-            <span
-              >{{ application.label }}<small v-if="application.value === 'api'">必选</small></span
-            >
+            <span>{{ application.label }}</span>
           </label>
         </fieldset>
         <div class="deployment-form-grid">
@@ -449,7 +445,7 @@ onMounted(load);
       <form class="user-dialog deployment-run-dialog" @submit.prevent="deploy">
         <header>
           <div>
-        <p class="eyebrow">构建并部署</p>
+            <p class="eyebrow">构建并部署</p>
             <h2>{{ selectedTarget.name }}</h2>
           </div>
           <button
@@ -477,7 +473,9 @@ onMounted(load);
           </label>
         </fieldset>
         <p class="permission-help">
-          当前版本会先触发 CNB 构建并保存任务；远程 Deploy Agent 接管完成前，任务只会显示“构建中”，不会错误标记为部署成功。只有检测到新 Prisma migration 时才需要迁移数据库。
+          当前版本会先触发 CNB 构建并保存任务；远程 Deploy Agent
+          接管完成前，任务只会显示“构建中”，不会错误标记为部署成功。只有检测到新 Prisma migration
+          时才需要迁移数据库。
         </p>
         <footer>
           <button type="button" class="secondary-button" @click="runDialogOpen = false">
