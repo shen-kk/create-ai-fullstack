@@ -2605,8 +2605,39 @@ td {
   color: #3345b8;
 }
 .app-choice input {
+  appearance: none;
+  flex: 0 0 16px;
   width: 16px;
   height: 16px;
+  margin: 0;
+  border: 1.5px solid #8d98aa;
+  border-radius: 4px;
+  background: #fff;
+  outline: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
+}
+.app-choice input:focus,
+.app-choice input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+.app-choice input:checked {
+  border-color: #5367f4;
+  background: #5367f4;
+}
+.app-choice input:checked::after {
+  display: block;
+  width: 4px;
+  height: 8px;
+  margin: 2px 0 0 5px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+  content: '';
 }
 .app-choice small {
   margin-left: 6px;
