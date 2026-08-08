@@ -758,6 +758,10 @@ button {
 }
 .users-table-panel {
   padding: 0;
+  overflow-y: auto;
+}
+.deployment-dialog,
+.deployment-run-dialog {
   overflow: hidden;
 }
 .table-header {
@@ -1909,11 +1913,17 @@ td {
   width: min(620px, 100%);
   max-height: calc(100vh - 64px);
   padding: 30px 32px;
-  overflow-y: auto;
+  overflow: hidden;
   border: 1px solid #ffffffb8;
   border-radius: 20px;
   box-shadow: 0 32px 90px #10172d42;
   animation: dialog-rise 0.22s ease-out;
+}
+.dialog-scroll-content {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 4px 8px 0;
+  scrollbar-width: thin;
 }
 .user-dialog > header {
   position: sticky;

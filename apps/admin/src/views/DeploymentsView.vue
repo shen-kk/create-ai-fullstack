@@ -400,114 +400,119 @@ onMounted(load);
             ×
           </button>
         </header>
-        <div class="deployment-form-grid">
-          <label
-            ><span>环境名称</span
-            ><input v-model.trim="form.name" required placeholder="例如：正式环境"
-          /></label>
-          <label
-            ><span>环境类型</span
-            ><AppSelect
-              v-model="form.environment"
-              :options="environmentOptions"
-              aria-label="环境类型"
-          /></label>
-        </div>
-        <fieldset>
-          <legend>部署应用</legend>
-          <label
-            v-for="application in availableApplications"
-            :key="application.value"
-            class="app-choice"
-          >
-            <input
-              type="checkbox"
-              :checked="form.applications.includes(application.value)"
-              @change="
-                toggleApplication(application.value, ($event.target as HTMLInputElement).checked)
-              "
-            />
-            <span>{{ application.label }}</span>
-          </label>
-        </fieldset>
-        <div class="deployment-form-grid">
-          <label
-            ><span>服务器 IP 或域名</span
-            ><input v-model.trim="form.host" required placeholder="server.example.com"
-          /></label>
-          <label
-            ><span>SSH 端口</span
-            ><input v-model.number="form.sshPort" required type="number" min="1" max="65535"
-          /></label>
-          <label><span>SSH 用户</span><input v-model.trim="form.sshUser" required /></label>
-          <label><span>部署目录</span><input v-model.trim="form.deployPath" required /></label>
-        </div>
-        <label
-          ><span>访问方式</span
-          ><AppSelect v-model="form.accessMode" :options="accessModeOptions" aria-label="访问方式"
-        /></label>
-        <p v-if="form.accessMode === 'automatic_https'" class="permission-help">
-          系统将部署 Caddy 并自动申请、续期 HTTPS 证书。域名必须提前解析到该服务器，且开放 80/443
-          端口；系统不会自动修改 DNS。
-        </p>
-        <div class="deployment-form-grid">
-          <label v-if="form.applications.includes('admin')"
-            ><span>后台地址</span
-            ><input v-model.trim="form.adminUrl" required placeholder="https://admin.example.com"
-          /></label>
-          <label
-            ><span>API 地址</span
-            ><input
-              v-model.trim="form.apiUrl"
-              :required="form.applications.includes('api')"
-              :class="{ 'is-hidden': !form.applications.includes('api') }"
-              placeholder="https://api.example.com"
-          /></label>
-          <label v-if="form.applications.includes('web')"
-            ><span>用户端地址</span
-            ><input v-model.trim="form.webUrl" required placeholder="https://www.example.com"
-          /></label>
-        </div>
-        <fieldset>
-          <legend>服务器凭据</legend>
-          <label
-            ><span>SSH 私钥</span
-            ><textarea
-              v-model="form.secrets.sshPrivateKey"
-              rows="4"
-              :placeholder="editingId ? '留空保留原私钥' : '推荐使用专用部署私钥'"
-            />
-          </label>
-          <label
-            ><span>SSH 密码</span
-            ><input
-              v-model="form.secrets.sshPassword"
-              type="password"
-              autocomplete="new-password"
-              :placeholder="editingId ? '留空保留原密码' : '私钥与密码至少填写一种'"
-          /></label>
-        </fieldset>
-        <fieldset>
-          <legend>CNB 构建</legend>
+        <div class="dialog-scroll-content">
           <div class="deployment-form-grid">
             <label
-              ><span>仓库</span
-              ><input v-model.trim="form.cnbRepository" required placeholder="组织/仓库"
+              ><span>环境名称</span
+              ><input v-model.trim="form.name" required placeholder="例如：正式环境"
             /></label>
-            <label><span>触发事件</span><input v-model.trim="form.cnbEvent" required /></label>
+            <label
+              ><span>环境类型</span
+              ><AppSelect
+                v-model="form.environment"
+                :options="environmentOptions"
+                aria-label="环境类型"
+            /></label>
+          </div>
+          <fieldset>
+            <legend>部署应用</legend>
+            <label
+              v-for="application in availableApplications"
+              :key="application.value"
+              class="app-choice"
+            >
+              <input
+                type="checkbox"
+                :checked="form.applications.includes(application.value)"
+                @change="
+                  toggleApplication(application.value, ($event.target as HTMLInputElement).checked)
+                "
+              />
+              <span>{{ application.label }}</span>
+            </label>
+          </fieldset>
+          <div class="deployment-form-grid">
+            <label
+              ><span>服务器 IP 或域名</span
+              ><input v-model.trim="form.host" required placeholder="server.example.com"
+            /></label>
+            <label
+              ><span>SSH 端口</span
+              ><input v-model.number="form.sshPort" required type="number" min="1" max="65535"
+            /></label>
+            <label><span>SSH 用户</span><input v-model.trim="form.sshUser" required /></label>
+            <label><span>部署目录</span><input v-model.trim="form.deployPath" required /></label>
           </div>
           <label
-            ><span>CNB 访问令牌</span
-            ><input
-              v-model="form.secrets.cnbToken"
-              type="password"
-              autocomplete="new-password"
-              :placeholder="editingId ? '留空保留原令牌' : '需要触发构建与读取制品权限'"
+            ><span>访问方式</span
+            ><AppSelect
+              v-model="form.accessMode"
+              :options="accessModeOptions"
+              aria-label="访问方式"
           /></label>
-        </fieldset>
-        <p class="permission-help">
-          所有凭据由 API 加密保存，页面只能看到已配置字段名，无法读取明文。
-        </p>
+          <p v-if="form.accessMode === 'automatic_https'" class="permission-help">
+            系统将部署 Caddy 并自动申请、续期 HTTPS 证书。域名必须提前解析到该服务器，且开放 80/443
+            端口；系统不会自动修改 DNS。
+          </p>
+          <div class="deployment-form-grid">
+            <label v-if="form.applications.includes('admin')"
+              ><span>后台地址</span
+              ><input v-model.trim="form.adminUrl" required placeholder="https://admin.example.com"
+            /></label>
+            <label
+              ><span>API 地址</span
+              ><input
+                v-model.trim="form.apiUrl"
+                :required="form.applications.includes('api')"
+                :class="{ 'is-hidden': !form.applications.includes('api') }"
+                placeholder="https://api.example.com"
+            /></label>
+            <label v-if="form.applications.includes('web')"
+              ><span>用户端地址</span
+              ><input v-model.trim="form.webUrl" required placeholder="https://www.example.com"
+            /></label>
+          </div>
+          <fieldset>
+            <legend>服务器凭据</legend>
+            <label
+              ><span>SSH 私钥</span
+              ><textarea
+                v-model="form.secrets.sshPrivateKey"
+                rows="4"
+                :placeholder="editingId ? '留空保留原私钥' : '推荐使用专用部署私钥'"
+              />
+            </label>
+            <label
+              ><span>SSH 密码</span
+              ><input
+                v-model="form.secrets.sshPassword"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="editingId ? '留空保留原密码' : '私钥与密码至少填写一种'"
+            /></label>
+          </fieldset>
+          <fieldset>
+            <legend>CNB 构建</legend>
+            <div class="deployment-form-grid">
+              <label
+                ><span>仓库</span
+                ><input v-model.trim="form.cnbRepository" required placeholder="组织/仓库"
+              /></label>
+              <label><span>触发事件</span><input v-model.trim="form.cnbEvent" required /></label>
+            </div>
+            <label
+              ><span>CNB 访问令牌</span
+              ><input
+                v-model="form.secrets.cnbToken"
+                type="password"
+                autocomplete="new-password"
+                :placeholder="editingId ? '留空保留原令牌' : '需要触发构建与读取制品权限'"
+            /></label>
+          </fieldset>
+          <p class="permission-help">
+            所有凭据由 API 加密保存，页面只能看到已配置字段名，无法读取明文。
+          </p>
+        </div>
         <footer>
           <button type="button" class="secondary-button" @click="dialogOpen = false">取消</button>
           <button class="primary-button" :disabled="saving">
