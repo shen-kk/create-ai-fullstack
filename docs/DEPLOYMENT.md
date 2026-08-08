@@ -2,6 +2,8 @@
 
 ## 后台部署中心
 
+模板仓库开发不需要本机数据库或服务器。若需要验证真实 SQL，复制根目录 `.env.template-dev.example` 为 `.env.template-dev`，只填写项目所有者提供的专用测试数据库，然后执行 `pnpm dev:template`。服务器、SSH、CNB 和部署目录仍只在后台部署环境中填写。
+
 Deploy Agent 配置模板位于 `tools/deploy-agent/.env.example`，详细填写说明见 `tools/deploy-agent/README.md`。目标服务器上的真实 `.env` 只保存在服务器，不提交 Git。
 
 启用核心能力 `deploymentCenter` 后，Admin `/deployments` 可以创建任意多个开发、测试、预发布、生产或自定义环境。应用范围来自初始化声明：Admin 与 API 始终存在，Web 只在 `userWeb` 启用时出现。

@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { spawn } from 'node:child_process';
 import process from 'node:process';
 import { enabledPackages } from './lib/enabled-tasks.mjs';
@@ -27,7 +28,8 @@ const pnpmEntry = process.env.npm_execpath;
 if (!pnpmEntry) throw new Error('必须通过 pnpm 脚本运行能力调度器');
 let localEnv = {};
 try {
-  localEnv = parseEnv(await readFile(new URL('../.env', import.meta.url), 'utf8'));
+  const envFile = process.env.ENV_FILE || '.env';
+  localEnv = parseEnv(await readFile(resolve(process.cwd(), envFile), 'utf8'));
 } catch {}
 const child = spawn(process.execPath, [pnpmEntry, 'exec', 'turbo', task, ...filters], {
   stdio: 'inherit',
