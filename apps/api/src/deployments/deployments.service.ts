@@ -562,9 +562,13 @@ export class DeploymentsService {
     const response = await fetch(`https://api.cnb.cool/${repository}/-/build/start`, {
       method: 'POST',
       signal: AbortSignal.timeout(15_000),
-      headers: { Authorization: token, 'Content-Type': 'application/json' },
+      headers: {
+        Authorization: /^Bearer\s/i.test(token) ? token : `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
       body: JSON.stringify({
         event: target.cnbEvent,
+        branch: run.version,
         env: {
           DEPLOYMENT_RUN_ID: run.id,
           DEPLOYMENT_TARGET_ID: target.id,
