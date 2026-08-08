@@ -23,7 +23,7 @@ const valid = {
     description: '测试',
   },
   runtime: { adminPort: 3000, apiPort: 3001, webPort: 3002 },
-  database: { mode: 'memory', engine: 'none', orm: 'none' },
+  database: { mode: 'prisma', engine: 'postgresql', orm: 'prisma' },
   localization: { defaultLocale: 'zh-CN', supportedLocales: ['zh-CN'] },
   ui: {
     web: {
@@ -72,8 +72,8 @@ test('renders AI context without secrets', () => {
   assert.match(output, /tencent_cos/);
   assert.doesNotMatch(output, /DATABASE_URL|JWT_ACCESS_SECRET/);
 });
-test('does not provision a database in memory mode', () =>
-  assert.deepEqual(provisionCommands(valid), []));
+test('rejects the removed memory mode', () =>
+  assert.ok(validateProjectConfig({ ...valid, database: { mode: 'memory', engine: 'none', orm: 'none' } }).length));
 test('plans generate, deploy and seed for prisma mode', () => {
   const commands = provisionCommands({
     ...valid,
@@ -88,7 +88,7 @@ test('renders a secret-free runtime module', () => {
   const output = renderRuntimeProject(valid);
   assert.match(output, /demo-project/);
   assert.match(output, /rolesAndPermissions/);
-  assert.match(output, /"mode": "memory"/);
+  assert.match(output, /"mode": "prisma"/);
   assert.match(output, /"apiPort": 3001/);
   assert.doesNotMatch(output, /DATABASE_URL|password/i);
 });

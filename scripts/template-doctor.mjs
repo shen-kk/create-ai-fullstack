@@ -118,7 +118,7 @@ try {
       'Prisma 模式要求 PostgreSQL URL',
     );
   add(
-    env.DATA_SOURCE === config?.database?.mode ? 'PASS' : 'FAIL',
+    env.DATA_SOURCE === 'prisma' && config?.database?.mode === 'prisma' ? 'PASS' : 'FAIL',
     '数据源一致性',
     `.env=${env.DATA_SOURCE ?? '未配置'} / 声明=${config?.database?.mode ?? '未知'}`,
   );

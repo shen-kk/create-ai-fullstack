@@ -12,9 +12,9 @@ export const project = {
     "deployment": "local"
   },
   "database": {
-    "mode": "memory",
-    "engine": "none",
-    "orm": "none"
+    "mode": "prisma",
+    "engine": "postgresql",
+    "orm": "prisma"
   },
   "localization": {
     "defaultLocale": "zh-CN",

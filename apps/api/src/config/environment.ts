@@ -12,11 +12,10 @@ export function validateEnvironment(environment: NodeJS.ProcessEnv = process.env
     throw new Error('API_PORT must be an integer between 1 and 65535');
   const initializedDataSource = String(project.database.mode);
   const dataSource = environment.DATA_SOURCE ?? initializedDataSource;
-  if (dataSource !== 'memory' && dataSource !== 'prisma')
-    throw new Error('DATA_SOURCE must be either memory or prisma');
+  if (dataSource !== 'prisma') throw new Error('DATA_SOURCE must be prisma; memory mode is no longer supported');
+  if (!environment.DATABASE_URL) throw new Error('DATABASE_URL is required');
   if (environment.NODE_ENV === 'production') {
     if (dataSource !== 'prisma') throw new Error('DATA_SOURCE must be prisma in production');
-    if (!environment.DATABASE_URL) throw new Error('DATABASE_URL is required in production');
     for (const name of productionSecretNames) {
       if (!environment[name] || environment[name].length < 32)
         throw new Error(`${name} must contain at least 32 characters in production`);

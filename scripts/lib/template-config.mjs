@@ -54,7 +54,7 @@ export function validateProjectConfig(config) {
     errors.push('runtime.webPort 无效');
   if (new Set([adminPort, apiPort, webPort]).size !== 3)
     errors.push('Admin、API 与 Web 端口不能相同');
-  if (!['memory', 'prisma'].includes(config?.database?.mode)) errors.push('database.mode 无效');
+  if (config?.database?.mode !== 'prisma') errors.push('database.mode 必须为 prisma，模板不支持内存模式');
   if (
     config?.localization?.defaultLocale !== 'zh-CN' ||
     !config?.localization?.supportedLocales?.includes('zh-CN')
@@ -67,10 +67,7 @@ export function validateProjectConfig(config) {
     config?.ui?.web?.designStandard !== 'apple-linear-vercel'
   )
     errors.push('用户端 UI 必须使用 shadcn-vue 业务组件与 VueUse Motion 动效层');
-  if (
-    config?.database?.mode === 'prisma' &&
-    (config.database.engine !== 'postgresql' || config.database.orm !== 'prisma')
-  )
+  if (config?.database?.engine !== 'postgresql' || config?.database?.orm !== 'prisma')
     errors.push('Prisma 模式当前只支持 PostgreSQL');
   for (const [name, enabled] of Object.entries(coreModules))
     if (config?.modules?.[name] !== enabled) errors.push(`核心模块 ${name} 必须启用`);
@@ -155,7 +152,6 @@ ${disabled}
 }
 
 export function provisionCommands(config) {
-  if (config.database.mode === 'memory') return [];
   if (config.database.mode !== 'prisma' || config.database.engine !== 'postgresql')
     throw new Error('当前只支持 PostgreSQL + Prisma 自动部署');
   const scope = config.project.packageScope;

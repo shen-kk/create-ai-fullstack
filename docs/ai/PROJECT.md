@@ -16,9 +16,9 @@
 - 后台端口：`3000`
 - API 端口：`3001`
 - 用户端口：`3002`
-- 数据模式：`memory`
-- 数据库：`none`
-- ORM：`none`
+- 数据模式：`prisma`
+- 数据库：`postgresql`
+- ORM：`prisma`
 - 默认语言：`zh-CN`
 - 用户端业务组件：`shadcn-vue`
 - 用户端动效：`vueuse-motion`

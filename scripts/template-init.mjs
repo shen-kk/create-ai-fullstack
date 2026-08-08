@@ -243,7 +243,7 @@ try {
     (await choose(
       '初始化模式',
       [
-        { value: 'quick', label: '快速：内存预览，最少外部依赖' },
+        { value: 'quick', label: '快速：PostgreSQL 基础配置，最少外部依赖' },
         { value: 'standard', label: '标准：PostgreSQL、Redis、对象存储和邮件能力' },
         { value: 'custom', label: '自定义：逐项选择基础能力' },
       ],
@@ -273,15 +273,7 @@ try {
   const webPort = Number(
     preset === 'custom' ? await ask('用户端端口', '3002', portValidator) : '3002',
   );
-  const databaseMode =
-    preset === 'quick'
-      ? 'memory'
-      : preset === 'standard'
-        ? 'prisma'
-        : await choose('数据库模式', [
-            { value: 'memory', label: '内存预览（零依赖）' },
-            { value: 'prisma', label: 'PostgreSQL + Prisma' },
-          ]);
+  const databaseMode = 'prisma';
   const database =
     databaseMode === 'prisma'
       ? {
@@ -292,14 +284,8 @@ try {
           username: await ask('PostgreSQL 用户名', 'postgres'),
           password: await askRequired('PostgreSQL 密码'),
         }
-      : {
-          mode: 'memory',
-          host: '127.0.0.1',
-          port: 5432,
-          name: 'template',
-          username: 'postgres',
-          password: 'postgres',
-        };
+      : null;
+  if (!database) throw new Error('DATABASE_CONFIG_REQUIRED：必须提供 PostgreSQL 配置');
   const databaseUrl = `postgresql://${encodeURIComponent(database.username)}:${encodeURIComponent(database.password)}@${database.host}:${database.port}/${encodeURIComponent(database.name)}?schema=public`;
   const adminPhone = await ask('初始管理员手机号', '13800000000', (value) =>
     /^1\d{10}$/.test(value),
@@ -364,10 +350,7 @@ try {
   };
   const configErrors = validateProjectConfig(config);
   if (configErrors.length) throw new Error(`项目配置无效：${configErrors.join('；')}`);
-  const bootstrapIntegrations =
-    databaseMode === 'prisma'
-      ? await collectIntegrationBootstrap(modules, objectStorageProvider, database)
-      : [];
+  const bootstrapIntegrations = await collectIntegrationBootstrap(modules, objectStorageProvider, database);
   const provisionNow =
     databaseMode === 'prisma' && !defaultsMode
       ? await yes('配置完成后立即校验连接、初始化数据库并创建管理员', true)
@@ -378,7 +361,7 @@ try {
     `API_PORT=${apiPort}`,
     `WEB_PORT=${webPort}`,
     `DATABASE_URL=${databaseUrl}`,
-    `DATA_SOURCE=${databaseMode === 'prisma' ? 'prisma' : 'memory'}`,
+    'DATA_SOURCE=prisma',
     `PUBLIC_API_BASE_URL=http://localhost:${apiPort}/api`,
     `ADMIN_ORIGIN=http://localhost:${adminPort}`,
     `WEB_ORIGIN=http://localhost:${webPort}`,
@@ -461,7 +444,7 @@ try {
       run(['template:provision', '--', '--yes']);
     } else
       console.log(
-        `下一步：重新运行 pnpm install 刷新工作区链接，再运行 pnpm template:doctor${databaseMode === 'prisma' ? '，确认后运行 pnpm template:provision' : ''}，最后 pnpm dev:local`,
+    '下一步：重新运行 pnpm install 刷新工作区链接，再运行 pnpm template:doctor，确认后运行 pnpm template:provision，最后 pnpm dev:local',
       );
   }
 } finally {

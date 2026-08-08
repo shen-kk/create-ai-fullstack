@@ -24,14 +24,9 @@ try {
   const envPath = process.env.ENV_FILE || '.env';
   const envFile = parseEnv(await readFile(new URL(`../${envPath}`, import.meta.url), 'utf8'));
   if (!envFile.DATABASE_URL) throw new Error('缺少 DATABASE_URL，请先运行 pnpm template:init');
-  const provisionConfig =
-    envFile.DATA_SOURCE === 'prisma' && config.database?.mode === 'memory'
-      ? {
-          ...config,
-          database: { ...config.database, mode: 'prisma', engine: 'postgresql', orm: 'prisma' },
-        }
-      : config;
-  const commands = provisionCommands(provisionConfig);
+  if (envFile.DATA_SOURCE !== 'prisma')
+    throw new Error('DATA_SOURCE 必须为 prisma；模板不再支持内存模式');
+  const commands = provisionCommands(config);
   if (process.env.SKIP_PRISMA_GENERATE === '1') {
     const generateIndex = commands.findIndex((command) => command.includes('db:generate'));
     if (generateIndex >= 0) commands.splice(generateIndex, 1);
