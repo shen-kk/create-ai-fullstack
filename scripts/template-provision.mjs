@@ -21,13 +21,21 @@ try {
   const config = JSON.parse(await readFile(new URL('project.config.json', root), 'utf8'));
   const errors = validateProjectConfig(config);
   if (errors.length) throw new Error(errors.join('；'));
-  const commands = provisionCommands(config);
+  const envPath = process.env.ENV_FILE || '.env';
+  const envFile = parseEnv(await readFile(new URL(`../${envPath}`, import.meta.url), 'utf8'));
+  if (!envFile.DATABASE_URL) throw new Error('缺少 DATABASE_URL，请先运行 pnpm template:init');
+  const provisionConfig =
+    envFile.DATA_SOURCE === 'prisma' && config.database?.mode === 'memory'
+      ? {
+          ...config,
+          database: { ...config.database, mode: 'prisma', engine: 'postgresql', orm: 'prisma' },
+        }
+      : config;
+  const commands = provisionCommands(provisionConfig);
   if (!commands.length) {
     console.log('[SKIP] 当前为内存模式，不需要数据库部署。');
     process.exit(0);
   }
-  const envFile = parseEnv(await readFile(new URL('.env', root), 'utf8'));
-  if (!envFile.DATABASE_URL) throw new Error('缺少 DATABASE_URL，请先运行 pnpm template:init');
   console.log('将执行：生成 Prisma Client → 部署已有迁移 → 创建或更新初始管理员。');
   console.log('目标数据库来自 .env，连接串不会显示。此操作会写入该数据库。');
   if (dryRun) {
