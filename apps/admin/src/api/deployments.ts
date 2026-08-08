@@ -18,7 +18,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
-  if (!response.ok) throw new Error(`Deployment request failed: ${response.status}`);
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { code?: string } | null;
+    const error = new Error(payload?.code || `Deployment request failed: ${response.status}`);
+    error.name = 'DeploymentApiError';
+    throw error;
+  }
   return response.json() as Promise<T>;
 }
 

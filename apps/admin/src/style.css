@@ -5,6 +5,27 @@
   font-synthesis: none;
 }
 * {
+  scrollbar-width: thin;
+  scrollbar-color: #b7c0cf transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: #b7c0cf;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #8995aa;
+  background-clip: padding-box;
+}
+* {
   box-sizing: border-box;
 }
 body {
@@ -1883,6 +1904,8 @@ td {
   animation: dialog-fade 0.18s ease-out;
 }
 .user-dialog {
+  display: flex;
+  flex-direction: column;
   width: min(620px, 100%);
   max-height: calc(100vh - 64px);
   padding: 30px 32px;
@@ -1891,6 +1914,20 @@ td {
   border-radius: 20px;
   box-shadow: 0 32px 90px #10172d42;
   animation: dialog-rise 0.22s ease-out;
+}
+.user-dialog > header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+  background: #fff;
+}
+.user-dialog > footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex: 0 0 auto;
+  background: #fff;
 }
 .user-dialog header {
   margin-bottom: 24px;

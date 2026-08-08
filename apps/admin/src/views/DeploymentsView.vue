@@ -91,13 +91,26 @@ const emptyForm = (): UpsertDeploymentTargetRequest => ({
   secrets: {},
 });
 const form = ref<UpsertDeploymentTargetRequest>(emptyForm());
+const deploymentErrorMessages: Record<string, string> = {
+  DEPLOYMENT_APPLICATION_URL_REQUIRED: '请先填写已选择应用的访问地址。',
+  DEPLOYMENT_HTTPS_URL_REQUIRED: '自动 HTTPS 模式要求已选择应用使用 https:// 地址。',
+  DEPLOYMENT_CNB_NOT_CONFIGURED: '请填写 CNB 仓库和访问令牌。',
+  CNB_BUILD_TRIGGER_FAILED: 'CNB 构建触发失败，请检查仓库、触发事件和 Token 权限。',
+  DEPLOYMENT_TARGET_NOT_VERIFIED: '请先通过服务器连接检查。',
+  DEPLOYMENT_SSH_CREDENTIAL_REQUIRED: '请填写 SSH 私钥或 SSH 密码至少一种。',
+  DEPLOYMENT_ALREADY_RUNNING: '该环境已有正在执行的部署任务。',
+};
+function deploymentErrorMessage(cause: unknown, fallback: string): string {
+  const code = cause instanceof Error ? cause.message : '';
+  return deploymentErrorMessages[code] || `${fallback}${code ? `（错误码：${code}）` : ''}`;
+}
 
 async function load(): Promise<void> {
   loading.value = true;
   error.value = '';
   try {
     targets.value = await getDeploymentTargets();
-  } catch {
+  } catch (cause) {
     error.value = '部署环境加载失败，请检查 API、数据库迁移和当前权限。';
   } finally {
     loading.value = false;
@@ -143,7 +156,8 @@ async function save(): Promise<void> {
     dialogOpen.value = false;
     notice.value = '部署环境已安全保存。修改配置后必须重新测试连接才能部署。';
     await load();
-  } catch {
+  } catch (cause) {
+    notice.value = deploymentErrorMessage(cause, '保存失败');
     notice.value = '保存失败，请检查应用、服务器地址、访问方式和必要凭据。';
   } finally {
     saving.value = false;
@@ -159,7 +173,8 @@ async function testTarget(target: DeploymentTargetSummary): Promise<void> {
       ? '服务器、SSH、Docker、磁盘和部署目录检查通过，现在可以部署。'
       : '连接检查未通过，请根据检查结果修改配置。';
     await load();
-  } catch {
+  } catch (cause) {
+    notice.value = deploymentErrorMessage(cause, '无法执行连接检查');
     notice.value = '无法执行连接检查，请确认 API 可以访问目标服务器。';
   } finally {
     testingId.value = '';
@@ -189,7 +204,8 @@ async function deploy(): Promise<void> {
     runDialogOpen.value = false;
     notice.value = '已提交 CNB 构建任务，可以在部署记录中查看进度。';
     await showRuns(selectedTarget.value);
-  } catch {
+  } catch (cause) {
+    notice.value = deploymentErrorMessage(cause, '部署任务创建失败');
     notice.value = '部署任务创建失败，请确认环境已验证并已配置 CNB 仓库与令牌。';
   } finally {
     deploying.value = false;
