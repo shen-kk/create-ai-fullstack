@@ -2594,7 +2594,7 @@ td {
     background 0.16s ease,
     box-shadow 0.16s ease;
 }
-.app-choice:focus-within {
+.app-choice:has(input:focus-visible) {
   border-color: #6d7cff;
   background: #f0f3ff;
   box-shadow: 0 0 0 3px rgb(109 124 255 / 18%);
