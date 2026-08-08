@@ -381,7 +381,11 @@ onMounted(load);
           /></label>
           <label
             ><span>API 地址</span
-            ><input v-model.trim="form.apiUrl" required placeholder="https://api.example.com"
+            ><input
+              v-model.trim="form.apiUrl"
+              :required="form.applications.includes('api')"
+              :class="{ 'is-hidden': !form.applications.includes('api') }"
+              placeholder="https://api.example.com"
           /></label>
           <label v-if="form.applications.includes('web')"
             ><span>用户端地址</span
