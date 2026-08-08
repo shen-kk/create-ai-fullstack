@@ -1938,6 +1938,7 @@ td {
   z-index: 2;
   flex: 0 0 auto;
   background: #fff;
+  margin-bottom: 0 !important;
 }
 .user-dialog > footer {
   position: sticky;
@@ -1945,6 +1946,7 @@ td {
   z-index: 2;
   flex: 0 0 auto;
   background: #fff;
+  margin-top: 0 !important;
 }
 .user-dialog header {
   margin-bottom: 24px;
