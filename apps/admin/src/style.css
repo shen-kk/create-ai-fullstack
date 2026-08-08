@@ -1922,7 +1922,7 @@ td {
 .dialog-scroll-content {
   min-height: 0;
   overflow-y: auto;
-  padding: 2px 4px 8px 0;
+  padding: 0 4px 0 0;
   scrollbar-width: thin;
 }
 .user-dialog > header {
