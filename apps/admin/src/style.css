@@ -1997,6 +1997,7 @@ td {
 }
 .role-dialog fieldset {
   display: inline-grid;
+  box-sizing: border-box;
   width: calc(50% - 8px);
   max-height: 310px;
   margin-top: 22px;
@@ -2004,6 +2005,11 @@ td {
   vertical-align: top;
   border-color: #dde2eb;
   border-radius: 13px;
+}
+.role-dialog > footer {
+  bottom: 0;
+  margin-bottom: 0 !important;
+  padding-bottom: 24px;
 }
 .role-dialog fieldset + fieldset {
   margin-left: 12px;
