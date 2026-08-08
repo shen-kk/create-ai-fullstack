@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Sse,
   Get,
   Headers,
   Param,
@@ -13,6 +14,8 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsArray, IsIn, IsOptional, IsString } from 'class-validator';
 import type { Request } from 'express';
+import { Observable, interval, from } from 'rxjs';
+import { startWith, switchMap, map, distinctUntilChanged } from 'rxjs/operators';
 import type {
   AuthUser,
   DeploymentConnectionTestResult,
@@ -103,6 +106,21 @@ export class DeploymentsController {
   @Get(':id/runs/:runId')
   getRun(@Param('id') id: string, @Param('runId') runId: string): Promise<DeploymentRunSummary> {
     return this.deployments.getRun(id, runId);
+  }
+
+  @Sse(':id/runs/:runId/events')
+  streamRun(
+    @Param('id') id: string,
+    @Param('runId') runId: string,
+  ): Observable<{ data: DeploymentRunSummary }> {
+    return interval(5000).pipe(
+      startWith(0),
+      switchMap(() => from(this.deployments.getRun(id, runId))),
+      map((run) => ({ data: run })),
+      distinctUntilChanged((previous, current) =>
+        JSON.stringify(previous.data) === JSON.stringify(current.data),
+      ),
+    );
   }
 
   @Post(':id/runs')
