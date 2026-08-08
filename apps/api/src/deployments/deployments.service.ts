@@ -3,6 +3,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -84,6 +85,7 @@ const activeRunStatuses = [
 
 @Injectable()
 export class DeploymentsService {
+  private readonly logger = new Logger(DeploymentsService.name);
   constructor(
     private readonly prisma: PrismaService,
     private readonly connection: DeploymentConnectionService,
@@ -634,8 +636,19 @@ export class DeploymentsService {
         },
       }),
     });
-    if (!response.ok) throw new BadGatewayException('CNB_BUILD_TRIGGER_FAILED');
-    const body = (await response.json()) as Record<string, unknown>;
+    const responseText = await response.text();
+    if (!response.ok) {
+      this.logger.warn(
+        `CNB build trigger rejected (${response.status}): ${responseText.slice(0, 500)}`,
+      );
+      throw new BadGatewayException('CNB_BUILD_TRIGGER_FAILED');
+    }
+    let body: Record<string, unknown> = {};
+    try {
+      body = (JSON.parse(responseText) as Record<string, unknown>) ?? {};
+    } catch {
+      this.logger.warn(`CNB build trigger returned non-JSON response: ${responseText.slice(0, 500)}`);
+    }
     const id = body['id'] ?? body['buildId'] ?? body['build_id'];
     return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
   }
