@@ -30,6 +30,7 @@ const dialogOpen = ref(false);
 const checks = ref<Record<string, DeploymentConnectionTestResult>>({});
 const selectedTarget = ref<DeploymentTargetSummary>();
 const runs = ref<DeploymentRunSummary[]>([]);
+const selectedRun = ref<DeploymentRunSummary>();
 const runDialogOpen = ref(false);
 const runVersion = ref('main');
 const runApplications = ref<DeployableApplication[]>([]);
@@ -168,6 +169,9 @@ async function showRuns(target: DeploymentTargetSummary): Promise<void> {
   selectedTarget.value = target;
   runs.value = await getDeploymentRuns(target.id);
 }
+function openRunDetail(run: DeploymentRunSummary): void {
+  selectedRun.value = run;
+}
 function openDeploy(target: DeploymentTargetSummary): void {
   selectedTarget.value = target;
   runVersion.value = 'main';
@@ -299,7 +303,14 @@ onMounted(load);
           <h2>{{ selectedTarget.name }}</h2>
         </div>
       </header>
-      <article v-for="run in runs" :key="run.id">
+      <article
+        v-for="run in runs"
+        :key="run.id"
+        class="deployment-run-item"
+        tabindex="0"
+        @click="openRunDetail(run)"
+        @keydown.enter="openRunDetail(run)"
+      >
         <div>
           <strong>{{ run.version }}</strong
           ><small>{{ formatDate(run.createdAt) }}</small>
@@ -312,6 +323,55 @@ onMounted(load);
         <span class="run-status" :class="run.status">{{ runStatusLabels[run.status] }}</span>
       </article>
     </section>
+
+    <div v-if="selectedRun" class="dialog-backdrop">
+      <section class="user-dialog deployment-run-detail" aria-labelledby="run-detail-title">
+        <header>
+          <div>
+            <p class="eyebrow">部署记录详情</p>
+            <h2 id="run-detail-title">{{ selectedRun.version }}</h2>
+          </div>
+          <button
+            type="button"
+            class="dialog-close"
+            aria-label="关闭"
+            @click="selectedRun = undefined"
+          >
+            ×
+          </button>
+        </header>
+        <div class="run-detail-summary">
+          <span
+            >状态：<strong class="run-status" :class="selectedRun.status">{{
+              runStatusLabels[selectedRun.status]
+            }}</strong></span
+          >
+          <span
+            >应用：{{ selectedRun.applications.map((item) => appLabels[item]).join('、') }}</span
+          >
+          <span>任务 ID：{{ selectedRun.id }}</span>
+          <span>CNB 构建 ID：{{ selectedRun.cnbBuildId || '等待返回' }}</span>
+          <span>创建时间：{{ formatDate(selectedRun.createdAt) }}</span>
+          <span v-if="selectedRun.completedAt"
+            >完成时间：{{ formatDate(selectedRun.completedAt) }}</span
+          >
+          <span v-if="selectedRun.errorCode" class="run-error"
+            >错误：{{ selectedRun.errorCode }}</span
+          >
+        </div>
+        <ol class="deployment-step-list">
+          <li v-for="step in selectedRun.steps" :key="step.key" :class="step.status">
+            <span class="step-marker">{{
+              step.status === 'succeeded' ? '✓' : step.status === 'running' ? '•' : '·'
+            }}</span>
+            <div>
+              <strong>{{ step.label }}</strong
+              ><small>{{ step.status }}</small>
+            </div>
+          </li>
+        </ol>
+      </section>
+    </div>
 
     <div v-if="dialogOpen" class="dialog-backdrop">
       <form class="user-dialog deployment-dialog" @submit.prevent="save">

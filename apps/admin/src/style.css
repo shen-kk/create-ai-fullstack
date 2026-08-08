@@ -2646,6 +2646,70 @@ td {
   padding: 15px 0;
   border-top: 1px solid #edf0f5;
 }
+.deployment-run-item {
+  cursor: pointer;
+  border-radius: 10px;
+  transition: background 0.16s ease;
+}
+.deployment-run-item:hover,
+.deployment-run-item:focus-visible {
+  background: #f5f7fb;
+  outline: none;
+}
+.deployment-run-detail {
+  width: min(760px, calc(100vw - 32px));
+}
+.run-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+  padding: 18px;
+  border: 1px solid #e5e9f0;
+  border-radius: 12px;
+  color: #596579;
+  font-size: 13px;
+}
+.run-error {
+  color: #c44747;
+}
+.deployment-step-list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.deployment-step-list li {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: #f7f9fc;
+}
+.deployment-step-list li.running {
+  background: #eef1ff;
+  color: #4156c7;
+}
+.deployment-step-list li.succeeded {
+  background: #edf9f1;
+  color: #25804b;
+}
+.deployment-step-list li.failed {
+  background: #fff1f1;
+  color: #c44747;
+}
+.step-marker {
+  width: 22px;
+  font-weight: 800;
+  text-align: center;
+}
+.deployment-step-list small {
+  display: block;
+  margin-top: 3px;
+  color: #8a94a6;
+  font-size: 11px;
+}
 .deployment-runs article > div:first-child {
   display: grid;
   gap: 4px;
