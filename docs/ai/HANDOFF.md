@@ -128,15 +128,15 @@ pnpm template:verify -- --full
 
 ## 9. 按任务最小阅读集
 
-| 任务       | 继续阅读                                                                        |
-| ---------- | ------------------------------------------------------------------------------- |
-| 初始化 CLI | `docs/USER_GUIDE.md`、`scripts/lib/template-config.mjs`、初始化脚本             |
-| Admin 功能 | `apps/admin/AGENTS.md`、共享契约、对应 API 模块                                 |
-| API/数据库 | `apps/api/AGENTS.md`、`packages/contracts/AGENTS.md`、`docs/api/CONVENTIONS.md` |
-| 用户端     | `apps/web/AGENTS.md`、用户端认证相关 ADR 与契约                                 |
-| 权限       | `docs/decisions/0003-permission-taxonomy.md`、`permissionCatalog`               |
-| 服务密钥   | `docs/architecture/SERVICE_INTEGRATIONS.md`                                     |
-| 部署中心   | `docs/decisions/0009-deployment-control-plane.md`、`docs/DEPLOYMENT.md`         |
+| 任务       | 继续阅读                                                                          |
+| ---------- | --------------------------------------------------------------------------------- |
+| 初始化 CLI | `docs/USER_GUIDE.md`、`scripts/lib/template-config.mjs`、初始化脚本               |
+| Admin 功能 | `apps/admin/AGENTS.md`、共享契约、对应 API 模块                                   |
+| API/数据库 | `apps/api/AGENTS.md`、`packages/contracts/AGENTS.md`、`docs/api/CONVENTIONS.md`   |
+| 用户端     | `apps/web/AGENTS.md`、用户端认证相关 ADR 与契约                                   |
+| 权限       | `docs/decisions/0003-permission-taxonomy.md`、`permissionCatalog`                 |
+| 服务密钥   | `docs/architecture/SERVICE_INTEGRATIONS.md`                                       |
+| 部署中心   | `docs/decisions/0009-deployment-control-plane.md`、`docs/DEPLOYMENT.md`           |
 | 冻结验收   | `docs/FREEZE_ACCEPTANCE_TASKS.md`、`docs/ROADMAP.md`、`docs/MANUAL_ACCEPTANCE.md` |
 
 ## 10. 维护本交接文档

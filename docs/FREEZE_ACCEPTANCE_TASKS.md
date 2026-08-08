@@ -50,7 +50,7 @@ pnpm --version
 ## 2. 模板源仓库自动化门禁
 
 - [ ] FZ-010 `pnpm install --frozen-lockfile` 通过。
-- [ ] FZ-011 `pnpm template:doctor` 全部通过。
+- [ ] FZ-011 源模板执行 `pnpm template:doctor` 时，除“缺少 `.env`”外其余项目通过；全新初始化项目必须全部通过。
 - [ ] FZ-012 `pnpm check` 通过。
 - [ ] FZ-013 `pnpm test:e2e` 通过。
 - [ ] FZ-014 `pnpm template:verify -- --full` 通过。
@@ -68,7 +68,8 @@ node --check tools/deploy-agent/agent.mjs
 node --check tools/deploy-agent/doctor.mjs
 ```
 
-通过标准：命令退出码全部为 0；没有未处理警告、测试跳过或依赖锁文件变化。配置 Doctor 可在缺少必填变量时明确失败，并在配置正确时通过。
+在 CI 或其他非交互终端执行 pnpm 时先设置 `CI=true`。源模板不提交 `.env`，因此源目录 Doctor
+允许且只允许“缺少 `.env`”这一项失败；全新初始化项目中的命令退出码必须全部为 0。其余命令不得出现未处理警告、测试跳过或依赖锁文件变化。Deploy Agent Doctor 可在缺少必填变量时明确失败，并在配置正确时通过。
 
 ## 3. 场景 A：启用用户端的新项目
 
