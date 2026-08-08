@@ -23,6 +23,8 @@
     "template:sync": "node scripts/template-sync.mjs",
     "template:provision": "node scripts/template-provision.mjs",
     "template:verify": "node scripts/template-verify.mjs",
+    "deploy:agent": "node tools/deploy-agent/agent.mjs",
+    "deploy:agent:doctor": "node tools/deploy-agent/doctor.mjs",
     "test:template": "node --test scripts/lib/*.test.mjs",
     "db:generate": "pnpm --filter @template/api db:generate",
     "db:migrate": "pnpm --filter @template/api db:migrate",

@@ -1,5 +1,7 @@
 # Deploy Agent 配置
 
+> Agent 运行在目标服务器，不需要部署到 CNB，也不需要把密钥写进项目仓库。
+
 Deploy Agent 是安装在目标服务器上的部署执行程序。它不需要单独购买，后续由模板提供安装脚本和运行程序。
 
 ## 配置位置
@@ -67,5 +69,17 @@ Agent 和 API 的 `DEPLOYMENT_CALLBACK_TOKEN` 不一致时，任务状态无法�
 ```bash
 node /opt/deploy-agent/agent.mjs
 ```
+
+启动前建议先检查配置：
+
+```bash
+set -a; . /opt/deploy-agent/.env; set +a
+cd /opt/apps/adminback-template
+node /path/to/adminback-template/tools/deploy-agent/doctor.mjs
+```
+
+检查通过后，再由部署系统注入本次任务的 `DEPLOYMENT_RUN_ID`、`DEPLOYMENT_VERSION` 和
+`DEPLOY_HEALTH_URLS`，执行 `pnpm deploy:agent`。不要把 `.env`、SSH 私钥、密码或 CNB Token
+复制进仓库；这些值只存在 API 的加密配置和目标服务器的环境变量中。
 
 当前 Agent 负责镜像拉取、容器更新、健康检查和状态回传；后台任务领取、版本镜像变量注入和自动回滚仍需在真实服务器上继续接入验收。
