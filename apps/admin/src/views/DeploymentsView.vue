@@ -8,7 +8,7 @@ import type {
   DeploymentTargetSummary,
   UpsertDeploymentTargetRequest,
 } from '@template/contracts';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
   createDeploymentTarget,
   getDeploymentRuns,
@@ -18,6 +18,7 @@ import {
   testDeploymentCnb,
   updateDeploymentTarget,
 } from '../api/deployments';
+import { apiBaseUrl } from '../api/base';
 import AppSelect from '../components/AppSelect.vue';
 import { project } from '../generated/project';
 
@@ -39,6 +40,21 @@ const runDialogOpen = ref(false);
 const runVersion = ref('main');
 const runApplications = ref<DeployableApplication[]>([]);
 const deploying = ref(false);
+let runEvents: EventSource | undefined;
+const progressLabel = computed(() => {
+  const run = selectedRun.value;
+  if (!run) return '等待选择部署记录';
+  const finished = run.steps.filter((step) => step.status === 'succeeded').length;
+  const percent = run.status === 'succeeded' ? 100 : Math.max(5, Math.round((finished / run.steps.length) * 100));
+  const current = run.steps.find((step) => step.status === 'running');
+  return `${percent}% · ${current?.label ?? (run.status === 'failed' ? '部署失败' : '等待下一步')}`;
+});
+const runProgress = computed(() => {
+  const run = selectedRun.value;
+  if (!run || !run.steps.length) return 0;
+  if (run.status === 'succeeded') return 100;
+  return Math.max(5, Math.round((run.steps.filter((step) => step.status === 'succeeded').length / run.steps.length) * 100));
+});
 
 const availableApplications = computed<Array<{ value: DeployableApplication; label: string }>>(
   () => [
@@ -205,6 +221,16 @@ async function showRuns(target: DeploymentTargetSummary): Promise<void> {
 }
 function openRunDetail(run: DeploymentRunSummary): void {
   selectedRun.value = run;
+  runEvents?.close();
+  if (!selectedTarget.value || !['queued', 'building', 'deploying'].includes(run.status)) return;
+  runEvents = new EventSource(
+    `${apiBaseUrl}/deployments/${encodeURIComponent(selectedTarget.value.id)}/runs/${encodeURIComponent(run.id)}/events`,
+  );
+  runEvents.onmessage = (event) => {
+    selectedRun.value = JSON.parse(event.data) as DeploymentRunSummary;
+    if (!['queued', 'building', 'deploying'].includes(selectedRun.value.status)) runEvents?.close();
+  };
+  runEvents.onerror = () => runEvents?.close();
 }
 function openDeploy(target: DeploymentTargetSummary): void {
   selectedTarget.value = target;
@@ -241,6 +267,7 @@ function formatDate(value: string | null): string {
   }).format(new Date(value));
 }
 onMounted(load);
+onUnmounted(() => runEvents?.close());
 </script>
 
 <template>
@@ -411,6 +438,12 @@ onMounted(load);
           <span v-if="selectedRun.errorCode" class="run-error"
             >错误：{{ selectedRun.errorCode }}</span
           >
+        </div>
+        <div class="deployment-progress" aria-live="polite">
+          <div class="deployment-progress-head">
+            <strong>当前进度</strong><span>{{ progressLabel }}</span>
+          </div>
+          <div class="deployment-progress-track"><span :style="{ width: `${runProgress}%` }" /></div>
         </div>
         <ol class="deployment-step-list">
           <li v-for="step in selectedRun.steps" :key="step.key" :class="step.status">

@@ -2731,6 +2731,11 @@ td {
   color: #596579;
   font-size: 13px;
 }
+.deployment-progress { margin: 18px 0 20px; }
+.deployment-progress-head { display:flex; justify-content:space-between; gap:16px; color: var(--text-muted); font-size:13px; }
+.deployment-progress-head strong { color: var(--text-primary); }
+.deployment-progress-track { height:8px; margin-top:10px; overflow:hidden; border-radius:999px; background:#e8ecf5; }
+.deployment-progress-track span { display:block; height:100%; border-radius:inherit; background:linear-gradient(90deg,#4f63e8,#7d8cff); transition:width .35s ease; }
 .run-error {
   color: #c44747;
 }
