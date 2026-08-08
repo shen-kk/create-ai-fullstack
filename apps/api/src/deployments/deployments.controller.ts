@@ -67,6 +67,11 @@ export class DeploymentsController {
     return this.deployments.listRuns(id);
   }
 
+  @Get(':id/runs/:runId')
+  getRun(@Param('id') id: string, @Param('runId') runId: string): Promise<DeploymentRunSummary> {
+    return this.deployments.getRun(id, runId);
+  }
+
   @Post(':id/runs')
   @RequirePermissions('deployments.execute')
   startRun(

@@ -14,7 +14,7 @@
 
 - 当前分支：`main`
 - 远程仓库：`https://cnb.cool/nsmiling.com/ai-template`
-- 最近功能提交：`4c0a5a0 feat: add deployment center foundation`
+- 最近功能提交：以 Git `main` 分支最新提交为准；部署中心基础功能提交为 `4c0a5a0`，服务端依赖修复为 `eaca631`。
 - Admin、API、可选 Web、初始化 CLI、RBAC、审计、服务配置和用户体系已经落地。
 - 默认界面语言为中文；API/数据库状态码保持稳定英文代码，由客户端映射中文。
 - 当前工作区声明启用了 Web；新项目是否启用 Web 由初始化向导显式选择。

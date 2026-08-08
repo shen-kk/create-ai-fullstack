@@ -257,6 +257,21 @@ export class DeploymentsService {
     return rows.map((row) => this.toRunSummary(row));
   }
 
+  async getRun(targetId: string, runId: string): Promise<DeploymentRunSummary> {
+    await this.getTarget(targetId);
+    if (!this.isPrisma()) {
+      const run = memoryRuns.get(runId);
+      if (!run || run.targetId !== targetId)
+        throw new NotFoundException('DEPLOYMENT_RUN_NOT_FOUND');
+      return run;
+    }
+    const row = await this.prisma.deploymentRun.findFirst({
+      where: { id: runId, targetId },
+    });
+    if (!row) throw new NotFoundException('DEPLOYMENT_RUN_NOT_FOUND');
+    return this.toRunSummary(row);
+  }
+
   async startRun(
     targetId: string,
     input: CreateDeploymentRunRequest,
