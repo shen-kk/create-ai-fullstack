@@ -108,6 +108,11 @@ export class DeploymentsController {
     return this.deployments.getRun(id, runId);
   }
 
+  @Get(':id/runs/:runId/cnb-status')
+  getCnbBuildStatus(@Param('id') id: string, @Param('runId') runId: string): Promise<Record<string, unknown>> {
+    return this.deployments.getCnbBuildStatus(id, runId);
+  }
+
   @Sse(':id/runs/:runId/events')
   streamRun(
     @Param('id') id: string,

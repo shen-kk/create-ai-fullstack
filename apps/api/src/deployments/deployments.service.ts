@@ -328,6 +328,22 @@ export class DeploymentsService {
     return this.toRunSummary(row);
   }
 
+  async getCnbBuildStatus(targetId: string, runId: string): Promise<Record<string, unknown>> {
+    const target = await this.getTarget(targetId);
+    const run = await this.getRun(targetId, runId);
+    if (!run.cnbBuildId) throw new NotFoundException('CNB_BUILD_ID_NOT_AVAILABLE');
+    const secrets = await this.getSecrets(targetId);
+    if (!secrets.cnbToken || !target.cnbRepository)
+      throw new BadRequestException('DEPLOYMENT_CNB_NOT_CONFIGURED');
+    const repository = target.cnbRepository.split('/').map(encodeURIComponent).join('/');
+    const response = await fetch(
+      `https://api.cnb.cool/${repository}/-/build/status/${encodeURIComponent(run.cnbBuildId)}`,
+      { headers: { Authorization: `Bearer ${secrets.cnbToken}` }, signal: AbortSignal.timeout(15_000) },
+    );
+    if (!response.ok) throw new BadGatewayException('CNB_BUILD_STATUS_FAILED');
+    return (await response.json()) as Record<string, unknown>;
+  }
+
   async updateRunStatus(
     runId: string,
     input: {
