@@ -619,7 +619,8 @@ export class DeploymentsService {
       method: 'POST',
       signal: AbortSignal.timeout(15_000),
       headers: {
-        Authorization: /^Bearer\s/i.test(token) ? token : `Bearer ${token}`,
+        // CNB build/start expects the access token itself, not an OAuth Bearer prefix.
+        Authorization: token.replace(/^Bearer\s+/i, ''),
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
