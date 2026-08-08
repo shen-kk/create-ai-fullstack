@@ -62,4 +62,10 @@ Agent 和 API 的 `DEPLOYMENT_CALLBACK_TOKEN` 不一致时，任务状态无法�
 
 ## 当前状态
 
-当前仓库已完成后台部署环境、CNB 构建触发、任务记录和状态回传契约。Deploy Agent 的 Docker 执行器、安装脚本、健康检查和回滚程序将在本目录继续实现。
+当前仓库已完成后台部署环境、CNB 构建触发、任务记录和状态回传契约，并提供 `agent.mjs` Docker Compose 执行器。启动前设置 `DEPLOYMENT_RUN_ID`、`DEPLOYMENT_VERSION` 和可选的 `DEPLOY_HEALTH_URLS`，然后执行：
+
+```bash
+node /opt/deploy-agent/agent.mjs
+```
+
+当前 Agent 负责镜像拉取、容器更新、健康检查和状态回传；后台任务领取、版本镜像变量注入和自动回滚仍需在真实服务器上继续接入验收。
