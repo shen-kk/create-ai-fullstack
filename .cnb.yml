@@ -48,7 +48,7 @@ main:
         - name: install
           script: pnpm install --frozen-lockfile
         - name: quality-gate
-          script: pnpm check
+          script: pnpm format:check && pnpm lint && pnpm typecheck && pnpm build
         - name: build-images
           script: |
             docker build -f apps/api/Dockerfile -t "${CNB_DOCKER_REGISTRY}/${CNB_REPO_SLUG_LOWERCASE}/api:${CNB_COMMIT_SHORT}" .
