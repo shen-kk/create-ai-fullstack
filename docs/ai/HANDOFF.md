@@ -143,3 +143,28 @@ pnpm template:verify -- --full
 ## 10. 维护本交接文档
 
 只记录仍然有效、能帮助下一位 AI 决策的事实。功能完成度、启动流程、关键边界或最高优先级发生变化时，同一提交更新本文件与 `docs/ai/CONTEXT.md`；临时调试过程交给 Git，不写进项目记忆。
+# 2026-08-08 交接补充：部署与数据库边界
+
+## 当前已验证
+
+- 模板固定使用 PostgreSQL + Prisma，不再支持 memory 数据源。
+- API 构建阶段不需要真实 `DATABASE_URL`；CNB 的 `api_trigger_deploy` 只执行格式检查、Lint、类型检查和构建。
+- 真实 `DATABASE_URL`、Redis、短信、邮件、对象存储等配置只在服务器运行时注入。
+- CNB Token 推荐权限：`repo-code:rw`、`repo-basic-info:r`、`repo-cnb-trigger:rw`、`repo-cnb-history:r`、`repo-cnb-detail:r`、`registry-package:rw`。
+- CNB API 触发接口：`POST /{repo}/-/build/start`；状态接口：`GET /{repo}/-/build/status/{sn}`；阶段日志接口：`GET /{repo}/-/build/logs/stage/{sn}/{pipelineId}/{stageId}`。
+- 后台已有部署进度、SSE 和 CNB 原始阶段详情接口。API 构建状态查询接口为 `GET /api/deployments/:targetId/runs/:runId/cnb-status`。
+
+## 当前部署链路状态
+
+CNB 构建触发、构建编号保存、状态查询和阶段详情读取已经接入。镜像构建完成后的远程发布、Compose 更新、运行时配置注入、Prisma 迁移和最终健康检查仍需继续实现；在这些步骤完成前，不要把部署记录标记为成功。
+
+## 接手后的验证顺序
+
+1. 使用真实 PostgreSQL 配置运行 `pnpm template:provision` 和 `pnpm dev:api`。
+2. 在后台配置部署环境并完成服务器、CNB 仓库和 Token 检查。
+3. 触发 `main` / `api_trigger_deploy`，在 CNB 页面或 `cnb-status` 接口查看阶段状态。
+4. 构建阶段不得读取生产数据库；服务器发布阶段才注入运行时配置并执行迁移。
+
+## 安全约束
+
+不要把数据库连接串、SSH 密码、CNB Token 或服务密钥写入 `.cnb.yml`、镜像、Git、日志或 API 响应。所有敏感信息只能进入后台加密配置或服务器运行时环境。
