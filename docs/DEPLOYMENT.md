@@ -2,6 +2,8 @@
 
 ## 后台部署中心
 
+Deploy Agent 配置模板位于 `tools/deploy-agent/.env.example`，详细填写说明见 `tools/deploy-agent/README.md`。目标服务器上的真实 `.env` 只保存在服务器，不提交 Git。
+
 启用核心能力 `deploymentCenter` 后，Admin `/deployments` 可以创建任意多个开发、测试、预发布、生产或自定义环境。应用范围来自初始化声明：Admin 与 API 始终存在，Web 只在 `userWeb` 启用时出现。
 
 部署环境保存后处于“待验证”，必须使用真实 SSH 凭据通过服务器认证、Docker、磁盘与部署目录检查才允许发起任务。SSH、CNB 与 Registry 凭据以 `CONFIG_ENCRYPTION_KEY` 加密，响应和审计日志只包含已配置字段名。
