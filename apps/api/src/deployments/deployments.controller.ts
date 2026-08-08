@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
 import type {
@@ -13,6 +24,14 @@ import { RequirePermissions } from '../auth/require-permissions.decorator.js';
 import { CreateDeploymentRunDto } from './dto/create-deployment-run.dto.js';
 import { UpsertDeploymentTargetDto } from './dto/upsert-deployment-target.dto.js';
 import { DeploymentsService } from './deployments.service.js';
+
+class DeploymentRunStatusDto {
+  status!:
+    'queued' | 'building' | 'deploying' | 'succeeded' | 'failed' | 'cancelled' | 'rolled_back';
+  currentStep?: string | null;
+  errorCode?: string | null;
+  steps?: unknown[];
+}
 
 type AuthenticatedRequest = Request & { user: AuthUser; requestId?: string };
 
@@ -80,6 +99,18 @@ export class DeploymentsController {
     @Req() request: AuthenticatedRequest,
   ): Promise<DeploymentRunSummary> {
     return this.deployments.startRun(id, input, this.context(request));
+  }
+
+  @Post('internal/runs/:runId/status')
+  async updateRunStatus(
+    @Param('runId') runId: string,
+    @Headers('x-deployment-callback-token') token: string | undefined,
+    @Body() input: DeploymentRunStatusDto,
+  ): Promise<DeploymentRunSummary> {
+    const expected = process.env.DEPLOYMENT_CALLBACK_TOKEN;
+    if (!expected || !token || token !== expected)
+      throw new UnauthorizedException('DEPLOYMENT_CALLBACK_UNAUTHORIZED');
+    return this.deployments.updateRunStatus(runId, input);
   }
 
   private context(request: AuthenticatedRequest): {

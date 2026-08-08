@@ -6,6 +6,8 @@
 
 部署环境保存后处于“待验证”，必须使用真实 SSH 凭据通过服务器认证、Docker、磁盘与部署目录检查才允许发起任务。SSH、CNB 与 Registry 凭据以 `CONFIG_ENCRYPTION_KEY` 加密，响应和审计日志只包含已配置字段名。
 
+CNB 或 Deploy Agent 回传任务状态时调用 `POST /api/deployments/internal/runs/:runId/status`，并在 `x-deployment-callback-token` 请求头中携带服务端环境变量 `DEPLOYMENT_CALLBACK_TOKEN`。生产环境必须配置随机长令牌并通过密钥管理系统注入。
+
 第一次上线由本地运行的部署控制面完成；远程 Admin/API/Deploy Agent 就绪后，后续可从远程后台触发 CNB `api_trigger_deploy`。CNB 检出指定分支、Tag 或 Commit，运行质量门禁，按本次应用范围构建并推送不可变 Commit 标签镜像。具体边界见 ADR-0009。
 
 自动 HTTPS 使用 Caddy，要求域名已解析到目标服务器且 80/443 可用；系统不修改 DNS。使用 IP/端口或已有反向代理时仍必须为每个启用应用填写最终访问 URL，以便构建正确的跨端 API 地址。

@@ -78,6 +78,7 @@ pnpm dev
 - SSH 登录、Docker、磁盘和目录真实连通性检查。
 - SSH/CNB/Registry 凭据加密保存且不回显。
 - CNB `api_trigger_deploy` 构建触发和三个应用的镜像构建定义。
+- 受 `DEPLOYMENT_CALLBACK_TOKEN` 保护的任务状态回传接口，可接收构建、部署、健康检查和失败状态。
 - Caddy 自动 HTTPS 的约束与架构决策。
 
 尚未完成，不能对用户宣称“一键部署闭环”：

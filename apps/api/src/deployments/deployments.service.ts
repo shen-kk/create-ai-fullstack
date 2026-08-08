@@ -272,6 +272,57 @@ export class DeploymentsService {
     return this.toRunSummary(row);
   }
 
+  async updateRunStatus(
+    runId: string,
+    input: {
+      status: DeploymentRunStatus;
+      currentStep?: string | null;
+      errorCode?: string | null;
+      steps?: unknown[];
+    },
+  ): Promise<DeploymentRunSummary> {
+    const allowedStatuses: DeploymentRunStatus[] = [
+      'queued',
+      'building',
+      'deploying',
+      'succeeded',
+      'failed',
+      'cancelled',
+      'rolled_back',
+    ];
+    if (!allowedStatuses.includes(input.status))
+      throw new BadRequestException('DEPLOYMENT_RUN_STATUS_INVALID');
+    const terminal = ['succeeded', 'failed', 'cancelled', 'rolled_back'].includes(input.status);
+    const completedAt = terminal ? new Date() : null;
+    if (!this.isPrisma()) {
+      const run = memoryRuns.get(runId);
+      if (!run) throw new NotFoundException('DEPLOYMENT_RUN_NOT_FOUND');
+      const updated = {
+        ...run,
+        status: input.status,
+        ...(input.currentStep !== undefined ? { currentStep: input.currentStep } : {}),
+        ...(input.errorCode !== undefined ? { errorCode: input.errorCode } : {}),
+        ...(input.steps ? { steps: input.steps as DeploymentRunStep[] } : {}),
+        ...(completedAt ? { completedAt: completedAt.toISOString() } : {}),
+      };
+      memoryRuns.set(runId, updated);
+      return updated;
+    }
+    const row = await this.prisma.deploymentRun.findUnique({ where: { id: runId } });
+    if (!row) throw new NotFoundException('DEPLOYMENT_RUN_NOT_FOUND');
+    const updated = await this.prisma.deploymentRun.update({
+      where: { id: runId },
+      data: {
+        status: input.status.toUpperCase() as PrismaRunStatus,
+        ...(input.currentStep !== undefined ? { currentStep: input.currentStep } : {}),
+        ...(input.errorCode !== undefined ? { errorCode: input.errorCode } : {}),
+        ...(input.steps ? { steps: input.steps as Prisma.InputJsonValue } : {}),
+        ...(completedAt ? { completedAt } : {}),
+      },
+    });
+    return this.toRunSummary(updated);
+  }
+
   async startRun(
     targetId: string,
     input: CreateDeploymentRunRequest,
