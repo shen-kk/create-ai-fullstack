@@ -48,4 +48,4 @@ AI 应依次读取：
 
 从 `docs/ai/TASK_TEMPLATE.md` 复制任务说明，明确验收标准与影响范围，然后按“契约 → API → 客户端 → 测试 → 文档”实现。
 
-模板包含 Admin、Web、API、共享契约、初始化 CLI、测试和 AI 项目记忆。功能边界与验收记录见 `docs/ROADMAP.md`，可分发 Skill 位于 `skills/create-admin-project`。
+模板包含 Admin、Web、API、共享契约、初始化 CLI、测试和 AI 项目记忆。功能边界见 `docs/ROADMAP.md`，冻结执行清单见 `docs/FREEZE_ACCEPTANCE_TASKS.md`，可分发 Skill 位于 `skills/create-admin-project`。

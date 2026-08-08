@@ -137,7 +137,7 @@ pnpm template:verify -- --full
 | 权限       | `docs/decisions/0003-permission-taxonomy.md`、`permissionCatalog`               |
 | 服务密钥   | `docs/architecture/SERVICE_INTEGRATIONS.md`                                     |
 | 部署中心   | `docs/decisions/0009-deployment-control-plane.md`、`docs/DEPLOYMENT.md`         |
-| 冻结验收   | `docs/ROADMAP.md`、`docs/MANUAL_ACCEPTANCE.md`                                  |
+| 冻结验收   | `docs/FREEZE_ACCEPTANCE_TASKS.md`、`docs/ROADMAP.md`、`docs/MANUAL_ACCEPTANCE.md` |
 
 ## 10. 维护本交接文档
 
