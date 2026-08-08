@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { IsArray, IsIn, IsOptional, IsString } from 'class-validator';
 import type { Request } from 'express';
 import type {
   AuthUser,
@@ -26,10 +27,17 @@ import { UpsertDeploymentTargetDto } from './dto/upsert-deployment-target.dto.js
 import { DeploymentsService } from './deployments.service.js';
 
 class DeploymentRunStatusDto {
+  @IsIn(['queued', 'building', 'deploying', 'succeeded', 'failed', 'cancelled', 'rolled_back'])
   status!:
     'queued' | 'building' | 'deploying' | 'succeeded' | 'failed' | 'cancelled' | 'rolled_back';
+  @IsOptional()
+  @IsString()
   currentStep?: string | null;
+  @IsOptional()
+  @IsString()
   errorCode?: string | null;
+  @IsOptional()
+  @IsArray()
   steps?: unknown[];
 }
 
