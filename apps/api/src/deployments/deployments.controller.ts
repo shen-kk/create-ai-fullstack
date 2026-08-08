@@ -89,6 +89,12 @@ export class DeploymentsController {
     return this.deployments.testConnection(id, this.context(request));
   }
 
+  @Post(':id/test-cnb')
+  @RequirePermissions('deployments.manage')
+  testCnb(@Param('id') id: string): Promise<import('@template/contracts').DeploymentCnbTestResult> {
+    return this.deployments.testCnb(id);
+  }
+
   @Get(':id/runs')
   listRuns(@Param('id') id: string): Promise<DeploymentRunSummary[]> {
     return this.deployments.listRuns(id);

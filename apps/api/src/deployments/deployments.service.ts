@@ -17,6 +17,7 @@ import type {
   CreateDeploymentRunRequest,
   DeployableApplication,
   DeploymentConnectionTestResult,
+  DeploymentCnbTestResult,
   DeploymentEnvironmentKind,
   DeploymentRunStatus,
   DeploymentRunStep,
@@ -241,6 +242,59 @@ export class DeploymentsService {
       metadata: { checks: result.checks.map(({ key, status }) => ({ key, status })) },
     });
     return result;
+  }
+
+  async testCnb(id: string): Promise<DeploymentCnbTestResult> {
+    const checkedAt = new Date().toISOString();
+    const target = await this.getTarget(id);
+    const secrets = await this.getSecrets(id);
+    const checks: DeploymentCnbTestResult['checks'] = [];
+    if (!target.cnbRepository || !secrets.cnbToken) {
+      return {
+        success: false,
+        checkedAt,
+        checks: [{ key: 'token', label: 'CNB 访问令牌', status: 'failed', message: '未配置 CNB 访问令牌' }],
+      };
+    }
+    const repository = target.cnbRepository.split('/').map(encodeURIComponent).join('/');
+    try {
+      const response = await fetch(`https://api.cnb.cool/${repository}`, {
+        signal: AbortSignal.timeout(15_000),
+        headers: {
+          Accept: 'application/json',
+          Authorization: /^Bearer\s/i.test(secrets.cnbToken)
+            ? secrets.cnbToken
+            : `Bearer ${secrets.cnbToken}`,
+        },
+      });
+      checks.push({
+        key: 'repository',
+        label: 'CNB 仓库访问',
+        status: response.ok ? 'passed' : 'failed',
+        message: response.ok ? '仓库访问正常' : `仓库访问失败（HTTP ${response.status}）`,
+      });
+    } catch {
+      checks.push({
+        key: 'repository',
+        label: 'CNB 仓库访问',
+        status: 'failed',
+        message: '无法连接 CNB API',
+      });
+    }
+    const validEvent = /^api_trigger_[a-zA-Z0-9_-]+$/.test(target.cnbEvent);
+    checks.push({
+      key: 'event',
+      label: '构建触发事件',
+      status: validEvent ? 'passed' : 'failed',
+      message: validEvent ? `${target.cnbEvent} 格式正确` : '事件必须以 api_trigger_ 开头',
+    });
+    checks.push({
+      key: 'token',
+      label: 'CNB 访问令牌',
+      status: checks[0]?.status === 'passed' ? 'passed' : 'failed',
+      message: checks[0]?.status === 'passed' ? '令牌可访问目标仓库' : '令牌无法访问目标仓库或权限不足',
+    });
+    return { success: checks.every((check) => check.status === 'passed'), checkedAt, checks };
   }
 
   async listRuns(targetId: string): Promise<DeploymentRunSummary[]> {

@@ -1,6 +1,7 @@
 import type {
   CreateDeploymentRunRequest,
   DeploymentConnectionTestResult,
+  DeploymentCnbTestResult,
   DeploymentRunSummary,
   DeploymentTargetSummary,
   UpsertDeploymentTargetRequest,
@@ -43,6 +44,8 @@ export const updateDeploymentTarget = (
   });
 export const testDeploymentConnection = (id: string): Promise<DeploymentConnectionTestResult> =>
   request(`/deployments/${encodeURIComponent(id)}/test-connection`, { method: 'POST' });
+export const testDeploymentCnb = (id: string): Promise<DeploymentCnbTestResult> =>
+  request(`/deployments/${encodeURIComponent(id)}/test-cnb`, { method: 'POST' });
 export const getDeploymentRuns = (id: string): Promise<DeploymentRunSummary[]> =>
   request(`/deployments/${encodeURIComponent(id)}/runs`);
 export const startDeploymentRun = (

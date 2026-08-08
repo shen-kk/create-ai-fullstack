@@ -2,6 +2,7 @@
 import type {
   DeployableApplication,
   DeploymentConnectionTestResult,
+  DeploymentCnbTestResult,
   DeploymentEnvironmentKind,
   DeploymentRunSummary,
   DeploymentTargetSummary,
@@ -14,6 +15,7 @@ import {
   getDeploymentTargets,
   startDeploymentRun,
   testDeploymentConnection,
+  testDeploymentCnb,
   updateDeploymentTarget,
 } from '../api/deployments';
 import AppSelect from '../components/AppSelect.vue';
@@ -28,6 +30,8 @@ const notice = ref('');
 const editingId = ref<string>();
 const dialogOpen = ref(false);
 const checks = ref<Record<string, DeploymentConnectionTestResult>>({});
+const cnbChecks = ref<Record<string, DeploymentCnbTestResult>>({});
+const testingCnbId = ref('');
 const selectedTarget = ref<DeploymentTargetSummary>();
 const runs = ref<DeploymentRunSummary[]>([]);
 const selectedRun = ref<DeploymentRunSummary>();
@@ -180,6 +184,21 @@ async function testTarget(target: DeploymentTargetSummary): Promise<void> {
     testingId.value = '';
   }
 }
+async function testCnb(target: DeploymentTargetSummary): Promise<void> {
+  testingCnbId.value = target.id;
+  notice.value = '';
+  try {
+    const result = await testDeploymentCnb(target.id);
+    cnbChecks.value[target.id] = result;
+    notice.value = result.success
+      ? 'CNB 仓库、访问令牌和触发事件检查通过。'
+      : 'CNB 配置检查未通过，请根据检查结果修正配置。';
+  } catch (cause) {
+    notice.value = deploymentErrorMessage(cause, '无法执行 CNB 配置检查');
+  } finally {
+    testingCnbId.value = '';
+  }
+}
 async function showRuns(target: DeploymentTargetSummary): Promise<void> {
   selectedTarget.value = target;
   runs.value = await getDeploymentRuns(target.id);
@@ -286,6 +305,17 @@ onMounted(load);
             ><small>{{ check.message }}</small>
           </p>
         </div>
+        <div v-if="cnbChecks[target.id]" class="deployment-checks">
+          <p
+            v-for="check in cnbChecks[target.id]?.checks ?? []"
+            :key="`cnb-${check.key}`"
+            :class="check.status"
+          >
+            <b>{{ check.status === 'passed' ? '✓' : '×' }}</b>
+            <span>{{ check.label }}</span>
+            <small>{{ check.message }}</small>
+          </p>
+        </div>
         <footer>
           <button class="secondary-button" @click="openEdit(target)">编辑</button>
           <button
@@ -294,6 +324,13 @@ onMounted(load);
             @click="testTarget(target)"
           >
             {{ testingId === target.id ? '检查中…' : '测试连接' }}
+          </button>
+          <button
+            class="secondary-button"
+            :disabled="testingCnbId === target.id"
+            @click="testCnb(target)"
+          >
+            {{ testingCnbId === target.id ? '检查中…' : '检查 CNB' }}
           </button>
           <button class="secondary-button" @click="showRuns(target)">部署记录</button>
           <button

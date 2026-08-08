@@ -414,6 +414,19 @@ export interface DeploymentConnectionTestResult {
   checks: DeploymentConnectionCheck[];
 }
 
+export interface DeploymentCnbCheck {
+  key: 'repository' | 'event' | 'token';
+  label: string;
+  status: 'passed' | 'failed';
+  message: string;
+}
+
+export interface DeploymentCnbTestResult {
+  success: boolean;
+  checkedAt: string;
+  checks: DeploymentCnbCheck[];
+}
+
 export interface DeploymentRunStep {
   key: string;
   label: string;
