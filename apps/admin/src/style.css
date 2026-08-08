@@ -1927,7 +1927,10 @@ td {
   scrollbar-width: thin;
 }
 .deployment-dialog > header {
-  margin-bottom: 0;
+  margin-bottom: 0 !important;
+}
+.deployment-dialog > footer {
+  margin-top: 0;
 }
 .user-dialog > header {
   position: sticky;
