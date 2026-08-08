@@ -40,6 +40,7 @@ const runDialogOpen = ref(false);
 const runVersion = ref('main');
 const runApplications = ref<DeployableApplication[]>([]);
 const deploying = ref(false);
+const cnbStatus = ref<Record<string, unknown>>();
 let runEvents: EventSource | undefined;
 const progressLabel = computed(() => {
   const run = selectedRun.value;
@@ -221,6 +222,12 @@ async function showRuns(target: DeploymentTargetSummary): Promise<void> {
 }
 function openRunDetail(run: DeploymentRunSummary): void {
   selectedRun.value = run;
+  cnbStatus.value = undefined;
+  if (run.cnbBuildId && selectedTarget.value) {
+    void fetch(`${apiBaseUrl}/deployments/${encodeURIComponent(selectedTarget.value.id)}/runs/${encodeURIComponent(run.id)}/cnb-status`, { credentials: 'include' })
+      .then((response) => (response.ok ? response.json() : undefined))
+      .then((value) => { cnbStatus.value = value; });
+  }
   runEvents?.close();
   if (!selectedTarget.value || !['queued', 'building', 'deploying'].includes(run.status)) return;
   runEvents = new EventSource(
@@ -444,6 +451,10 @@ onUnmounted(() => runEvents?.close());
             <strong>当前进度</strong><span>{{ progressLabel }}</span>
           </div>
           <div class="deployment-progress-track"><span :style="{ width: `${runProgress}%` }" /></div>
+        </div>
+        <div v-if="cnbStatus" class="cnb-stage-summary">
+          <strong>CNB 实时阶段</strong>
+          <pre>{{ JSON.stringify(cnbStatus, null, 2) }}</pre>
         </div>
         <ol class="deployment-step-list">
           <li v-for="step in selectedRun.steps" :key="step.key" :class="step.status">
