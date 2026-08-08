@@ -650,7 +650,7 @@ export class DeploymentsService {
     } catch {
       this.logger.warn(`CNB build trigger returned non-JSON response: ${responseText.slice(0, 500)}`);
     }
-    const id = body['id'] ?? body['buildId'] ?? body['build_id'];
+    const id = body['id'] ?? body['buildId'] ?? body['build_id'] ?? body['sn'];
     return typeof id === 'string' || typeof id === 'number' ? String(id) : null;
   }
 
