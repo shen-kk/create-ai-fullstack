@@ -32,6 +32,10 @@ try {
         }
       : config;
   const commands = provisionCommands(provisionConfig);
+  if (process.env.SKIP_PRISMA_GENERATE === '1') {
+    const generateIndex = commands.findIndex((command) => command.includes('db:generate'));
+    if (generateIndex >= 0) commands.splice(generateIndex, 1);
+  }
   if (!commands.length) {
     console.log('[SKIP] 当前为内存模式，不需要数据库部署。');
     process.exit(0);
