@@ -11,3 +11,6 @@ allowBuilds:
   prisma: true
   ssh2: false
   vue-demi: true
+
+overrides:
+  onetime: 5.1.2
