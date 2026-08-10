@@ -1,0 +1,10 @@
+{
+  "name": "create-ai-template",
+  "version": "0.1.0",
+  "description": "从 Git 模板初始化 AI 全栈项目",
+  "type": "module",
+  "bin": { "create-ai-template": "./bin/create.mjs" },
+  "files": ["bin"],
+  "engines": { "node": ">=22" },
+  "publishConfig": { "access": "public" }
+}
