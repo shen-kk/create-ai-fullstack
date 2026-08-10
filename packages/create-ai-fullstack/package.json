@@ -4,7 +4,7 @@
   "description": "交互式创建包含 Admin、Web 与 API 的 AI 友好全栈项目",
   "type": "module",
   "bin": {
-    "create-aiforge": "./bin/create.mjs"
+    "create-aiforge": "bin/create.mjs"
   },
   "files": [
     "bin"
