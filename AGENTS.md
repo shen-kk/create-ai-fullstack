@@ -8,6 +8,7 @@
 2. 阅读 `docs/ai/CONTEXT.md` 和由初始化命令生成的 `docs/ai/PROJECT.md`，再按其中索引读取与任务有关的领域/架构文档。
 3. 先搜索现有实现；能复用就不要新建平行抽象。
 4. 任务涉及架构、数据模型或公共契约时，先更新对应文档或 ADR。
+5. UI、交互、AI 协作和模板发布遵循 `docs/ai/AI_DEVELOPMENT_STANDARD.md`。
 
 ## 仓库边界
 
