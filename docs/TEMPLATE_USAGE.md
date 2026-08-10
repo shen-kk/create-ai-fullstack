@@ -6,19 +6,15 @@
 
 模板所有状态、结果和用户可见错误默认使用简体中文展示，API 和数据库仍保留稳定英文代码。初始化向导会让使用者确认默认语言；当前版本仅开放 `zh-CN`，未来增加多语言时必须由使用者显式选择默认语言和支持语言，AI 不得自行推断。
 
-## 从 Git 创建项目
+## 使用 npm CLI 创建项目
 
 ```bash
-git clone --depth 1 https://github.com/shen-kk/create-ai-fullstack my-project
+npm create aiforge@latest my-project
 cd my-project
-pnpm install
-pnpm template:init
-pnpm install
-pnpm template:doctor
 pnpm dev:local
 ```
 
-初始化会将内部包从 `@template/*` 改为项目自己的命名空间，因此初始化后第二次 `pnpm install` 用于刷新 workspace 链接，通常只需数秒且不会重复下载依赖。
+CLI 内部会将 `@template/*` 改为项目命名空间，并自动完成两次依赖处理和 Doctor。最终用户不需要手动执行 `template:init`。
 
 初始化向导依次收集项目名称、包命名空间、端口、数据库模式、管理员信息、是否启用用户端与可选基础设施能力，并将工作区中的 `@template/*` 包引用替换为新命名空间。交互式 quick、standard、custom 三种模式都显式询问是否启用用户端；只有 `--defaults` 自动化模式不提问。第一版真实支持内存预览或 PostgreSQL + Prisma；MySQL 等数据库须在完成适配后再开放选择。
 
@@ -32,9 +28,9 @@ PostgreSQL 按主机、端口、库名、用户名和密码分项收集并生成
 - `standard`：PostgreSQL + Prisma，并声明 Redis、对象存储和邮件能力。
 - `custom`：逐项选择已实现的基础能力。
 
-直接运行初始化命令时默认选择 `custom`。Redis 校验失败会在当前向导中显示错误并重新询问连接信息，不会退出整个初始化流程。
+创建命令默认选择 `custom`。Redis 校验失败会在当前向导中显示错误并重新询问连接信息，不会退出整个初始化流程。
 
-也可以跳过模式提问：`pnpm template:init -- --preset=standard`。选择能力只生成项目声明和运行配置，不会自动连接数据库或执行迁移。
+也可以跳过模式提问：`npm create aiforge@latest my-project -- --preset=standard`。是否连接数据库并执行迁移仍由向导明确询问。
 
 用户端选择是所有模式都会询问的独立问题。启用时会同时启用 `userWeb`、`customerAuthentication`、用户端权限和后台用户端用户管理；停用时 Web 不进入默认开发、检查、测试与构建，相关 API、菜单和权限目录也不生效。
 
@@ -55,7 +51,7 @@ pnpm template:provision
 - `AGENTS.md` 与 `docs/ai/CONTEXT.md`：AI 开发入口和当前有效事实。
 - `docs/ai/PROJECT.md`：根据项目声明自动生成的项目专属 AI 记忆，禁止包含密钥。
 
-重新执行 `pnpm template:init` 会先备份现有 `.env`。只预览默认结果可运行：
+下面的 `template:*` 命令只用于模板维护、故障恢复或已有项目重新配置，不属于首次安装步骤。重新执行 `pnpm template:init` 会先备份现有 `.env`。只预览默认结果可运行：
 
 ```bash
 pnpm template:init -- --defaults --dry-run
@@ -70,4 +66,5 @@ pnpm template:init -- --defaults --dry-run
 冻结版本前还应执行 `pnpm template:verify -- --full`。完整模式会在干净副本中启用用户端能力，安装锁定依赖、刷新命名空间链接、生成 Prisma Client，并执行 Admin、API、Web 和共享契约的格式、Lint、类型、测试与生产构建；它不会连接业务数据库。完整的人工流程见 `docs/MANUAL_ACCEPTANCE.md`。
 
 验证未启用用户端的裁剪结果时运行 `pnpm template:verify -- --full --no-user-web`；该模式要求用户端能力、默认任务、后台菜单和权限目录均保持停用。
+
 > 重要：当前冻结版不再提供内存模式。quick、standard、custom 都必须填写可访问的 PostgreSQL 信息，并通过 `pnpm template:provision` 完成迁移和管理员种子；数据库不可用时 API 应直接报配置错误，不会回退假数据。

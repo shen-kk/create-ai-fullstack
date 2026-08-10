@@ -1,8 +1,8 @@
 # AI-Friendly Full-Stack Template
 
-> 第一次创建项目请按照 [中文分步使用手册](docs/GETTING_STARTED.md)，从环境准备、初始化、启动一路操作到验收。
+> 第一次创建项目请按照 [中文分步使用手册](docs/GETTING_STARTED.md)，从环境准备、交互选择、启动一路操作到验收。
 
-从 Git 模板创建新项目后，执行 `pnpm template:init` 完成交互式初始化，再运行 `pnpm template:doctor` 检查配置。完整说明见 [`docs/TEMPLATE_USAGE.md`](docs/TEMPLATE_USAGE.md)。
+最终使用者只需运行一次 `npm create aiforge@latest my-project`。CLI 会获取模板、进入交互式配置、安装依赖并完成 Doctor 检查，不需要再手动执行 `template:init`。
 
 面向 AI 协作开发的后台管理端、用户端与服务端 Monorepo 模板。后台管理员和用户端账号使用独立身份边界，模板不预置行业业务。
 
@@ -16,10 +16,8 @@
 ## 快速开始
 
 ```bash
-pnpm install
-pnpm template:init
-pnpm install
-pnpm template:doctor
+npm create aiforge@latest my-project
+cd my-project
 pnpm dev:local
 ```
 
@@ -49,6 +47,7 @@ AI 应依次读取：
 从 `docs/ai/TASK_TEMPLATE.md` 复制任务说明，明确验收标准与影响范围，然后按“契约 → API → 客户端 → 测试 → 文档”实现。
 
 模板包含 Admin、Web、API、共享契约、初始化 CLI、测试和 AI 项目记忆。功能边界见 `docs/ROADMAP.md`，冻结执行清单见 `docs/FREEZE_ACCEPTANCE_TASKS.md`，可分发 Skill 位于 `skills/create-admin-project`。
+
 ## 推荐初始化方式
 
-新项目优先使用 npm CLI：`pnpm create ai-fullstack my-project`。CLI 从 Git 模板仓库获取指定版本，再执行 `template:init`；模板开发联调使用独立项目，不把真实环境配置提交到模板仓库。完整分发说明见 [`docs/TEMPLATE_DISTRIBUTION.md`](docs/TEMPLATE_DISTRIBUTION.md)。
+新项目统一使用 npm CLI：`npm create aiforge@latest my-project`。`template:init`、`template:sync` 和 `template:doctor` 是脚手架内部及模板维护命令，不是新用户必须手动执行的安装步骤。完整分发说明见 [`docs/TEMPLATE_DISTRIBUTION.md`](docs/TEMPLATE_DISTRIBUTION.md)。

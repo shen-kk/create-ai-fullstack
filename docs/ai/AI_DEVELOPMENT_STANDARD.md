@@ -55,7 +55,7 @@ AI 不得编造“已完成”的功能，不得用假数据掩盖接口未接�
 ## 6. Git、模板与发布
 
 - GitHub `https://github.com/shen-kk/create-ai-fullstack` 是唯一主仓库。
-- 新项目通过 `pnpm create ai-fullstack <project-name>` 或 CLI 从 GitHub 拉取模板，再执行 `pnpm template:init`。
+- 新项目通过 `npm create aiforge@latest <project-name>` 一次完成交互式创建；`template:init` 只作为 CLI 内部和模板维护入口。
 - 业务项目生成后不得把真实密钥、真实数据库或部署凭据反向提交到模板仓库。
 - 发布 npm 前先确认包名、版本、README、文件白名单和 npm 登录状态；失败时如实记录。
 

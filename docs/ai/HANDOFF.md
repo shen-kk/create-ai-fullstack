@@ -53,11 +53,8 @@
 ## 5. 新项目标准流程
 
 ```bash
-git clone https://github.com/shen-kk/create-ai-fullstack my-project
+npm create aiforge@latest my-project
 cd my-project
-pnpm install
-pnpm template:init
-pnpm template:doctor
 ```
 
 如果选择 PostgreSQL，在确认连接信息无误后执行：
@@ -143,6 +140,7 @@ pnpm template:verify -- --full
 ## 10. 维护本交接文档
 
 只记录仍然有效、能帮助下一位 AI 决策的事实。功能完成度、启动流程、关键边界或最高优先级发生变化时，同一提交更新本文件与 `docs/ai/CONTEXT.md`；临时调试过程交给 Git，不写进项目记忆。
+
 # 2026-08-08 交接补充：部署与数据库边界
 
 ## 当前已验证

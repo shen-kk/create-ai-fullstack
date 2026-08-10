@@ -22,6 +22,10 @@ const presetArgument = process.argv
   .slice(2)
   .find((item) => item.startsWith('--preset='))
   ?.split('=')[1];
+const projectNameArgument = process.argv
+  .slice(2)
+  .find((item) => item.startsWith('--name='))
+  ?.slice(7);
 const rl = defaultsMode
   ? undefined
   : createInterface({ input: process.stdin, output: process.stdout });
@@ -251,9 +255,11 @@ try {
     ));
   if (!['quick', 'standard', 'custom'].includes(preset))
     throw new Error('PRESET_INVALID：仅支持 quick、standard、custom');
-  const name = await ask('项目英文名称', 'admin-project', (value) =>
-    /^[a-z][a-z0-9-]{1,62}$/.test(value),
-  );
+  if (projectNameArgument && !/^[a-z][a-z0-9-]{1,62}$/.test(projectNameArgument))
+    throw new Error('PROJECT_NAME_INVALID：项目名称只能使用小写字母、数字和连字符');
+  const name =
+    projectNameArgument ??
+    (await ask('项目英文名称', 'admin-project', (value) => /^[a-z][a-z0-9-]{1,62}$/.test(value)));
   const packageScope = await ask('包命名空间', `@${name}`, (value) =>
     /^@[a-z][a-z0-9-]{1,62}$/.test(value),
   );
@@ -350,7 +356,11 @@ try {
   };
   const configErrors = validateProjectConfig(config);
   if (configErrors.length) throw new Error(`项目配置无效：${configErrors.join('；')}`);
-  const bootstrapIntegrations = await collectIntegrationBootstrap(modules, objectStorageProvider, database);
+  const bootstrapIntegrations = await collectIntegrationBootstrap(
+    modules,
+    objectStorageProvider,
+    database,
+  );
   const provisionNow =
     databaseMode === 'prisma' && !defaultsMode
       ? await yes('配置完成后立即校验连接、初始化数据库并创建管理员', true)
@@ -444,7 +454,7 @@ try {
       run(['template:provision', '--', '--yes']);
     } else
       console.log(
-    '下一步：重新运行 pnpm install 刷新工作区链接，再运行 pnpm template:doctor，确认后运行 pnpm template:provision，最后 pnpm dev:local',
+        '下一步：重新运行 pnpm install 刷新工作区链接，再运行 pnpm template:doctor，确认后运行 pnpm template:provision，最后 pnpm dev:local',
       );
   }
 } finally {

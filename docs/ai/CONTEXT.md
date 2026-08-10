@@ -60,7 +60,7 @@
 - 后台身份以手机号作为必填唯一登录标识，邮箱降为可选联系资料；登录、管理员创建/编辑、内存/Prisma 仓库和种子均按手机号执行。迁移 `20260802000600_admin_phone_identity` 负责既有数据过渡。
 - `/integrations` 管理对象存储、SQL、Redis、短信、邮件和支付配置；字段定义由代码注册，密钥采用 AES-256-GCM 加密，API 只返回已配置字段名且永不回显明文。需要 `menu.integrations` 与 `integrations.manage`，Prisma 迁移为 `20260802000700_integration_config`。
 - 服务配置字段支持平台/类型枚举选择；头像通过 `POST /api/auth/avatar` 直接上传到已启用的对象存储，当前适配腾讯云 COS。模板明确不提供本地文件存储或本地兜底，未配置、配置不完整或适配器不可用时返回稳定错误码并由 Admin 引导前往服务配置。
-- Git 模板初始化入口为 `pnpm template:init`，提供 quick、standard、custom 三种模式，将非敏感能力声明写入 `project.config.json`、敏感运行配置写入 Git 忽略的 `.env`；`pnpm template:doctor` 检查声明结构、密钥强度、管理员手机号和数据源一致性。第一版数据库初始化选项只开放已真实支持的内存预览与 PostgreSQL + Prisma，且不会未经确认连接数据库或执行迁移。
+- 最终用户入口为 `npm create aiforge@latest <project-name>`；CLI 内部调用 `template:init`，提供 quick、standard、custom 三种模式，自动刷新 workspace、执行 Doctor、移除模板 Git 历史并初始化新仓库。非敏感能力声明写入 `project.config.json`，敏感配置写入 Git 忽略的 `.env`。数据库固定使用 PostgreSQL + Prisma，是否校验连接、执行迁移和创建管理员由向导明确询问。
 - PostgreSQL 项目通过显式的 `pnpm template:provision` 执行 Prisma Client 生成、`prisma migrate deploy` 与管理员种子；默认要求输入 `YES`，支持 `--dry-run`，且不输出数据库连接串。内存模式会安全跳过。
 - `template:init` / `template:sync` 会同时生成 Admin 与 API 的无密钥运行时能力文件；项目显示名称用于后台品牌与 Swagger，未在 `project.config.json` 启用的 Redis、短信、邮件、支付等配置不会由 API 列出或接受更新。`template:doctor` 检查生成文件与声明一致性。
 - 服务配置 API 按字段定义执行嵌套白名单、字符串类型、平台枚举和启用时必填校验；未知字段、错误平台和不完整配置使用稳定错误码拒绝。对象存储 endpoint 为兼容 S3 等平台的可选字段，腾讯云 COS 不强制填写。
@@ -89,4 +89,5 @@
 - 身份基线已按 ADR-0002 选择为单租户起步；未来是否启用多租户仍待具体项目确认。
 - 用户查询、认证/权限加载和刷新会话均具备 Prisma 数据源实现，但本机尚未进行 PostgreSQL 集成验证。
 - 部署平台和可观测性供应商尚未确定。
+
 > 运行约束：模板冻结版统一使用 PostgreSQL + Prisma，禁止新增或恢复 memory 数据源、内存默认值或静默假数据回退。开发环境也必须通过 `.env`/`.env.template-dev` 提供真实 `DATABASE_URL`。
