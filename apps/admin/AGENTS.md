@@ -1,5 +1,7 @@
 # 后台管理端规则
 
+开始任务前阅读 `docs/admin/README.md` 和 `docs/standards/FEATURE_WORKFLOW.md`。Admin 使用独立的视觉与组件体系，不复制 Web 组件或样式。
+
 - 后台用于内部运营；每个操作都必须与服务端权限保持一致，隐藏按钮不能替代鉴权。
 - 页面负责组合，业务请求集中在 `src/api`，可复用 UI 放到 `src/components`。
 - 不在组件中硬编码 API 地址、角色名或服务端状态含义。

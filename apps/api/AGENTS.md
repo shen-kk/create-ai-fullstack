@@ -1,5 +1,7 @@
 # API 开发规则
 
+开始任务前阅读 `docs/api/README.md` 和 `docs/standards/FEATURE_WORKFLOW.md`，再按任务读取数据库、权限或模块指南。
+
 - API 是业务规则、权限校验、事务边界和数据访问的唯一权威来源。
 - Controller 只处理协议适配：解析输入、调用用例、映射输出。
 - 业务规则放入 Service/Application/Domain；Prisma 查询不得散落到 Controller。

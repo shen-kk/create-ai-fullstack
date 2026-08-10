@@ -1,5 +1,7 @@
 # 组件开发标准
 
+> 本文件保留为跨端组件治理入口。Admin 的实际组件与视觉规范以 `docs/admin` 为准，Web 以 `docs/web` 为准；两端不共享 UI 组件和 Design Token。
+
 本文件定义 AI 开发页面时可使用的组件入口和验收规则。AI 在新增或修改界面前必须先查阅本清单；没有组件时应先补公共组件，不得直接在页面中临时实现。
 
 这些规则是默认路径，不是永远不能改变的技术限制。如果现有组件无法满足可访问性、性能、交互或业务需求，AI 应主动提出更合适的实现，而不是勉强套用。
@@ -23,13 +25,13 @@ UI_STANDARD_EXCEPTION: docs/decisions/xxxx-description.md
 
 ## 组件唯一入口
 
-| 能力 | 后台管理 | 用户端 | 页面内禁止 |
-| --- | --- | --- | --- |
-| 选择器 | `apps/admin/src/components/AppSelect.vue` | `apps/web/app/components/ui/select` | 原生 `<select>`、自制 listbox |
-| 按钮 | 现有语义类，待收口为 `AppButton` | `apps/web/app/components/ui/button` | 新增无状态样式按钮 |
-| 弹窗 | 待收口为 `AppDialog` | 待生成 shadcn-vue Dialog | 点击遮罩关闭、自制弹窗结构 |
-| 全局反馈 | 后台统一反馈入口待组件化 | `apps/web/app/components/AppToast.vue` | `alert()`、`confirm()`、只写控制台 |
-| 图标 | `apps/admin/src/components/AppIcon.vue` | 当前组件内统一线性 SVG，后续收口图标入口 | emoji、混用填充与线性图标 |
+| 能力     | 后台管理                                  | 用户端                                   | 页面内禁止                         |
+| -------- | ----------------------------------------- | ---------------------------------------- | ---------------------------------- |
+| 选择器   | `apps/admin/src/components/AppSelect.vue` | `apps/web/app/components/ui/select`      | 原生 `<select>`、自制 listbox      |
+| 按钮     | 现有语义类，待收口为 `AppButton`          | `apps/web/app/components/ui/button`      | 新增无状态样式按钮                 |
+| 弹窗     | 待收口为 `AppDialog`                      | 待生成 shadcn-vue Dialog                 | 点击遮罩关闭、自制弹窗结构         |
+| 全局反馈 | 后台统一反馈入口待组件化                  | `apps/web/app/components/AppToast.vue`   | `alert()`、`confirm()`、只写控制台 |
+| 图标     | `apps/admin/src/components/AppIcon.vue`   | 当前组件内统一线性 SVG，后续收口图标入口 | emoji、混用填充与线性图标          |
 
 “待收口”代表模板当前存在技术债，不能被当作允许复制的示例。新增功能若需要该能力，应先完成公共组件，再开发页面。
 

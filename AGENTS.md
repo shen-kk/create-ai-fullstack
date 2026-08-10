@@ -12,6 +12,15 @@
 6. 涉及任何页面或组件时，先读取 `docs/design/COMPONENT_STANDARD.md` 并运行 `pnpm ui:check`。
 7. 现有规范不适合需求时，先说明证据、备选方案和影响；经确认并记录 ADR 后可以改进规范，不得机械套用。
 
+## 文档路由
+
+- 所有开发：`docs/standards/ENGINEERING.md`、`docs/standards/FEATURE_WORKFLOW.md`。
+- API：`docs/api/README.md`，再按其索引读取数据库、权限或模块规范。
+- 后台管理：`docs/admin/README.md`；Admin 有独立组件与视觉规则。
+- 用户端：`docs/web/README.md`；Web 有独立组件、视觉、动效和 SSR 规则。
+- 跨端契约：`packages/contracts/AGENTS.md`、`docs/api/CONVENTIONS.md`。
+- UI 规则例外：记录到 `docs/decisions`，并按组件标准声明引用。
+
 ## 仓库边界
 
 - `apps/admin`：内部运营后台，只通过 API 访问数据。

@@ -1,5 +1,7 @@
 # 用户端规则
 
+开始任务前阅读 `docs/web/README.md` 和 `docs/standards/FEATURE_WORKFLOW.md`。Web 使用独立的视觉与组件体系，不复制 Admin 组件或样式。
+
 - 业务组件统一放在 `app/components/ui`，以 shadcn-vue 为基础；表单、按钮、弹窗、选择器等交互组件不得在页面内重复实现。
 - 所需 shadcn-vue 组件尚未生成时，必须先在 `app/components/ui` 建立并验证公共组件；禁止直接使用原生 `<select>` 或页面级自制弹窗。
 - VueUse Motion 作为视觉动效增强层，封装组件放在 `app/components/motion`；不得让动效承载业务状态或破坏 SSR、可访问性与弱网体验。

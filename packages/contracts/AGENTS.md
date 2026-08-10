@@ -1,5 +1,7 @@
 # 公共契约规则
 
+开始任务前阅读 `docs/standards/ENGINEERING.md` 与 `docs/api/CONVENTIONS.md`；契约变更必须检查 API、Admin 和 Web 消费者。
+
 - 只放跨进程边界需要共享的类型、Schema 和稳定错误码。
 - 不导出 Prisma 模型、数据库枚举、NestJS DTO 或 UI 类型。
 - 不依赖 Node、浏览器、Vue、Nuxt、NestJS 和 Prisma。
