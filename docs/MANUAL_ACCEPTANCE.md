@@ -7,7 +7,7 @@
 ## 1. 创建项目
 
 ```bash
-git clone --depth 1 https://cnb.cool/nsmiling.com/ai-template manual-acceptance
+git clone --depth 1 https://github.com/shen-kk/create-ai-fullstack manual-acceptance
 cd manual-acceptance
 pnpm install --frozen-lockfile
 pnpm template:init

@@ -9,7 +9,7 @@
 ## 从 Git 创建项目
 
 ```bash
-git clone --depth 1 https://cnb.cool/nsmiling.com/ai-template my-project
+git clone --depth 1 https://github.com/shen-kk/create-ai-fullstack my-project
 cd my-project
 pnpm install
 pnpm template:init

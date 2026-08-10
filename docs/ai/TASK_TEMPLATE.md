@@ -20,6 +20,8 @@
 - 契约/API：
 - 数据库/迁移：
 - Admin/Web：
+- UI 组件复用/Design Token：
+- 现有组件不适用时的方案比较/ADR：
 - 安全/隐私：
 - 文档/ADR：
 
@@ -28,4 +30,5 @@
 ```bash
 pnpm check
 pnpm test
+pnpm ui:check
 ```

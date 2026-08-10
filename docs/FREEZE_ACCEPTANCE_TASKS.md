@@ -92,7 +92,7 @@ node --check tools/deploy-agent/doctor.mjs
 执行命令：
 
 ```bash
-git clone --depth 1 https://cnb.cool/nsmiling.com/ai-template freeze-with-web
+git clone --depth 1 https://github.com/shen-kk/create-ai-fullstack freeze-with-web
 cd freeze-with-web
 pnpm install --frozen-lockfile
 pnpm template:init

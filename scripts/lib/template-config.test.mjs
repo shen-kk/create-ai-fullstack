@@ -14,7 +14,7 @@ const valid = {
   template: {
     name: 'adminback-template',
     version: '0.1.0',
-    repository: 'https://cnb.cool/nsmiling.com/ai-template',
+    repository: 'https://github.com/shen-kk/create-ai-fullstack',
   },
   project: {
     name: 'demo-project',

@@ -17,7 +17,7 @@
 ## 发布动作
 
 - [ ] 初始化 Git 仓库并检查提交内容不含 `.env`、密钥文档、日志、依赖和构建产物
-- [ ] 推送 `main` 到 `https://cnb.cool/nsmiling.com/ai-template`
+- [ ] 推送 `main` 到 `https://github.com/shen-kk/create-ai-fullstack`
 - [ ] CI 通过后创建首个冻结标签
 
 只有环境门禁全部通过后才能创建冻结标签；CI 失败时不得以本地内存模式结果代替。

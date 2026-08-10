@@ -69,7 +69,7 @@
 - Admin 会话层已覆盖登录持久化、离线退出清理和损坏缓存恢复测试；分页统一从 1 开始、最大 100，默认采用 `createdAt desc, id asc` 稳定排序。
 - `pnpm template:verify -- --full` 已在无依赖、无构建产物、无本地密钥的临时副本中验证安装前后命名空间替换、workspace 链接刷新、Prisma Client 生成、43 个单元测试与 Admin/API 生产构建。
 - 仓库内可分发 Skill 位于 `skills/create-admin-project`，已通过官方 `quick_validate.py`；它引导新项目完成 Git 获取、初始化选择、二次 workspace 链接刷新、Doctor、数据库显式确认和 AI 上下文维护。
-- 模板正式目标仓库为 `https://cnb.cool/nsmiling.com/ai-template`；用户要求完善和最终冻结验收完成后再推送，目前不得提前推送。
+- 模板唯一主仓库为 `https://github.com/shen-kk/create-ai-fullstack`。
 - 已增加 PostgreSQL CI 服务、迁移/种子/Prisma E2E、Admin Nginx 镜像、API Node 生产镜像、生产 Compose 及部署备份文档；当前机器没有 Docker，镜像实际构建需由 CI 或有 Docker 的环境最终确认。
 
 ## 按任务读取

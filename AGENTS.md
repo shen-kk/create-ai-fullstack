@@ -9,6 +9,8 @@
 3. 先搜索现有实现；能复用就不要新建平行抽象。
 4. 任务涉及架构、数据模型或公共契约时，先更新对应文档或 ADR。
 5. UI、交互、AI 协作和模板发布遵循 `docs/ai/AI_DEVELOPMENT_STANDARD.md`。
+6. 涉及任何页面或组件时，先读取 `docs/design/COMPONENT_STANDARD.md` 并运行 `pnpm ui:check`。
+7. 现有规范不适合需求时，先说明证据、备选方案和影响；经确认并记录 ADR 后可以改进规范，不得机械套用。
 
 ## 仓库边界
 

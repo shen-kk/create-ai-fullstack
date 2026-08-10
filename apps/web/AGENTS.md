@@ -1,6 +1,7 @@
 # 用户端规则
 
 - 业务组件统一放在 `app/components/ui`，以 shadcn-vue 为基础；表单、按钮、弹窗、选择器等交互组件不得在页面内重复实现。
+- 所需 shadcn-vue 组件尚未生成时，必须先在 `app/components/ui` 建立并验证公共组件；禁止直接使用原生 `<select>` 或页面级自制弹窗。
 - VueUse Motion 作为视觉动效增强层，封装组件放在 `app/components/motion`；不得让动效承载业务状态或破坏 SSR、可访问性与弱网体验。
 - GSAP 只用于首页 Hero、滚动叙事等高价值编排，必须使用 `gsap.context()` 并在组件卸载时 `revert()`；普通显隐、列表和表单反馈继续使用 VueUse Motion。
 - Design System 采用 Apple 的克制与空间感、Linear 的高密度交互、Vercel 的黑白信息层级；只借鉴设计原则，不复制品牌资产或页面。

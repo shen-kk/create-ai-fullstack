@@ -2,6 +2,10 @@
 
 本文件是模板项目中 AI 开发的统一规则。每次开始任务前，AI 必须先阅读根目录 `AGENTS.md`、`docs/ai/CONTEXT.md` 和 `docs/ai/PROJECT.md`，再按任务索引读取领域文档。本文档适用于后台管理、用户端、服务端及共享包。
 
+涉及界面开发时还必须阅读 `docs/design/COMPONENT_STANDARD.md`，并以其中的组件唯一入口为准。
+
+规范代表当前默认最佳实践。AI 如果发现更好的实现，应主动提供证据、替代方案与迁移影响；经确认并记录 ADR 后可以更新规范或使用有边界的例外，不得为了形式一致强行使用不适合的组件。
+
 ## 1. 工作流程
 
 1. 先明确目标、边界、验收条件和是否需要新增配置。
@@ -50,7 +54,7 @@ AI 不得编造“已完成”的功能，不得用假数据掩盖接口未接�
 
 ## 6. Git、模板与发布
 
-- GitHub `https://github.com/shen-kk/create-ai-fullstack` 是唯一主仓库；CNB 仅保留为历史存档，不再推送。
+- GitHub `https://github.com/shen-kk/create-ai-fullstack` 是唯一主仓库。
 - 新项目通过 `pnpm create ai-fullstack <project-name>` 或 CLI 从 GitHub 拉取模板，再执行 `pnpm template:init`。
 - 业务项目生成后不得把真实密钥、真实数据库或部署凭据反向提交到模板仓库。
 - 发布 npm 前先确认包名、版本、README、文件白名单和 npm 登录状态；失败时如实记录。
@@ -62,4 +66,4 @@ AI 不得编造“已完成”的功能，不得用假数据掩盖接口未接�
 - [ ] 默认中文、统一组件和弹窗/滚动规则已遵守
 - [ ] 加载、空状态、错误、无权限和成功反馈已覆盖
 - [ ] `pnpm check`、相关测试、`pnpm template:doctor` 通过
-- [ ] `git diff --check` 通过；仅推送 GitHub `origin`，不再推送 CNB
+- [ ] `git diff --check` 通过；推送 GitHub `origin`

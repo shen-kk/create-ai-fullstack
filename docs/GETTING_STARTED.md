@@ -24,7 +24,7 @@ corepack prepare pnpm@11.9.0 --activate
 将 `my-project` 换成你的项目英文名：
 
 ```bash
-git clone --depth 1 https://cnb.cool/nsmiling.com/ai-template my-project
+git clone --depth 1 https://github.com/shen-kk/create-ai-fullstack my-project
 cd my-project
 pnpm install --frozen-lockfile
 ```

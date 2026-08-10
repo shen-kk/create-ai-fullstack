@@ -1,7 +1,7 @@
 {
   "$schema": "./project.config.schema.json",
   "schemaVersion": 1,
-  "template": { "name": "adminback-template", "version": "0.1.0", "repository": "https://cnb.cool/nsmiling.com/ai-template" },
+  "template": { "name": "adminback-template", "version": "0.1.0", "repository": "https://github.com/shen-kk/create-ai-fullstack" },
   "project": { "name": "adminback-template", "packageScope": "@template", "displayName": "AI 友好全栈模板", "description": "可复用的后台管理、用户端与 API 项目模板" },
   "runtime": { "packageManager": "pnpm", "adminPort": 3000, "apiPort": 3001, "webPort": 3002, "deployment": "local" },
   "database": { "mode": "prisma", "engine": "postgresql", "orm": "prisma" },
