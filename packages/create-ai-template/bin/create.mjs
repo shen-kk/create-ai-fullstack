@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 const args = process.argv.slice(2);
 const positional = args.filter((item) => !item.startsWith('--'));
 const destination = resolve(positional[0] || 'my-ai-project');
-const repo = args.find((item) => item.startsWith('--repo='))?.slice(7) || 'https://cnb.cool/nsmiling.com/ai-template';
+const repo = args.find((item) => item.startsWith('--repo='))?.slice(7) || 'https://github.com/shen-kk/create-ai-fullstack.git';
 const ref = args.find((item) => item.startsWith('--ref='))?.slice(6) || 'main';
 
 if (existsSync(destination)) {
