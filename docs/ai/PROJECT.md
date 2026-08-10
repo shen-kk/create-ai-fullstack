@@ -35,7 +35,6 @@
 - `rolesAndPermissions`
 - `auditLogs`
 - `serviceConfig`
-- `deploymentCenter`
 - `objectStorage`
 - `redis`
 - `sms`
@@ -44,7 +43,7 @@
 
 ## 未启用能力
 
-- 无
+- `deploymentCenter`
 
 ## AI 实现约束
 

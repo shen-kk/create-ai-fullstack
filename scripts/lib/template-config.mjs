@@ -4,7 +4,7 @@ export const coreModules = Object.freeze({
   rolesAndPermissions: true,
   auditLogs: true,
   serviceConfig: true,
-  deploymentCenter: true,
+  deploymentCenter: false,
 });
 
 export function presetModules(preset) {

@@ -124,7 +124,7 @@ const allMenuGroups: MenuGroup[] = [
         path: '/deployments',
         badge: '',
         implemented: true,
-        enabled: project.modules.deploymentCenter,
+        enabled: false,
         permissions: ['menu.deployments', 'deployments.read'],
         icon: 'deploy',
       },

@@ -38,7 +38,7 @@ export const project = {
     "rolesAndPermissions": true,
     "auditLogs": true,
     "serviceConfig": true,
-    "deploymentCenter": true,
+    "deploymentCenter": false,
     "objectStorage": true,
     "redis": true,
     "sms": true,
