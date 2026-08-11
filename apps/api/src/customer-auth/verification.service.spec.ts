@@ -3,29 +3,20 @@ import { VerificationService } from './verification.service.js';
 
 const createService = (): VerificationService =>
   new VerificationService(
-    {} as never,
+    { verificationCode: { findFirst: () => Promise.resolve(null) } } as never,
     {
       runtimeConfig: () => Promise.resolve({ enabled: false, values: {}, secrets: {} }),
     } as never,
   );
 
 describe('VerificationService', () => {
-  it('issues a development code and consumes it only once', async () => {
-    const service = createService();
-    const result = await service.send('sms', '13900000021', 'register');
-    expect(result.developmentCode).toMatch(/^\d{6}$/);
-    await service.consume('sms', '13900000021', 'register', result.developmentCode ?? '');
-    const deliveries = await service.list({ channel: 'sms', status: 'consumed' });
-    expect(deliveries.items.some((item) => item.targetMasked === '139****0021')).toBe(true);
-    await expect(
-      service.consume('sms', '13900000021', 'register', result.developmentCode ?? ''),
-    ).rejects.toThrow('VERIFICATION_CODE_INVALID');
+  it('rejects an invalid phone before accessing persistence', async () => {
+    await expect(createService().send('sms', '123', 'register')).rejects.toThrow('INVALID_PHONE');
   });
-  it('rate limits repeated sends for the same target and purpose', async () => {
-    const service = createService();
-    await service.send('email', 'verify-one@example.com', 'bind_contact');
-    await expect(service.send('email', 'verify-one@example.com', 'bind_contact')).rejects.toThrow(
-      'VERIFICATION_RETRY_LATER',
+
+  it('requires a configured delivery provider', async () => {
+    await expect(createService().send('email', 'user@example.com', 'bind_contact')).rejects.toThrow(
+      'EMAIL_NOT_CONFIGURED',
     );
   });
 });

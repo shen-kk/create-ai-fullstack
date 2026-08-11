@@ -12,7 +12,7 @@ import { connect as tlsConnect } from 'node:tls';
 import { PrismaService } from '../database/prisma.service.js';
 import { IntegrationsService } from '../integrations/integrations.service.js';
 
-interface MemoryCode {
+interface VerificationRecord {
   id: string;
   channel: VerificationChannel;
   targetHash: string;
@@ -26,7 +26,6 @@ interface MemoryCode {
   deliveryStatus: string;
   failureCode: string | null;
 }
-const memory: MemoryCode[] = [];
 const ttlSeconds = 300;
 const retrySeconds = 60;
 const hash = (value: string): string => createHash('sha256').update(value).digest('hex');
@@ -49,9 +48,7 @@ export class VerificationService {
     if (latest && Date.now() - latest.createdAt.getTime() < retrySeconds * 1000)
       throw new HttpException('VERIFICATION_RETRY_LATER', HttpStatus.TOO_MANY_REQUESTS);
     const integration = await this.integrations.runtimeConfig(channel);
-    const development =
-      process.env.NODE_ENV !== 'production' && process.env.DATA_SOURCE !== 'prisma';
-    if (!development && (!integration.enabled || !Object.keys(integration.values).length))
+    if (!integration.enabled || !Object.keys(integration.values).length)
       throw new BadRequestException(`${channel.toUpperCase()}_NOT_CONFIGURED`);
     const code = String(randomInt(100000, 1000000));
     const recordId = randomUUID();
@@ -66,68 +63,53 @@ export class VerificationService {
       consumedAt: null,
       createdAt: new Date(),
       targetMasked: this.mask(channel, target),
-      deliveryStatus: development ? 'sent' : 'pending',
+      deliveryStatus: 'pending',
       failureCode: null,
     });
-    // Development preview deliberately returns the code; production delivery adapters consume the encrypted runtime config.
-    if (!development) {
-      try {
-        await this.deliver(channel, target, code, {
-          ...integration.values,
-          ...integration.secrets,
-        });
-        await this.markDelivery(recordId, 'sent', null);
-      } catch (error) {
-        const failure = error instanceof Error ? error.message : 'DELIVERY_FAILED';
-        await this.markDelivery(recordId, 'failed', failure);
-        throw error;
-      }
+    try {
+      await this.deliver(channel, target, code, {
+        ...integration.values,
+        ...integration.secrets,
+      });
+      await this.markDelivery(recordId, 'sent', null);
+    } catch (error) {
+      const failure = error instanceof Error ? error.message : 'DELIVERY_FAILED';
+      await this.markDelivery(recordId, 'failed', failure);
+      throw error;
     }
-    return {
-      expiresIn: ttlSeconds,
-      retryAfter: retrySeconds,
-      ...(development ? { developmentCode: code } : {}),
-    };
+    return { expiresIn: ttlSeconds, retryAfter: retrySeconds };
   }
   async list(query: VerificationDeliveryQuery): Promise<VerificationDeliveryListResponse> {
     const page = query.page ?? 1,
       pageSize = query.pageSize ?? 20,
       now = new Date();
-    if (process.env.DATA_SOURCE === 'prisma') {
-      const where = {
-        ...(query.channel ? { channel: query.channel } : {}),
-        ...(query.purpose ? { purpose: query.purpose } : {}),
-        ...(query.status === 'failed'
-          ? { deliveryStatus: 'failed' }
-          : query.status === 'consumed'
-            ? { consumedAt: { not: null } }
-            : query.status === 'expired'
-              ? { consumedAt: null, expiresAt: { lte: now } }
-              : query.status === 'sent'
-                ? { deliveryStatus: 'sent', consumedAt: null, expiresAt: { gt: now } }
-                : {}),
-      };
-      const [rows, total] = await this.prisma.$transaction([
-        this.prisma.verificationCode.findMany({
-          where,
-          orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
-          skip: (page - 1) * pageSize,
-          take: pageSize,
-        }),
-        this.prisma.verificationCode.count({ where }),
-      ]);
-      return { items: rows.map((row) => this.summary(row as MemoryCode)), page, pageSize, total };
-    }
-    const rows = [...memory]
-      .filter((row) => !query.channel || row.channel === query.channel)
-      .filter((row) => !query.purpose || row.purpose === query.purpose)
-      .filter((row) => !query.status || this.status(row) === query.status)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    const where = {
+      ...(query.channel ? { channel: query.channel } : {}),
+      ...(query.purpose ? { purpose: query.purpose } : {}),
+      ...(query.status === 'failed'
+        ? { deliveryStatus: 'failed' }
+        : query.status === 'consumed'
+          ? { consumedAt: { not: null } }
+          : query.status === 'expired'
+            ? { consumedAt: null, expiresAt: { lte: now } }
+            : query.status === 'sent'
+              ? { deliveryStatus: 'sent', consumedAt: null, expiresAt: { gt: now } }
+              : {}),
+    };
+    const [rows, total] = await this.prisma.$transaction([
+      this.prisma.verificationCode.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.verificationCode.count({ where }),
+    ]);
     return {
-      items: rows.slice((page - 1) * pageSize, page * pageSize).map((row) => this.summary(row)),
+      items: rows.map((row) => this.summary(row as VerificationRecord)),
       page,
       pageSize,
-      total: rows.length,
+      total,
     };
   }
 
@@ -160,13 +142,13 @@ export class VerificationService {
     const [name, domain] = target.split('@');
     return `${name?.slice(0, 2) ?? ''}***@${domain ?? ''}`;
   }
-  private status(record: MemoryCode): 'sent' | 'failed' | 'consumed' | 'expired' {
+  private status(record: VerificationRecord): 'sent' | 'failed' | 'consumed' | 'expired' {
     if (record.deliveryStatus === 'failed') return 'failed';
     if (record.consumedAt) return 'consumed';
     if (record.expiresAt <= new Date()) return 'expired';
     return 'sent';
   }
-  private summary(record: MemoryCode) {
+  private summary(record: VerificationRecord) {
     return {
       id: record.id,
       channel: record.channel,
@@ -182,55 +164,30 @@ export class VerificationService {
   private async latest(
     targetHash: string,
     purpose: VerificationPurpose,
-  ): Promise<MemoryCode | null> {
-    if (process.env.DATA_SOURCE === 'prisma')
-      return this.prisma.verificationCode.findFirst({
-        where: { targetHash, purpose },
-        orderBy: { createdAt: 'desc' },
-      }) as Promise<MemoryCode | null>;
-    return (
-      [...memory]
-        .reverse()
-        .find((item) => item.targetHash === targetHash && item.purpose === purpose) ?? null
-    );
+  ): Promise<VerificationRecord | null> {
+    return this.prisma.verificationCode.findFirst({
+      where: { targetHash, purpose },
+      orderBy: { createdAt: 'desc' },
+    }) as Promise<VerificationRecord | null>;
   }
-  private async store(record: MemoryCode): Promise<void> {
-    if (process.env.DATA_SOURCE === 'prisma') {
-      await this.prisma.verificationCode.create({ data: record });
-      return;
-    }
-    memory.push(record);
+  private async store(record: VerificationRecord): Promise<void> {
+    await this.prisma.verificationCode.create({ data: record });
   }
   private async mark(id: string, valid: boolean): Promise<void> {
-    if (process.env.DATA_SOURCE === 'prisma') {
-      await this.prisma.verificationCode.update({
-        where: { id },
-        data: valid ? { consumedAt: new Date() } : { attempts: { increment: 1 } },
-      });
-      return;
-    }
-    const record = memory.find((item) => item.id === id);
-    if (!record) return;
-    if (valid) record.consumedAt = new Date();
-    else record.attempts += 1;
+    await this.prisma.verificationCode.update({
+      where: { id },
+      data: valid ? { consumedAt: new Date() } : { attempts: { increment: 1 } },
+    });
   }
   private async markDelivery(
     id: string,
     deliveryStatus: string,
     failureCode: string | null,
   ): Promise<void> {
-    if (process.env.DATA_SOURCE === 'prisma') {
-      await this.prisma.verificationCode.update({
-        where: { id },
-        data: { deliveryStatus, failureCode },
-      });
-      return;
-    }
-    const record = memory.find((item) => item.id === id);
-    if (record) {
-      record.deliveryStatus = deliveryStatus;
-      record.failureCode = failureCode;
-    }
+    await this.prisma.verificationCode.update({
+      where: { id },
+      data: { deliveryStatus, failureCode },
+    });
   }
   private async deliver(
     channel: VerificationChannel,

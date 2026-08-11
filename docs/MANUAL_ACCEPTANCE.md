@@ -2,17 +2,13 @@
 
 本清单用于冻结候选版本的最终人工验收。不要在模板源目录执行初始化；请从 Git 仓库创建全新目录。
 
-完整的冻结任务顺序、真实部署闭环和发布门禁以 [FREEZE_ACCEPTANCE_TASKS.md](./FREEZE_ACCEPTANCE_TASKS.md) 为准；本文只保留全新项目的人工操作清单。
+本文是每次发布前从 npm 公共入口验证全新项目的人工操作清单。
 
 ## 1. 创建项目
 
 ```bash
-git clone --depth 1 https://github.com/shen-kk/create-ai-fullstack manual-acceptance
+npm create aiforge@latest manual-acceptance
 cd manual-acceptance
-pnpm install --frozen-lockfile
-pnpm template:init
-pnpm install --frozen-lockfile
-pnpm template:doctor
 ```
 
 验收点：
@@ -32,7 +28,7 @@ pnpm dev:local
 验收点：
 
 - Admin、API 和已选择的 Web 都能一次启动，不出现空白页或端口拒绝。
-- `/api/health/live` 返回 `ok`。内存模式不代表 PostgreSQL 就绪；数据库模式必须另行检查 `/api/health/ready`。
+- `/api/health/live` 返回 `ok`，且 `/api/health/ready` 确认 PostgreSQL 已就绪。
 - 重复运行启动命令时，只替换当前项目的旧进程，不结束其他程序。
 
 ## 3. 后台管理
@@ -74,7 +70,7 @@ pnpm template:doctor
 
 ## 外部环境验收
 
-以下项目必须使用真实环境，不能用内存模式结果代替：
+以下项目必须使用真实环境完成：
 
 - PostgreSQL 迁移、种子、重启持久化和备份恢复。
 - Redis 多实例限流/会话（项目实际启用对应适配后）。

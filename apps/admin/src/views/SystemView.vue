@@ -56,7 +56,7 @@ onMounted(load);
       </article>
       <article class="panel system-card">
         <span>数据源</span><strong>{{ dataSourceLabels[info.dataSource] }}</strong
-        ><small>由 DATA_SOURCE 决定</small>
+        ><small>固定使用 PostgreSQL + Prisma</small>
       </article>
       <article class="panel system-card">
         <span>运行时长</span><strong>{{ formatUptime(info.uptimeSeconds) }}</strong

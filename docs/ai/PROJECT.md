@@ -43,7 +43,7 @@
 
 ## 未启用能力
 
-- `deploymentCenter`
+- 无
 
 ## AI 实现约束
 

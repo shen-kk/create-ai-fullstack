@@ -47,13 +47,12 @@ async function sendCode(): Promise<void> {
       target: form.phone,
       purpose: 'register',
     });
-    if (result.developmentCode) form.verificationCode = result.developmentCode;
     countdown.value = result.retryAfter;
     const timer = window.setInterval(() => {
       countdown.value -= 1;
       if (countdown.value <= 0) window.clearInterval(timer);
     }, 1000);
-    notify(result.developmentCode ? '开发模式验证码已自动填入' : '验证码已发送');
+    notify('验证码已发送');
   } catch (error) {
     notify(error instanceof Error ? error.message : '验证码发送失败');
   } finally {

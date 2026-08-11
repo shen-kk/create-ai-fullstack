@@ -39,13 +39,12 @@
     },
     "runtime": {
       "type": "object",
-      "required": ["packageManager", "adminPort", "apiPort", "webPort", "deployment"],
+      "required": ["packageManager", "adminPort", "apiPort", "webPort"],
       "properties": {
         "packageManager": { "const": "pnpm" },
         "adminPort": { "type": "integer", "minimum": 1024, "maximum": 65535 },
         "apiPort": { "type": "integer", "minimum": 1024, "maximum": 65535 },
-        "webPort": { "type": "integer", "minimum": 1024, "maximum": 65535 },
-        "deployment": { "enum": ["local", "docker"] }
+        "webPort": { "type": "integer", "minimum": 1024, "maximum": 65535 }
       },
       "additionalProperties": false
     },

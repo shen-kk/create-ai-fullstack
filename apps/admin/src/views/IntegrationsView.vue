@@ -32,10 +32,8 @@ async function testDelivery(): Promise<void> {
   testing.value = true;
   notice.value = '';
   try {
-    const result = await testIntegrationDelivery(editing.value.kind, testTarget.value);
-    notice.value = result.developmentCode
-      ? `开发模式发送成功，验证码：${result.developmentCode}`
-      : '测试消息已发送，请检查接收端。';
+    await testIntegrationDelivery(editing.value.kind, testTarget.value);
+    notice.value = '测试消息已发送，请检查接收端。';
   } catch {
     notice.value = '发送测试失败，请先保存并启用完整配置，再检查服务商状态。';
   } finally {

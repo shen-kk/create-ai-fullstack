@@ -10,16 +10,6 @@ Web (Nuxt SSR) ──┘
         └── @template/contracts ──┘
 ```
 
-部署能力采用独立控制面，具体决策见 ADR-0009：
-
-```text
-首次：Local Deploy Worker ──SSH──> Remote Deploy Agent
-后续：Admin ──API──> Deployment Job ──CNB Build──> Registry
-                                      └──────────> Deploy Agent ──> Admin/API/Web
-```
-
-Deploy Agent 不属于业务应用端；它必须独立于 API 生命周期，避免 API 部署自身时中断任务。
-
 ## 模块结构
 
 服务端业务模块推荐采用：

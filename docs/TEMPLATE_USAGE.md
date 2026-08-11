@@ -67,4 +67,4 @@ pnpm template:init -- --defaults --dry-run
 
 验证未启用用户端的裁剪结果时运行 `pnpm template:verify -- --full --no-user-web`；该模式要求用户端能力、默认任务、后台菜单和权限目录均保持停用。
 
-> 重要：当前冻结版不再提供内存模式。quick、standard、custom 都必须填写可访问的 PostgreSQL 信息，并通过 `pnpm template:provision` 完成迁移和管理员种子；数据库不可用时 API 应直接报配置错误，不会回退假数据。
+> 重要：quick、standard、custom 都必须填写可访问的 PostgreSQL 信息，并通过 `pnpm template:provision` 完成迁移和管理员种子；数据库不可用时 API 会直接报配置错误，不会回退假数据。

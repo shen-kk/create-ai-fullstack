@@ -8,8 +8,7 @@ export const project = {
     "packageManager": "pnpm",
     "adminPort": 3000,
     "apiPort": 3001,
-    "webPort": 3002,
-    "deployment": "local"
+    "webPort": 3002
   },
   "database": {
     "mode": "prisma",
@@ -38,7 +37,6 @@ export const project = {
     "rolesAndPermissions": true,
     "auditLogs": true,
     "serviceConfig": true,
-    "deploymentCenter": false,
     "objectStorage": true,
     "redis": true,
     "sms": true,

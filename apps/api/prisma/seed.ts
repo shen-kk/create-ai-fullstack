@@ -97,9 +97,14 @@ async function main(): Promise<void> {
     skipDuplicates: true,
   });
 
-  const phone = process.env.DEV_ADMIN_PHONE ?? '13800000000';
+  const phone = process.env.DEV_ADMIN_PHONE?.trim();
+  const password = process.env.DEV_ADMIN_PASSWORD;
+  if (!phone || !/^1\d{10}$/.test(phone))
+    throw new Error('DEV_ADMIN_PHONE must be an explicit 11-digit mobile number');
+  if (!password || password.length < 12)
+    throw new Error('DEV_ADMIN_PASSWORD must be explicitly configured with at least 12 characters');
   const name = process.env.DEV_ADMIN_NAME ?? '模板管理员';
-  const passwordHash = await hashPassword(process.env.DEV_ADMIN_PASSWORD ?? 'Admin@123456');
+  const passwordHash = await hashPassword(password);
   const user = await prisma.user.upsert({
     where: { phone },
     update: {

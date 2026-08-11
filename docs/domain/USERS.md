@@ -18,8 +18,8 @@
 - Prisma 角色替换在事务中执行，提交的任一角色不存在时整体拒绝，不产生部分分配。
 - 新用户邮箱规范化为小写，初始密码至少 12 个字符并只保存 scrypt 哈希，初始状态固定为 `pending`。
 - 关键词匹配姓名或邮箱，不区分大小写。
-- 用户查询通过 `UsersRepository` 隔离数据访问；`DATA_SOURCE=memory` 用于零依赖预览，`DATA_SOURCE=prisma` 使用 PostgreSQL、真实分页筛选和角色关联查询。
-- 生产环境强制使用 `DATA_SOURCE=prisma`，不允许意外启动示例数据源。
+- 用户查询通过 `UsersRepository` 隔离数据访问；运行时固定使用 PostgreSQL + Prisma，内存仓库只作为单元测试替身，不参与应用启动。
+- 所有环境统一使用 PostgreSQL + Prisma，不提供示例数据源或运行时切换。
 - 模板不提供管理员删除；账号退出使用时改为 `disabled`，保留审计和历史关联。具体项目确需删除时必须另行建立领域规则与 ADR。
 
 ## 持久化不变量

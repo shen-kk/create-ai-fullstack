@@ -14,7 +14,7 @@ describe('HealthController', () => {
   it('returns only non-sensitive runtime information', () => {
     const result = new HealthController({} as never).info();
 
-    expect(result).toMatchObject({ service: 'api', dataSource: 'memory' });
+    expect(result).toMatchObject({ service: 'api', dataSource: 'prisma' });
     expect(result.nodeVersion).toMatch(/^v\d+/);
     expect(result).not.toHaveProperty('databaseUrl');
     expect(result).not.toHaveProperty('jwtSecret');

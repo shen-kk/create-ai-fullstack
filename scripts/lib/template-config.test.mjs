@@ -73,7 +73,10 @@ test('renders AI context without secrets', () => {
   assert.doesNotMatch(output, /DATABASE_URL|JWT_ACCESS_SECRET/);
 });
 test('rejects the removed memory mode', () =>
-  assert.ok(validateProjectConfig({ ...valid, database: { mode: 'memory', engine: 'none', orm: 'none' } }).length));
+  assert.ok(
+    validateProjectConfig({ ...valid, database: { mode: 'memory', engine: 'none', orm: 'none' } })
+      .length,
+  ));
 test('plans generate, deploy and seed for prisma mode', () => {
   const commands = provisionCommands({
     ...valid,

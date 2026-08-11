@@ -109,12 +109,6 @@ export const permissionCatalog = [
     type: 'menu',
     groupCode: 'integrations',
   },
-  {
-    code: 'menu.deployments',
-    description: '显示部署中心菜单',
-    type: 'menu',
-    groupCode: 'deployments',
-  },
   { code: 'users.read', description: '查看用户', type: 'action', groupCode: 'users' },
   { code: 'users.write', description: '创建和修改用户', type: 'action', groupCode: 'users' },
   {
@@ -143,24 +137,6 @@ export const permissionCatalog = [
     description: '管理外部服务配置',
     type: 'action',
     groupCode: 'integrations',
-  },
-  {
-    code: 'deployments.read',
-    description: '查看部署环境与任务',
-    type: 'action',
-    groupCode: 'deployments',
-  },
-  {
-    code: 'deployments.manage',
-    description: '配置部署环境与密钥',
-    type: 'action',
-    groupCode: 'deployments',
-  },
-  {
-    code: 'deployments.execute',
-    description: '执行部署与回滚',
-    type: 'action',
-    groupCode: 'deployments',
   },
 ] as const satisfies readonly PermissionOption[];
 export interface CreateRoleRequest {
@@ -272,7 +248,6 @@ export interface SendVerificationCodeRequest {
 export interface SendVerificationCodeResponse {
   expiresIn: number;
   retryAfter: number;
-  developmentCode?: string;
 }
 export interface VerificationCodeLoginRequest {
   phone: string;
@@ -347,112 +322,4 @@ export interface UpdateIntegrationConfigRequest {
   enabled: boolean;
   values: Record<string, string>;
   secrets: Record<string, string>;
-}
-
-export type DeployableApplication = 'admin' | 'api' | 'web';
-export type DeploymentEnvironmentKind =
-  'development' | 'test' | 'staging' | 'production' | 'custom';
-export type DeploymentTargetStatus = 'draft' | 'verified' | 'unreachable';
-export type DeploymentAccessMode = 'automatic_https' | 'existing_proxy' | 'ip_port';
-export type DeploymentRunStatus =
-  'queued' | 'building' | 'deploying' | 'succeeded' | 'failed' | 'cancelled' | 'rolled_back';
-
-export interface DeploymentTargetSummary {
-  id: string;
-  name: string;
-  environment: DeploymentEnvironmentKind;
-  applications: DeployableApplication[];
-  host: string;
-  sshPort: number;
-  sshUser: string;
-  deployPath: string;
-  accessMode: DeploymentAccessMode;
-  adminUrl: string | null;
-  apiUrl: string | null;
-  webUrl: string | null;
-  cnbRepository: string | null;
-  cnbEvent: string;
-  configuredSecrets: string[];
-  status: DeploymentTargetStatus;
-  lastVerifiedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UpsertDeploymentTargetRequest {
-  name: string;
-  environment: DeploymentEnvironmentKind;
-  applications: DeployableApplication[];
-  host: string;
-  sshPort: number;
-  sshUser: string;
-  deployPath: string;
-  accessMode: DeploymentAccessMode;
-  adminUrl?: string;
-  apiUrl?: string;
-  webUrl?: string;
-  cnbRepository?: string;
-  cnbEvent?: string;
-  secrets: {
-    sshPrivateKey?: string;
-    sshPassword?: string;
-    cnbToken?: string;
-    registryToken?: string;
-  };
-}
-
-export interface DeploymentConnectionCheck {
-  key: 'tcp' | 'ssh' | 'docker' | 'disk' | 'deploy_path';
-  label: string;
-  status: 'passed' | 'failed';
-  message: string;
-}
-
-export interface DeploymentConnectionTestResult {
-  success: boolean;
-  checkedAt: string;
-  checks: DeploymentConnectionCheck[];
-}
-
-export interface DeploymentCnbCheck {
-  key: 'repository' | 'event' | 'token';
-  label: string;
-  status: 'passed' | 'failed';
-  message: string;
-}
-
-export interface DeploymentCnbTestResult {
-  success: boolean;
-  checkedAt: string;
-  checks: DeploymentCnbCheck[];
-}
-
-export interface DeploymentRunStep {
-  key: string;
-  label: string;
-  status: 'pending' | 'running' | 'succeeded' | 'failed' | 'skipped';
-  startedAt?: string;
-  completedAt?: string;
-  message?: string;
-}
-
-export interface DeploymentRunSummary {
-  id: string;
-  targetId: string;
-  actorId: string | null;
-  version: string;
-  applications: DeployableApplication[];
-  status: DeploymentRunStatus;
-  currentStep: string | null;
-  steps: DeploymentRunStep[];
-  cnbBuildId: string | null;
-  errorCode: string | null;
-  createdAt: string;
-  startedAt: string | null;
-  completedAt: string | null;
-}
-
-export interface CreateDeploymentRunRequest {
-  version: string;
-  applications: DeployableApplication[];
 }

@@ -10,7 +10,6 @@
         "API_PORT",
         "WEB_PORT",
         "DATABASE_URL",
-        "DATA_SOURCE",
         "PUBLIC_API_BASE_URL",
         "ADMIN_ORIGIN",
         "WEB_ORIGIN",

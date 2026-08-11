@@ -16,7 +16,7 @@ Create the project from the Git template and preserve its contract-first, API-au
 4. The interactive default is `custom`, and user Web must always be an explicit choice. Never put passwords or service keys in chat, command arguments, `project.config.json`, or AI documents. When Redis validation fails, correct and retry the current Redis step instead of abandoning initialization.
 5. Run `pnpm install` again after initialization so renamed workspace packages are relinked.
 6. Run `pnpm template:doctor`. Fix every failure before developing features.
-7. For memory mode, run `pnpm dev:local`. For PostgreSQL, first run `pnpm template:provision -- --dry-run`; execute provisioning only after the user confirms the target database. Confirm that `template:doctor` reports `DATA_SOURCE=prisma` and that the System page reports Prisma/PostgreSQL before accepting Admin data. Never accept memory sample rows as database verification.
+7. First run `pnpm template:provision -- --dry-run`; execute provisioning only after the user confirms the target PostgreSQL database. Confirm that `template:doctor` and the System page both report Prisma/PostgreSQL before accepting Admin data.
 8. Verify Admin, API health, login and the selected modules. When user Web is enabled, also verify registration/login, personal profile, and Admin customer management. Update `docs/ai/PROJECT.md` through `pnpm template:sync`, never by storing secrets there.
 
 ## Development rules

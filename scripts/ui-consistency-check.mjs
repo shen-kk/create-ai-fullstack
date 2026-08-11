@@ -29,12 +29,14 @@ async function inspect(file) {
     'apps/admin/src/components/AppSelect.vue',
     'apps/web/app/components/ui/select/Select.vue',
   ]);
-  if (/role=["'](?:combobox|listbox)["']/.test(source) && !approvedSelectImplementations.has(path)) {
+  if (
+    /role=["'](?:combobox|listbox)["']/.test(source) &&
+    !approvedSelectImplementations.has(path)
+  ) {
     violations.push(`${path}: 禁止在页面自制选择器；请完善并复用公共 Select 组件。`);
   }
 
   const legacyDialogPages = new Set([
-    'apps/admin/src/views/DeploymentsView.vue',
     'apps/admin/src/views/IntegrationsView.vue',
     'apps/admin/src/views/RolesView.vue',
     'apps/admin/src/views/UsersView.vue',

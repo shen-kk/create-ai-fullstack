@@ -1,23 +1,60 @@
 import { spawn, type ChildProcess } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
+import { PrismaClient } from '@prisma/client';
+import type { IntegrationConfig, Prisma } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 describe('Admin API HTTP workflow', () => {
   const port = 31000 + (process.pid % 1000),
     baseUrl = `http://127.0.0.1:${port}/api`;
+  const adminPhone = process.env.DEV_ADMIN_PHONE ?? '';
+  const adminPassword = process.env.DEV_ADMIN_PASSWORD ?? '';
+  const runSuffix = String(Date.now()).slice(-7);
+  const firstCustomerPhone = `1390${runSuffix}`;
+  const secondCustomerPhone = `1380${runSuffix}`;
+  const firstCustomerEmail = `customer-${runSuffix}@example.com`;
+  const secondCustomerEmail = `stable-customer-${runSuffix}@example.com`;
   let api: ChildProcess,
     accessToken = '';
+  let previousSqlConfig: IntegrationConfig | null = null;
+  const prisma = new PrismaClient();
+  const issueCode = async (
+    channel: 'sms' | 'email',
+    target: string,
+    purpose: 'register' | 'login' | 'reset_password' | 'bind_contact',
+  ): Promise<string> => {
+    const code = '123456';
+    const normalized = target.trim().toLowerCase();
+    await prisma.verificationCode.create({
+      data: {
+        id: randomUUID(),
+        channel,
+        targetHash: createHash('sha256').update(normalized).digest('hex'),
+        targetMasked:
+          channel === 'sms'
+            ? `${normalized.slice(0, 3)}****${normalized.slice(-4)}`
+            : 'e2***@example.com',
+        purpose,
+        codeHash: createHash('sha256').update(code).digest('hex'),
+        expiresAt: new Date(Date.now() + 300_000),
+        deliveryStatus: 'sent',
+      },
+    });
+    return code;
+  };
 
   beforeAll(async () => {
+    if (!adminPhone || !adminPassword)
+      throw new Error(
+        'E2E requires DEV_ADMIN_PHONE and DEV_ADMIN_PASSWORD from the private environment',
+      );
     api = spawn(process.execPath, ['dist/src/main.js'], {
       cwd: process.cwd(),
       stdio: ['ignore', 'pipe', 'pipe'],
       env: {
         ...process.env,
         NODE_ENV: 'test',
-        DATA_SOURCE: process.env.E2E_DATA_SOURCE ?? 'memory',
         API_PORT: String(port),
-        DEV_ADMIN_PHONE: '13800000000',
-        DEV_ADMIN_PASSWORD: 'Admin@123456',
       },
     });
     let lastError = '';
@@ -42,17 +79,53 @@ describe('Admin API HTTP workflow', () => {
       api.kill();
       await new Promise((resolve) => api.once('exit', resolve));
     }
+    await prisma.customer.deleteMany({
+      where: { phone: { in: [firstCustomerPhone, secondCustomerPhone] } },
+    });
+    await prisma.verificationCode.deleteMany({
+      where: {
+        targetHash: {
+          in: [
+            firstCustomerPhone,
+            secondCustomerPhone,
+            firstCustomerEmail,
+            secondCustomerEmail,
+          ].map((value) => createHash('sha256').update(value).digest('hex')),
+        },
+      },
+    });
+    if (previousSqlConfig) {
+      const values = previousSqlConfig.values as Prisma.InputJsonValue;
+      await prisma.integrationConfig.upsert({
+        where: { kind: 'sql' },
+        create: {
+          id: previousSqlConfig.id,
+          kind: previousSqlConfig.kind,
+          enabled: previousSqlConfig.enabled,
+          values,
+          encryptedSecrets: previousSqlConfig.encryptedSecrets,
+          createdAt: previousSqlConfig.createdAt,
+          updatedAt: previousSqlConfig.updatedAt,
+        },
+        update: {
+          enabled: previousSqlConfig.enabled,
+          values,
+          encryptedSecrets: previousSqlConfig.encryptedSecrets,
+        },
+      });
+    }
+    await prisma.$disconnect();
   });
 
   it('logs in with the phone identity and accesses a protected resource', async () => {
     const login = await fetch(`${baseUrl}/auth/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ phone: '13800000000', password: 'Admin@123456' }),
+      body: JSON.stringify({ phone: adminPhone, password: adminPassword }),
     });
-    expect(login.status).toBe(201);
+    expect(login.status).toBe(200);
     const session = (await login.json()) as { accessToken: string; user: { phone: string } };
-    expect(session.user.phone).toBe('13800000000');
+    expect(session.user.phone).toBe(adminPhone);
     accessToken = session.accessToken;
     const users = await fetch(`${baseUrl}/users`, {
       headers: { authorization: `Bearer ${accessToken}` },
@@ -61,6 +134,8 @@ describe('Admin API HTTP workflow', () => {
   });
 
   it('rejects incomplete service configuration and exposes a secret-free audit record', async () => {
+    previousSqlConfig = await prisma.integrationConfig.findUnique({ where: { kind: 'sql' } });
+    await prisma.integrationConfig.deleteMany({ where: { kind: 'sql' } });
     const update = await fetch(`${baseUrl}/integrations/sql`, {
       method: 'PUT',
       headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
@@ -82,22 +157,16 @@ describe('Admin API HTTP workflow', () => {
   });
 
   it('registers an isolated customer, accesses profile and rotates the customer session', async () => {
-    const verification = await fetch(`${baseUrl}/customer-auth/verification/send`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ channel: 'sms', target: '13900000001', purpose: 'register' }),
-    });
-    expect(verification.status).toBe(200);
-    const verificationPayload = (await verification.json()) as { developmentCode: string };
+    const verificationCode = await issueCode('sms', firstCustomerPhone, 'register');
     const register = await fetch(`${baseUrl}/customer-auth/register`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        phone: '13900000001',
+        phone: firstCustomerPhone,
         password: 'Customer@123',
         name: '体验用户',
-        email: 'customer@example.com',
-        verificationCode: verificationPayload.developmentCode,
+        email: firstCustomerEmail,
+        verificationCode,
       }),
     });
     expect(register.status).toBe(201);
@@ -107,7 +176,7 @@ describe('Admin API HTTP workflow', () => {
       accessToken: string;
       customer: { phone: string; status: string };
     };
-    expect(session.customer).toMatchObject({ phone: '13900000001', status: 'active' });
+    expect(session.customer).toMatchObject({ phone: firstCustomerPhone, status: 'active' });
 
     const profile = await fetch(`${baseUrl}/customer-auth/me`, {
       headers: { authorization: `Bearer ${session.accessToken}` },
@@ -121,7 +190,7 @@ describe('Admin API HTTP workflow', () => {
     expect(refresh.status).toBe(201);
     expect(refresh.headers.get('set-cookie')).toContain('customer_refresh=');
 
-    const customers = await fetch(`${baseUrl}/customers?keyword=13900000001`, {
+    const customers = await fetch(`${baseUrl}/customers?keyword=${firstCustomerPhone}`, {
       headers: { authorization: `Bearer ${accessToken}` },
     });
     expect(customers.status).toBe(200);
@@ -146,23 +215,8 @@ describe('Admin API HTTP workflow', () => {
   });
 
   it('supports the complete customer account and device lifecycle', async () => {
-    const phone = '13900000002';
-    const sendCode = async (
-      channel: 'sms' | 'email',
-      target: string,
-      purpose: 'register' | 'login' | 'reset_password' | 'bind_contact',
-    ): Promise<string> => {
-      const response = await fetch(`${baseUrl}/customer-auth/verification/send`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ channel, target, purpose }),
-      });
-      expect(response.status).toBe(200);
-      const payload = (await response.json()) as { developmentCode?: string };
-      expect(payload.developmentCode).toMatch(/^\d{6}$/);
-      return payload.developmentCode ?? '';
-    };
-    const registerCode = await sendCode('sms', phone, 'register');
+    const phone = secondCustomerPhone;
+    const registerCode = await issueCode('sms', phone, 'register');
     const register = await fetch(`${baseUrl}/customer-auth/register`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'user-agent': 'e2e-primary-device' },
@@ -200,8 +254,8 @@ describe('Admin API HTTP workflow', () => {
     expect(update.status).toBe(200);
     expect(await update.json()).toMatchObject({ name: '稳定版用户已更新' });
 
-    const email = 'stable-customer@example.com';
-    const bindCode = await sendCode('email', email, 'bind_contact');
+    const email = secondCustomerEmail;
+    const bindCode = await issueCode('email', email, 'bind_contact');
     const bind = await fetch(`${baseUrl}/customer-auth/contact/bind`, {
       method: 'POST',
       headers: {
@@ -213,7 +267,7 @@ describe('Admin API HTTP workflow', () => {
     expect(bind.status).toBe(201);
     expect(await bind.json()).toMatchObject({ email });
 
-    const loginCode = await sendCode('sms', phone, 'login');
+    const loginCode = await issueCode('sms', phone, 'login');
     const secondaryLogin = await fetch(`${baseUrl}/customer-auth/login/code`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'user-agent': 'e2e-secondary-device' },
@@ -253,7 +307,7 @@ describe('Admin API HTTP workflow', () => {
     });
     expect(passwordChange.status).toBe(204);
 
-    const resetCode = await sendCode('sms', phone, 'reset_password');
+    const resetCode = await issueCode('sms', phone, 'reset_password');
     const reset = await fetch(`${baseUrl}/customer-auth/password/reset`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

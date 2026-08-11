@@ -24,10 +24,6 @@ const actionLabels: Record<string, string> = {
   'role.create': '创建角色',
   'role.update': '修改角色权限',
   'integration.update': '修改服务配置',
-  'deployment.target.create': '创建部署环境',
-  'deployment.target.update': '修改部署环境',
-  'deployment.target.verify': '验证部署环境',
-  'deployment.run.start': '发起应用部署',
 };
 const actionOptions = [
   { value: '', label: '全部操作' },
@@ -38,8 +34,6 @@ const resourceOptions = [
   { value: 'user', label: '用户' },
   { value: 'role', label: '角色' },
   { value: 'integration', label: '服务配置' },
-  { value: 'deployment_target', label: '部署环境' },
-  { value: 'deployment_run', label: '部署任务' },
 ];
 const resultOptions = [
   { value: '', label: '全部结果' },

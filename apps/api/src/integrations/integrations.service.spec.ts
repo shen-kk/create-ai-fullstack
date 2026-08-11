@@ -11,9 +11,32 @@ const sqlValues = {
   username: 'demo',
 };
 const auditEvents: Array<Record<string, unknown>> = [];
-const createService = (): IntegrationsService =>
-  new IntegrationsService(
-    {} as never,
+const createService = (): IntegrationsService => {
+  const rows = new Map<string, Record<string, unknown>>();
+  const integrationConfig = {
+    findUnique: ({ where }: { where: { kind: string } }) => Promise.resolve(rows.get(where.kind)),
+    upsert: ({
+      where,
+      create,
+      update,
+    }: {
+      where: { kind: string };
+      create: Record<string, unknown>;
+      update: Record<string, unknown>;
+    }) => {
+      const previous = rows.get(where.kind);
+      const row = {
+        ...(previous ?? create),
+        ...(previous ? update : {}),
+        kind: where.kind,
+        updatedAt: new Date(),
+      };
+      rows.set(where.kind, row);
+      return Promise.resolve(row);
+    },
+  };
+  return new IntegrationsService(
+    { integrationConfig } as never,
     {
       record: (event: Record<string, unknown>) => {
         auditEvents.push(event);
@@ -21,6 +44,7 @@ const createService = (): IntegrationsService =>
       },
     } as never,
   );
+};
 describe('IntegrationsService', () => {
   it('never returns secret values after configuration', async () => {
     const service = createService();

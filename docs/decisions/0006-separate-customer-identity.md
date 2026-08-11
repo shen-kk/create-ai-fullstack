@@ -13,7 +13,7 @@
 - 用户端以手机号作为唯一登录标识，邮箱仅作为可选资料。
 - 用户端 API 使用 `/api/customer-auth/*` 命名空间和独立的 `customer_refresh` HttpOnly Cookie。
 - 用户端 Access Token 只表达用户身份，不包含后台权限目录；后台权限守卫不得接受用户端身份。
-- `DATA_SOURCE=memory` 提供可注册的进程内预览实现，`DATA_SOURCE=prisma` 使用 PostgreSQL 持久化。
+- 用户身份、验证码和会话统一使用 PostgreSQL 持久化，不提供进程内运行模式。
 - 模板只提供注册、登录、会话恢复、个人资料和修改密码，不预置订单、内容等行业业务。
 
 ## 后果

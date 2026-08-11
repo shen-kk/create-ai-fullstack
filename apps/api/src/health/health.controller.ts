@@ -53,7 +53,7 @@ export class HealthController {
       service: 'api',
       version: process.env.npm_package_version ?? '0.0.0',
       environment,
-      dataSource: process.env.DATA_SOURCE === 'prisma' ? 'prisma' : 'memory',
+      dataSource: 'prisma',
       uptimeSeconds: Math.floor(process.uptime()),
       nodeVersion: process.version,
       timestamp: new Date().toISOString(),

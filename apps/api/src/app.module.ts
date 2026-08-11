@@ -11,7 +11,6 @@ import { HttpLoggingMiddleware } from './logging/http-logging.middleware.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
 import { CustomerAuthModule } from './customer-auth/customer-auth.module.js';
 import { project } from './generated/project.js';
-import { DeploymentsModule } from './deployments/deployments.module.js';
 
 @Module({
   imports: [
@@ -24,7 +23,6 @@ import { DeploymentsModule } from './deployments/deployments.module.js';
     HealthModule,
     UsersModule,
     IntegrationsModule,
-    ...(project.modules.deploymentCenter ? [DeploymentsModule] : []),
   ],
   providers: [StructuredLogger, HttpLoggingMiddleware],
 })

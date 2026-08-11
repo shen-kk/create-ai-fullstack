@@ -288,7 +288,7 @@ try {
           port: Number(await ask('PostgreSQL 端口', '5432', portValidator)),
           name: await ask('PostgreSQL 数据库名', name.replaceAll('-', '_')),
           username: await ask('PostgreSQL 用户名', 'postgres'),
-          password: await askRequired('PostgreSQL 密码'),
+          password: await askRequired('PostgreSQL 密码', defaultsMode ? secret() : ''),
         }
       : null;
   if (!database) throw new Error('DATABASE_CONFIG_REQUIRED：必须提供 PostgreSQL 配置');
@@ -336,7 +336,7 @@ try {
       repository: 'https://github.com/shen-kk/create-ai-fullstack',
     },
     project: { name, packageScope, displayName, description },
-    runtime: { packageManager: 'pnpm', adminPort, apiPort, webPort, deployment: 'local' },
+    runtime: { packageManager: 'pnpm', adminPort, apiPort, webPort },
     database: {
       mode: databaseMode,
       engine: databaseMode === 'prisma' ? 'postgresql' : 'none',
@@ -371,7 +371,6 @@ try {
     `API_PORT=${apiPort}`,
     `WEB_PORT=${webPort}`,
     `DATABASE_URL=${databaseUrl}`,
-    'DATA_SOURCE=prisma',
     `PUBLIC_API_BASE_URL=http://localhost:${apiPort}/api`,
     `ADMIN_ORIGIN=http://localhost:${adminPort}`,
     `WEB_ORIGIN=http://localhost:${webPort}`,

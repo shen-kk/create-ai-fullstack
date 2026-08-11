@@ -117,8 +117,7 @@ async function sendEmailCode(): Promise<void> {
       target: emailBinding.email,
       purpose: 'bind_contact',
     });
-    if (result.developmentCode) emailBinding.code = result.developmentCode;
-    emailMessage.value = result.developmentCode ? '开发模式验证码已自动填入' : '验证邮件已发送';
+    emailMessage.value = '验证邮件已发送';
   } catch (error) {
     emailMessage.value = error instanceof Error ? error.message : '发送失败';
   }

@@ -30,7 +30,7 @@ interface MenuItem {
   badge: string;
   implemented: boolean;
   permissions: string[];
-  icon: 'home' | 'users' | 'shield' | 'logs' | 'system' | 'deploy';
+  icon: 'home' | 'users' | 'shield' | 'logs' | 'system';
   enabled?: boolean;
 }
 
@@ -118,15 +118,6 @@ const allMenuGroups: MenuGroup[] = [
         implemented: true,
         permissions: ['menu.integrations', 'integrations.manage'],
         icon: 'system',
-      },
-      {
-        label: '部署中心',
-        path: '/deployments',
-        badge: '',
-        implemented: true,
-        enabled: false,
-        permissions: ['menu.deployments', 'deployments.read'],
-        icon: 'deploy',
       },
     ],
   },

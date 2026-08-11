@@ -12,7 +12,7 @@ Every preset separately asks whether to enable the user-facing Web. This choice 
 
 - Commit `project.config.json`; it contains non-secret capability declarations.
 - Never commit `.env`; it contains database credentials, JWT secrets, encryption keys, and the generated initial password.
-- Use `DATA_SOURCE=memory` only for local preview and tests. Production requires Prisma/PostgreSQL.
+- Every environment uses Prisma/PostgreSQL; the template does not provide a memory runtime mode.
 - Object storage has no local-file fallback. Avatar upload requires an enabled supported remote provider; Tencent COS is the currently tested adapter.
 - SQL, Redis, SMS, email, payment, and object-storage credentials are managed through the service configuration module and are never returned in plaintext.
 

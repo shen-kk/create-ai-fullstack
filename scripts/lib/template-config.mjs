@@ -4,7 +4,6 @@ export const coreModules = Object.freeze({
   rolesAndPermissions: true,
   auditLogs: true,
   serviceConfig: true,
-  deploymentCenter: false,
 });
 
 export function presetModules(preset) {
@@ -54,7 +53,8 @@ export function validateProjectConfig(config) {
     errors.push('runtime.webPort 无效');
   if (new Set([adminPort, apiPort, webPort]).size !== 3)
     errors.push('Admin、API 与 Web 端口不能相同');
-  if (config?.database?.mode !== 'prisma') errors.push('database.mode 必须为 prisma，模板不支持内存模式');
+  if (config?.database?.mode !== 'prisma')
+    errors.push('database.mode 必须为 prisma，模板不支持内存模式');
   if (
     config?.localization?.defaultLocale !== 'zh-CN' ||
     !config?.localization?.supportedLocales?.includes('zh-CN')

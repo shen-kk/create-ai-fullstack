@@ -6,25 +6,17 @@ import { AuthService } from './auth.service.js';
 import { LoginRateLimiter } from './login-rate-limiter.service.js';
 import { PermissionsGuard } from './permissions.guard.js';
 import { authIdentityRepositoryToken } from './auth-identity.repository.js';
-import { MemoryAuthIdentityRepository } from './memory-auth-identity.repository.js';
 import { PrismaAuthIdentityRepository } from './prisma-auth-identity.repository.js';
 import { refreshSessionRepositoryToken } from './refresh-session.repository.js';
-import { MemoryRefreshSessionRepository } from './memory-refresh-session.repository.js';
 import { PrismaRefreshSessionRepository } from './prisma-refresh-session.repository.js';
 
 const identityRepositoryProvider = {
   provide: authIdentityRepositoryToken,
-  useClass:
-    process.env.DATA_SOURCE === 'prisma'
-      ? PrismaAuthIdentityRepository
-      : MemoryAuthIdentityRepository,
+  useClass: PrismaAuthIdentityRepository,
 };
 const refreshSessionRepositoryProvider = {
   provide: refreshSessionRepositoryToken,
-  useClass:
-    process.env.DATA_SOURCE === 'prisma'
-      ? PrismaRefreshSessionRepository
-      : MemoryRefreshSessionRepository,
+  useClass: PrismaRefreshSessionRepository,
 };
 
 @Module({

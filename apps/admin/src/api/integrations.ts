@@ -26,7 +26,7 @@ export const updateIntegration = (
 ): Promise<IntegrationConfigSummary> =>
   request(`/integrations/${kind}`, { method: 'PUT', body: JSON.stringify(input) });
 export const testIntegrationDelivery = (kind: 'sms' | 'email', target: string) =>
-  request<{ developmentCode?: string }>(`/integrations/${kind}/test-delivery`, {
+  request<{ expiresIn: number; retryAfter: number }>(`/integrations/${kind}/test-delivery`, {
     method: 'POST',
     body: JSON.stringify({ target }),
   });

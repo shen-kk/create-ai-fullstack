@@ -131,7 +131,6 @@ interface IntegrationAuditContext {
   requestId?: string;
   ipAddress?: string;
 }
-const memory = new Map<IntegrationKind, StoredConfig>();
 const moduleByKind: Record<IntegrationKind, keyof typeof project.modules | undefined> = {
   object_storage: 'objectStorage',
   sql: undefined,
@@ -162,17 +161,15 @@ export class IntegrationsService {
     const definition = definitions[kind];
     if (!definition) throw new BadRequestException('INTEGRATION_KIND_INVALID');
     if (!isAvailable(kind)) throw new BadRequestException('INTEGRATION_MODULE_DISABLED');
-    let stored: StoredConfig | undefined;
-    if (process.env.DATA_SOURCE === 'prisma') {
-      const row = await this.prisma.integrationConfig.findUnique({ where: { kind } });
-      if (row)
-        stored = {
+    const row = await this.prisma.integrationConfig.findUnique({ where: { kind } });
+    const stored: StoredConfig | undefined = row
+      ? {
           enabled: row.enabled,
           values: row.values as Record<string, string>,
           secrets: this.decrypt(row.encryptedSecrets),
           updatedAt: row.updatedAt.toISOString(),
-        };
-    } else stored = memory.get(kind);
+        }
+      : undefined;
     return {
       kind,
       ...definition,
@@ -196,32 +193,22 @@ export class IntegrationsService {
       const cleanSecrets = Object.fromEntries(
         Object.entries(input.secrets).filter(([, value]) => value),
       );
-      if (process.env.DATA_SOURCE === 'prisma') {
-        const old = await this.prisma.integrationConfig.findUnique({ where: { kind } });
-        const secrets = { ...this.decrypt(old?.encryptedSecrets ?? null), ...cleanSecrets };
-        await this.prisma.integrationConfig.upsert({
-          where: { kind },
-          create: {
-            kind,
-            enabled: input.enabled,
-            values: input.values,
-            encryptedSecrets: this.encrypt(secrets),
-          },
-          update: {
-            enabled: input.enabled,
-            values: input.values,
-            encryptedSecrets: this.encrypt(secrets),
-          },
-        });
-      } else {
-        const old = memory.get(kind);
-        memory.set(kind, {
+      const old = await this.prisma.integrationConfig.findUnique({ where: { kind } });
+      const secrets = { ...this.decrypt(old?.encryptedSecrets ?? null), ...cleanSecrets };
+      await this.prisma.integrationConfig.upsert({
+        where: { kind },
+        create: {
+          kind,
           enabled: input.enabled,
           values: input.values,
-          secrets: { ...(old?.secrets ?? {}), ...cleanSecrets },
-          updatedAt: new Date().toISOString(),
-        });
-      }
+          encryptedSecrets: this.encrypt(secrets),
+        },
+        update: {
+          enabled: input.enabled,
+          values: input.values,
+          encryptedSecrets: this.encrypt(secrets),
+        },
+      });
       await this.audit.record({
         ...context,
         action: 'integration.update',
@@ -261,19 +248,11 @@ export class IntegrationsService {
     secrets: Record<string, string>;
   }> {
     if (!isAvailable(kind)) return { enabled: false, values: {}, secrets: {} };
-    if (process.env.DATA_SOURCE === 'prisma') {
-      const row = await this.prisma.integrationConfig.findUnique({ where: { kind } });
-      return {
-        enabled: row?.enabled ?? false,
-        values: (row?.values as Record<string, string> | undefined) ?? {},
-        secrets: this.decrypt(row?.encryptedSecrets ?? null),
-      };
-    }
-    const stored = memory.get(kind);
+    const stored = await this.prisma.integrationConfig.findUnique({ where: { kind } });
     return {
       enabled: stored?.enabled ?? false,
-      values: stored?.values ?? {},
-      secrets: stored?.secrets ?? {},
+      values: (stored?.values as Record<string, string> | undefined) ?? {},
+      secrets: this.decrypt(stored?.encryptedSecrets ?? null),
     };
   }
   private encryptionKey(): Buffer {

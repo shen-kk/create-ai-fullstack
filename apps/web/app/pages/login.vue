@@ -23,8 +23,7 @@ async function sendCode(): Promise<void> {
   sending.value = true;
   try {
     const result = await sendVerification({ channel: 'sms', target: form.phone, purpose: 'login' });
-    if (result.developmentCode) form.code = result.developmentCode;
-    notify(result.developmentCode ? '开发模式验证码已自动填入' : '验证码已发送');
+    notify('验证码已发送');
   } catch (error) {
     notify(error instanceof Error ? error.message : '发送失败');
   } finally {

@@ -9,7 +9,7 @@
 - API 签发短期 JWT Access Token，并用 HttpOnly、SameSite=Lax Cookie 保存 Refresh Token。
 - Access Token 由客户端保存在内存/sessionStorage，请求使用 Bearer Header；不把 Refresh Token 暴露给 JavaScript。
 - 服务端权限守卫是唯一权威，前端路由和菜单守卫只改善体验。
-- `DATA_SOURCE=memory` 时开发管理员由环境变量创建；`DATA_SOURCE=prisma` 时登录和刷新均从数据库用户、角色、权限加载身份，生产环境禁止内存身份源。
+- 登录和刷新始终从 PostgreSQL 的用户、角色、权限与会话记录加载身份，不提供内存身份源。
 - 权限接口使用声明式 `RequirePermissions` 装饰器，由服务端 `PermissionsGuard` 对 Access Token 中的权限执行最终判定。
 
 ## 安全约束
