@@ -1528,7 +1528,7 @@ tbody tr:hover {
 .login-input-wrap {
   position: relative;
 }
-.login-input-wrap svg {
+.login-input-wrap > svg {
   position: absolute;
   top: 50%;
   left: 17px;
@@ -2024,6 +2024,17 @@ td {
 .role-dialog {
   width: min(1080px, 100%);
 }
+.login-input-wrap .password-input { display: block; }
+.login-input-wrap .password-input input { padding-right: 52px; }
+.login-input-wrap .password-input .password-toggle { right: 10px; }
+.login-input-wrap .password-input .password-toggle svg { position: static; width: 17px; height: 17px; transform: none; }
+.password-input { position: relative; display: block; width: 100%; }
+.password-leading-icon { position: absolute; top: 50%; left: 17px; width: 18px; height: 18px; color: #9299aa; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; pointer-events: none; transform: translateY(-50%); }
+.deployment-form .password-input input { width: 100%; box-sizing: border-box; min-height: 46px; padding: 12px 68px 12px 14px; }
+.password-input input:focus { border-color: #6673dc; box-shadow: 0 0 0 4px #5965eb14; }
+.password-toggle { position: absolute; top: 50%; right: 10px; display: grid; width: 28px; height: 28px; place-items: center; transform: translateY(-50%); border: 0; border-radius: 6px; background: transparent; color: #7b8494; cursor: pointer; }
+.password-toggle svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.password-toggle:hover { color: #3e49bd; }
 .app-dialog { width: min(440px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; background: #fff; border-radius: 14px; box-shadow: 0 24px 70px #18203835; }
 .app-dialog--sm { width: min(440px, calc(100vw - 32px)); }
 .app-dialog--lg { width: min(720px, calc(100vw - 32px)); }
@@ -2040,6 +2051,7 @@ label:has(> textarea:required) > span:first-child::after {
   color: #d14343;
   font-weight: 700;
 }
+label:has(.password-input input:required) > span:first-child::after { content: ' *'; color: #d34e63; }
 .permission-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

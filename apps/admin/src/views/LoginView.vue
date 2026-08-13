@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { login } from '../auth/session';
 import { project } from '../generated/project';
+import AppPasswordInput from '../components/AppPasswordInput.vue';
 
 const phone = ref(''),
   password = ref(''),
@@ -74,13 +75,9 @@ async function submit(): Promise<void> {
           <label>
             <span>密码</span>
             <div class="login-input-wrap">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <rect x="4" y="10" width="16" height="11" rx="2" />
-                <path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3" />
-              </svg>
-              <input
+              <AppPasswordInput
                 v-model="password"
-                type="password"
+                :leading-icon="true"
                 autocomplete="current-password"
                 placeholder="请输入登录密码"
                 required

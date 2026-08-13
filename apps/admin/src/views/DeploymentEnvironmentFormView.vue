@@ -9,6 +9,7 @@ import {
   updateDeploymentEnvironment,
 } from '../api/deployments';
 import AppCheckbox from '../components/AppCheckbox.vue';
+import AppPasswordInput from '../components/AppPasswordInput.vue';
 import AppSelect from '../components/AppSelect.vue';
 
 const route = useRoute(),
@@ -192,9 +193,8 @@ onMounted(load);
           ><label><span>分支或 Tag</span><input v-model.trim="form.gitRef" required /></label
           ><label v-if="form.gitAuthMode === 'token'"
             ><span>Git 访问令牌</span
-            ><input
+            ><AppPasswordInput
               v-model="form.secrets.gitToken"
-              type="password"
               autocomplete="new-password"
               placeholder="留空保留原令牌" /></label
           ><label v-if="form.gitAuthMode === 'ssh_key'" class="wide"
@@ -236,9 +236,8 @@ onMounted(load);
               placeholder="/opt/apps/aiforge" /></label
           ><label v-if="form.sshAuthMode === 'password'" class="wide"
             ><span>SSH 密码</span
-            ><input
+            ><AppPasswordInput
               v-model="form.secrets.sshPassword"
-              type="password"
               autocomplete="new-password"
               placeholder="留空保留原密码" /></label
           ><label v-else class="wide"
@@ -285,22 +284,22 @@ onMounted(load);
           /></label
           ><label v-if="form.applications.includes('api')" class="wide"
             ><span>数据库连接 DATABASE_URL</span
-            ><input v-model="form.secrets.databaseUrl" :type="secretsRevealed ? 'text' : 'password'" required placeholder="postgresql://…" /></label
+            ><AppPasswordInput v-model="form.secrets.databaseUrl" required placeholder="postgresql://…" /></label
           ><label v-if="form.applications.includes('api')"
             ><span>后台 JWT Access 密钥</span
-            ><input v-model="form.secrets.jwtAccessSecret" :type="secretsRevealed ? 'text' : 'password'" required placeholder="留空保留原密钥" /></label
+            ><AppPasswordInput v-model="form.secrets.jwtAccessSecret" required placeholder="留空保留原密钥" /></label
           ><label v-if="form.applications.includes('api')"
             ><span>后台 JWT Refresh 密钥</span
-            ><input v-model="form.secrets.jwtRefreshSecret" :type="secretsRevealed ? 'text' : 'password'" required placeholder="留空保留原密钥" /></label
+            ><AppPasswordInput v-model="form.secrets.jwtRefreshSecret" required placeholder="留空保留原密钥" /></label
           ><label v-if="form.applications.includes('api')"
             ><span>配置加密密钥</span
-            ><input v-model="form.secrets.configEncryptionKey" :type="secretsRevealed ? 'text' : 'password'" required placeholder="留空保留原密钥" /></label
+            ><AppPasswordInput v-model="form.secrets.configEncryptionKey" required placeholder="留空保留原密钥" /></label
           ><label v-if="form.applications.includes('web')"
             ><span>用户端 JWT Access 密钥</span
-            ><input v-model="form.secrets.customerJwtAccessSecret" :type="secretsRevealed ? 'text' : 'password'" required placeholder="留空保留原密钥" /></label
+            ><AppPasswordInput v-model="form.secrets.customerJwtAccessSecret" required placeholder="留空保留原密钥" /></label
           ><label v-if="form.applications.includes('web')"
             ><span>用户端 JWT Refresh 密钥</span
-            ><input v-model="form.secrets.customerJwtRefreshSecret" :type="secretsRevealed ? 'text' : 'password'" required placeholder="留空保留原密钥" /></label>
+            ><AppPasswordInput v-model="form.secrets.customerJwtRefreshSecret" required placeholder="留空保留原密钥" /></label>
         </div>
       </fieldset>
       <p class="security-note">
