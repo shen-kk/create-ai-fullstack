@@ -40,28 +40,49 @@ if (!/^[a-z][a-z0-9-]{1,62}$/.test(projectName)) {
   console.error('[ERROR] 项目目录名只能使用小写字母、数字和连字符，并以字母开头。');
   process.exit(1);
 }
-const run = (command, commandArgs, options = {}) => {
-  const result = spawnSync(command, commandArgs, { stdio: 'inherit', ...options });
-  if (result.status !== 0) process.exit(result.status ?? 1);
+const run = (step, command, commandArgs, options = {}) => {
+  console.log(`[STEP] ${step}`);
+  const result = spawnSync(command, commandArgs, {
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    ...options,
+  });
+  if (result.error) {
+    console.error(`[ERROR] ${step}无法启动：${result.error.message}`);
+    process.exit(1);
+  }
+  if (result.status !== 0) {
+    console.error(`[ERROR] ${step}失败，退出码：${result.status ?? 1}`);
+    process.exit(result.status ?? 1);
+  }
 };
 
+run('检查 pnpm', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['--version']);
 console.log(`[CREATE] 从 ${repo} (${ref}) 获取模板`);
-run('git', ['clone', '--branch', ref, '--single-branch', repo, destination]);
-run(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install'], { cwd: destination });
+run('获取模板', 'git', ['clone', '--branch', ref, '--single-branch', repo, destination]);
+run('安装模板依赖', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install'], {
+  cwd: destination,
+});
 const forwardedInitArgs = args.filter(
   (item) => item === '--defaults' || item === '--user-web' || item.startsWith('--preset='),
 );
 run(
+  '初始化项目配置',
   process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
   ['template:init', '--', `--name=${projectName}`, ...forwardedInitArgs],
   { cwd: destination },
 );
-run(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install'], { cwd: destination });
-run(process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['template:doctor'], {
+run('刷新项目依赖', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install'], {
   cwd: destination,
 });
+run(
+  '检查项目完整性',
+  process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+  ['template:doctor'],
+  { cwd: destination },
+);
 
 rmSync(join(destination, '.git'), { recursive: true, force: true });
-run('git', ['init'], { cwd: destination });
+run('初始化项目 Git 仓库', 'git', ['init'], { cwd: destination });
 console.log(`\n[DONE] 项目已创建：${destination}`);
 console.log('下一步：进入项目目录并运行 pnpm dev:local');
