@@ -30,7 +30,7 @@ interface MenuItem {
   badge: string;
   implemented: boolean;
   permissions: string[];
-  icon: 'home' | 'users' | 'shield' | 'logs' | 'system';
+  icon: 'home' | 'users' | 'shield' | 'logs' | 'system' | 'deployment';
   enabled?: boolean;
 }
 
@@ -119,6 +119,15 @@ const allMenuGroups: MenuGroup[] = [
         permissions: ['menu.integrations', 'integrations.manage'],
         icon: 'system',
       },
+      {
+        label: '部署中心',
+        path: '/deployments',
+        badge: '',
+        implemented: true,
+        enabled: project.modules.deploymentCenter,
+        permissions: ['menu.deployments', 'deployments.read'],
+        icon: 'deployment',
+      },
     ],
   },
 ];
@@ -132,6 +141,9 @@ const menuGroups = computed(() =>
     .map((group) => ({ ...group, items: group.items.filter((item) => canAccess(item)) }))
     .filter((group) => group.items.length > 0),
 );
+function isMenuActive(path: string): boolean {
+  return path === '/' ? route.path === '/' : route.path === path || route.path.startsWith(`${path}/`);
+}
 </script>
 
 <template>
@@ -161,6 +173,7 @@ const menuGroups = computed(() =>
               v-if="item.implemented"
               :to="item.path"
               class="menu-item"
+              :class="{ 'router-link-active': isMenuActive(item.path) }"
               @click="sidebarOpen = false"
             >
               <AppIcon :name="item.icon" />

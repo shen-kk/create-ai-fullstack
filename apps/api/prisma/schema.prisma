@@ -18,6 +18,38 @@ enum PermissionType {
   ACTION
 }
 
+enum DeployEnvironmentKind {
+  DEVELOPMENT
+  TEST
+  STAGING
+  PRODUCTION
+  CUSTOM
+}
+
+enum DeployEnvironmentStatus {
+  DRAFT
+  VERIFIED
+  UNREACHABLE
+}
+
+enum DeployRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  ROLLING_BACK
+  ROLLED_BACK
+}
+
+enum DeployStepStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
 model User {
   id              String           @id @default(cuid())
   phone           String           @unique
@@ -33,6 +65,7 @@ model User {
   roles           UserRole[]
   sessions        RefreshSession[]
   auditLogs       AuditLog[]       @relation("AuditActor")
+  deploymentRuns DeployRun[]       @relation("DeployActor")
 
   @@index([status, createdAt])
 }
@@ -172,4 +205,106 @@ model CustomerRefreshSession {
   customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId, expiresAt])
+}
+
+model DeployEnvironment {
+  id               String                  @id @default(cuid())
+  name             String                  @unique
+  kind             DeployEnvironmentKind
+  applications     String[]
+  gitProvider      String
+  repositoryUrl    String
+  gitRef           String                  @default("main")
+  gitAuthMode      String
+  host             String
+  sshPort          Int                     @default(22)
+  sshUser          String
+  sshAuthMode      String
+  deployPath       String
+  adminUrl         String?
+  apiUrl           String?
+  webUrl           String?
+  healthCheckUrl   String?
+  retainReleases   Int                     @default(5)
+  encryptedSecrets String?
+  status           DeployEnvironmentStatus @default(DRAFT)
+  gitVerifiedAt    DateTime?
+  serverVerifiedAt DateTime?
+  lastVerifiedAt   DateTime?
+  currentReleaseId String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  runs             DeployRun[]
+  releases         DeployRelease[]
+
+  @@index([kind, updatedAt])
+}
+
+model DeployRun {
+  id            String          @id @default(cuid())
+  environmentId String
+  actorId       String?
+  gitRef        String
+  commitSha     String?
+  applications  String[]
+  status        DeployRunStatus @default(QUEUED)
+  progress      Int             @default(0)
+  currentStep   String?
+  errorCode     String?
+  errorMessage  String?
+  releaseId     String?
+  createdAt     DateTime        @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  environment   DeployEnvironment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  actor         User?             @relation("DeployActor", fields: [actorId], references: [id], onDelete: SetNull)
+  steps         DeployStep[]
+  logs          DeployLog[]
+
+  @@index([environmentId, createdAt])
+  @@index([status, createdAt])
+}
+
+model DeployStep {
+  id          String           @id @default(cuid())
+  runId       String
+  key         String
+  label       String
+  position    Int
+  status      DeployStepStatus @default(PENDING)
+  progress    Int              @default(0)
+  message     String?
+  startedAt   DateTime?
+  completedAt DateTime?
+  run         DeployRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, key])
+  @@index([runId, position])
+}
+
+model DeployLog {
+  id        String   @id @default(cuid())
+  runId     String
+  sequence  Int
+  level     String
+  message   String
+  createdAt DateTime @default(now())
+  run       DeployRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, sequence])
+  @@index([runId, sequence])
+}
+
+model DeployRelease {
+  id            String   @id @default(cuid())
+  environmentId String
+  version       String
+  commitSha     String
+  applications  String[]
+  artifactHash  String?
+  createdAt     DateTime @default(now())
+  environment   DeployEnvironment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+
+  @@unique([environmentId, version])
+  @@index([environmentId, createdAt])
 }

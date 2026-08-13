@@ -35,6 +35,7 @@
 - `rolesAndPermissions`
 - `auditLogs`
 - `serviceConfig`
+- `deploymentCenter`
 - `objectStorage`
 - `redis`
 - `sms`

@@ -54,6 +54,41 @@ export const router = createRouter({
       component: () => import('../views/IntegrationsView.vue'),
       meta: { title: '服务配置', permissions: ['menu.integrations', 'integrations.manage'] },
     },
+    ...(project.modules.deploymentCenter
+      ? [
+          {
+            path: '/deployments',
+            component: () => import('../views/DeploymentsView.vue'),
+            meta: { title: '部署中心', permissions: ['menu.deployments', 'deployments.read'] },
+          },
+          {
+            path: '/deployments/new',
+            component: () => import('../views/DeploymentEnvironmentFormView.vue'),
+            meta: {
+              title: '新增部署环境',
+              permissions: ['menu.deployments', 'deployments.manage'],
+            },
+          },
+          {
+            path: '/deployments/history',
+            component: () => import('../views/DeploymentHistoryView.vue'),
+            meta: { title: '部署记录', permissions: ['menu.deployments', 'deployments.read'] },
+          },
+          {
+            path: '/deployments/:id/edit',
+            component: () => import('../views/DeploymentEnvironmentFormView.vue'),
+            meta: {
+              title: '编辑部署环境',
+              permissions: ['menu.deployments', 'deployments.manage'],
+            },
+          },
+          {
+            path: '/deployments/runs/:runId',
+            component: () => import('../views/DeploymentRunView.vue'),
+            meta: { title: '部署进度', permissions: ['menu.deployments', 'deployments.read'] },
+          },
+        ]
+      : []),
     {
       path: '/login',
       component: () => import('../views/LoginView.vue'),
@@ -70,6 +105,11 @@ export const router = createRouter({
       meta: { title: '页面不存在' },
     },
   ],
+});
+
+window.addEventListener('template-auth-expired', () => {
+  if (router.currentRoute.value.meta.public) return;
+  void router.replace({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } });
 });
 
 router.beforeEach(async (to) => {

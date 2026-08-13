@@ -40,11 +40,12 @@ export class PrismaAuditRepository implements AuditRepository {
         : {}),
     };
     const [items, total] = await this.prisma.$transaction([
-      this.prisma.auditLog.findMany({
-        where,
+        this.prisma.auditLog.findMany({
+          where,
         skip: (query.page - 1) * query.pageSize,
         take: query.pageSize,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          include: { actor: { select: { name: true } } },
       }),
       this.prisma.auditLog.count({ where }),
     ]);
@@ -52,12 +53,16 @@ export class PrismaAuditRepository implements AuditRepository {
       items: items.map((item) => ({
         id: item.id,
         actorId: item.actorId,
+        actorName: item.actor?.name ?? null,
         action: item.action,
         resource: item.resource,
         resourceId: item.resourceId,
         result: item.result,
         requestId: item.requestId,
         ipAddress: item.ipAddress,
+        metadata: item.metadata && typeof item.metadata === 'object' && !Array.isArray(item.metadata)
+          ? (item.metadata as Record<string, unknown>)
+          : {},
         createdAt: item.createdAt.toISOString(),
       })),
       page: query.page,

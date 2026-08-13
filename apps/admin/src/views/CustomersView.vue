@@ -1,20 +1,20 @@
 <script setup lang="ts">
 import type { CustomerStatus, CustomerSummary } from '@template/contracts';
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { changeCustomerStatus, getCustomers } from '../api/customers';
 import AppSelect from '../components/AppSelect.vue';
+import AppPagination from '../components/AppPagination.vue';
 
 const keyword = ref('');
 const selectedStatus = ref<'' | CustomerStatus>('');
 const customers = ref<CustomerSummary[]>([]);
 const page = ref(1);
-const pageSize = 10;
+const pageSize = ref(10);
 const total = ref(0);
 const loading = ref(false);
 const error = ref('');
 const notice = ref('');
 const savingId = ref('');
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
 const statusOptions = [
   { value: '', label: '全部状态' },
   { value: 'active', label: '正常' },
@@ -40,7 +40,7 @@ async function loadCustomers(): Promise<void> {
       ...(keyword.value ? { keyword: keyword.value } : {}),
       ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
       page: page.value,
-      pageSize,
+      pageSize: pageSize.value,
     });
     customers.value = result.items;
     total.value = result.total;
@@ -60,10 +60,6 @@ function reset(): void {
   keyword.value = '';
   selectedStatus.value = '';
   page.value = 1;
-  void loadCustomers();
-}
-function changePage(next: number): void {
-  page.value = next;
   void loadCustomers();
 }
 async function setStatus(customer: CustomerSummary, status: CustomerStatus): Promise<void> {
@@ -184,13 +180,13 @@ onMounted(loadCustomers);
           </tbody>
         </table>
       </div>
-      <footer v-if="!loading && !error && customers.length" class="pagination">
-        <span>第 {{ page }} / {{ totalPages }} 页</span>
-        <div>
-          <button :disabled="page <= 1" @click="changePage(page - 1)">上一页</button
-          ><button :disabled="page >= totalPages" @click="changePage(page + 1)">下一页</button>
-        </div>
-      </footer>
+      <AppPagination
+        v-if="!loading && !error && customers.length"
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        @change="loadCustomers"
+      />
     </section>
   </div>
 </template>

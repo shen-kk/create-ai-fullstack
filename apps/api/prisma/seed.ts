@@ -1,4 +1,4 @@
-import { PermissionType, PrismaClient, UserStatus } from '@prisma/client';
+import { DeployEnvironmentKind, PermissionType, PrismaClient, UserStatus } from '@prisma/client';
 import { permissionCatalog } from '@template/contracts';
 import { createCipheriv, createHash, randomBytes, scrypt } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -19,6 +19,27 @@ interface BootstrapIntegration {
   enabled: boolean;
   values: Record<string, string>;
   secrets: Record<string, string>;
+}
+
+interface BootstrapDeploymentEnvironment {
+  name: string;
+  kind: string;
+  applications: string[];
+  gitProvider: string;
+  repositoryUrl: string;
+  gitRef?: string;
+  gitAuthMode: string;
+  host: string;
+  sshPort?: number;
+  sshUser: string;
+  sshAuthMode: string;
+  deployPath: string;
+  adminUrl?: string;
+  apiUrl?: string;
+  webUrl?: string;
+  healthCheckUrl?: string;
+  retainReleases?: number;
+  secrets?: Record<string, string>;
 }
 
 function encryptSecrets(value: Record<string, string>): string {
@@ -58,14 +79,72 @@ async function seedIntegrationConfigs(): Promise<void> {
   }
 }
 
+async function seedDeploymentEnvironment(): Promise<void> {
+  const path = process.env.TEMPLATE_BOOTSTRAP_FILE;
+  if (!path) return;
+  const source = JSON.parse(await readFile(path, 'utf8')) as {
+    deploymentEnvironment?: BootstrapDeploymentEnvironment;
+  };
+  const item = source.deploymentEnvironment;
+  if (!item) return;
+  const secrets = Object.fromEntries(
+    Object.entries(item.secrets ?? {}).filter(([, value]) => value.trim().length > 0),
+  );
+  const optionalUrls = {
+    adminUrl: item.adminUrl ?? null,
+    apiUrl: item.apiUrl ?? null,
+    webUrl: item.webUrl ?? null,
+    healthCheckUrl: item.healthCheckUrl ?? null,
+  };
+  await prisma.deployEnvironment.upsert({
+    where: { name: item.name },
+    create: {
+      name: item.name,
+      kind: item.kind as DeployEnvironmentKind,
+      applications: item.applications,
+      gitProvider: item.gitProvider,
+      repositoryUrl: item.repositoryUrl,
+      gitRef: item.gitRef ?? 'main',
+      gitAuthMode: item.gitAuthMode,
+      host: item.host,
+      sshPort: item.sshPort ?? 22,
+      sshUser: item.sshUser,
+      sshAuthMode: item.sshAuthMode,
+      deployPath: item.deployPath,
+      ...optionalUrls,
+      retainReleases: item.retainReleases ?? 5,
+      encryptedSecrets: encryptSecrets(secrets),
+    },
+    update: {
+      applications: item.applications,
+      repositoryUrl: item.repositoryUrl,
+      gitRef: item.gitRef ?? 'main',
+      host: item.host,
+      sshPort: item.sshPort ?? 22,
+      sshUser: item.sshUser,
+      deployPath: item.deployPath,
+      ...optionalUrls,
+      retainReleases: item.retainReleases ?? 5,
+      encryptedSecrets: encryptSecrets(secrets),
+    },
+  });
+}
+
 async function main(): Promise<void> {
   const customerGroups = new Set(['customers', 'verification']);
+  const deploymentGroups = new Set(['deployments']);
   const userWebEnabled = project.modules.userWeb && project.modules.customerAuthentication;
   const enabledPermissions = permissionCatalog.filter(
-    (permission) => userWebEnabled || !customerGroups.has(permission.groupCode),
+    (permission) =>
+      (userWebEnabled || !customerGroups.has(permission.groupCode)) &&
+      (project.modules.deploymentCenter || !deploymentGroups.has(permission.groupCode)),
   );
   const disabledPermissionCodes = permissionCatalog
-    .filter((permission) => !userWebEnabled && customerGroups.has(permission.groupCode))
+    .filter(
+      (permission) =>
+        (!userWebEnabled && customerGroups.has(permission.groupCode)) ||
+        (!project.modules.deploymentCenter && deploymentGroups.has(permission.groupCode)),
+    )
     .map((permission) => permission.code);
   await prisma.permission.deleteMany({
     where: { code: { in: disabledPermissionCodes } },
@@ -128,6 +207,7 @@ async function main(): Promise<void> {
     create: { userId: user.id, roleId: role.id },
   });
   await seedIntegrationConfigs();
+  await seedDeploymentEnvironment();
 }
 
 void main()

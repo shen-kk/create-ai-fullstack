@@ -3,6 +3,7 @@ import type { VerificationDeliverySummary } from '@template/contracts';
 import { onMounted, ref } from 'vue';
 import { getVerificationDeliveries } from '../api/verification';
 import AppSelect from '../components/AppSelect.vue';
+import AppPagination from '../components/AppPagination.vue';
 import { integrationErrorLabel, verificationStatusLabel } from '../status-labels';
 const items = ref<VerificationDeliverySummary[]>([]),
   loading = ref(false),
@@ -11,7 +12,7 @@ const channel = ref(''),
   status = ref(''),
   page = ref(1),
   total = ref(0);
-const pageSize = 20;
+const pageSize = ref(10);
 const channelOptions = [
     { value: '', label: '全部渠道' },
     { value: 'sms', label: '短信' },
@@ -40,7 +41,7 @@ async function load() {
         ? { status: status.value as 'sent' | 'consumed' | 'failed' | 'expired' }
         : {}),
       page: page.value,
-      pageSize,
+      pageSize: pageSize.value,
     });
     items.value = result.items;
     total.value = result.total;
@@ -107,28 +108,13 @@ onMounted(load);
           </tbody>
         </table>
       </div>
-      <footer v-if="items.length" class="pagination">
-        <span>共 {{ total }} 条</span>
-        <div>
-          <button
-            :disabled="page <= 1"
-            @click="
-              page--;
-              load();
-            "
-          >
-            上一页</button
-          ><button
-            :disabled="page * pageSize >= total"
-            @click="
-              page++;
-              load();
-            "
-          >
-            下一页
-          </button>
-        </div>
-      </footer>
+      <AppPagination
+        v-if="items.length"
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        @change="load"
+      />
     </section>
   </div>
 </template>

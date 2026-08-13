@@ -47,14 +47,18 @@ class TestAuthIdentityRepository implements AuthIdentityRepository {
 }
 
 class TestRefreshSessionRepository implements RefreshSessionRepository {
-  private readonly sessions = new Map<string, { userId: string; expiresAt: Date; revoked: boolean }>();
+  private readonly sessions = new Map<
+    string,
+    { userId: string; expiresAt: Date; revoked: boolean }
+  >();
 
   create(
     userId: string,
     tokenHash: string,
     expiresAt: Date,
-    _metadata: RefreshSessionMetadata,
+    metadata: RefreshSessionMetadata,
   ): Promise<void> {
+    void metadata;
     this.sessions.set(tokenHash, { userId, expiresAt, revoked: false });
     return Promise.resolve();
   }
@@ -92,9 +96,7 @@ describe('AuthService', () => {
 
   it('rejects an invalid password', async () => {
     const markActive = vi.spyOn(identities, 'markActive');
-    await expect(service.login(testPhone, 'wrong-password')).rejects.toThrow(
-      'INVALID_CREDENTIALS',
-    );
+    await expect(service.login(testPhone, 'wrong-password')).rejects.toThrow('INVALID_CREDENTIALS');
     expect(markActive).not.toHaveBeenCalled();
   });
 

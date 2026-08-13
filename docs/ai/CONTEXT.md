@@ -71,6 +71,8 @@
 - 模板唯一主仓库为 `https://github.com/shen-kk/create-ai-fullstack`。
 - 已增加 PostgreSQL CI 服务、迁移/种子/Prisma E2E、Admin Nginx 镜像、API Node 生产镜像、生产 Compose 及部署备份文档；当前机器没有 Docker，镜像实际构建需由 CI 或有 Docker 的环境最终确认。
 
+- 部署中心是 `deploymentCenter` 可选模块，使用通用 Git、Linux SSH、Docker Compose、PostgreSQL 持久化任务和 SSE 日志；不依赖 CNB。Git 与服务器检查均成功后环境才可部署，API 部署才运行数据库 migration，应用回滚不自动回滚数据库。详细边界见 `docs/domain/DEPLOYMENTS.md` 与 ADR-0010。
+
 ## 按任务读取
 
 | 任务           | 必读内容                                                                        |

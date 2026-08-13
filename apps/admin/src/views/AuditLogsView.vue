@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { AuditLogSummary } from '@template/contracts';
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 import { getAuditLogs } from '../api/audit';
 import AppSelect from '../components/AppSelect.vue';
+import AppPagination from '../components/AppPagination.vue';
+import AppDialog from '../components/AppDialog.vue';
 import { auditResultLabel } from '../status-labels';
 
 const logs = ref<AuditLogSummary[]>([]);
@@ -10,12 +12,12 @@ const loading = ref(false);
 const error = ref('');
 const total = ref(0);
 const page = ref(1);
-const pageSize = 15;
+const pageSize = ref(10);
 const keyword = ref('');
 const selectedAction = ref('');
 const selectedResource = ref('');
 const selectedResult = ref<'' | 'success' | 'failure'>('');
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
+const selectedLog = ref<AuditLogSummary | null>(null);
 const actionLabels: Record<string, string> = {
   'user.create': '创建用户',
   'user.update': '修改资料',
@@ -24,6 +26,13 @@ const actionLabels: Record<string, string> = {
   'role.create': '创建角色',
   'role.update': '修改角色权限',
   'integration.update': '修改服务配置',
+  'deployment.environment.create': '创建部署环境',
+  'deployment.environment.update': '修改部署环境',
+  'deployment.run.create': '创建部署任务',
+  'deployment.rollback': '回滚部署版本',
+};
+const resourceLabels: Record<string, string> = {
+  user: '后台用户', role: '角色', integration: '服务配置', deploy_environment: '部署环境', deploy_run: '部署任务',
 };
 const actionOptions = [
   { value: '', label: '全部操作' },
@@ -50,7 +59,7 @@ async function load(): Promise<void> {
   try {
     const result = await getAuditLogs({
       page: page.value,
-      pageSize,
+      pageSize: pageSize.value,
       ...(keyword.value ? { keyword: keyword.value } : {}),
       ...(selectedAction.value ? { action: selectedAction.value } : {}),
       ...(selectedResource.value ? { resource: selectedResource.value } : {}),
@@ -63,10 +72,6 @@ async function load(): Promise<void> {
   } finally {
     loading.value = false;
   }
-}
-function changePage(next: number): void {
-  page.value = next;
-  void load();
 }
 function search(): void {
   page.value = 1;
@@ -142,8 +147,7 @@ onMounted(load);
               <th>资源</th>
               <th>操作者</th>
               <th>结果</th>
-              <th>请求 ID</th>
-              <th>来源 IP</th>
+              <th>详情</th>
             </tr>
           </thead>
           <tbody>
@@ -152,28 +156,40 @@ onMounted(load);
               <td>
                 <strong>{{ actionLabels[log.action] || log.action }}</strong>
               </td>
-              <td>{{ log.resource }} · {{ log.resourceId || '—' }}</td>
-              <td>{{ log.actorId || '系统' }}</td>
+              <td>{{ resourceLabels[log.resource] || log.resource }}</td>
+              <td>{{ log.actorName || '系统' }}</td>
               <td>
                 <span class="user-status" :class="log.result === 'success' ? 'active' : 'disabled'"
                   ><i />{{ auditResultLabel(log.result) }}</span
                 >
               </td>
-              <td>
-                <code>{{ log.requestId || '—' }}</code>
-              </td>
-              <td>{{ log.ipAddress || '—' }}</td>
+              <td><button class="link-button" @click="selectedLog = log">查看详情</button></td>
             </tr>
           </tbody>
         </table>
       </div>
-      <footer v-if="!loading && !error && total" class="pagination">
-        <span>第 {{ page }} / {{ totalPages }} 页</span>
-        <div>
-          <button :disabled="page <= 1" @click="changePage(page - 1)">上一页</button
-          ><button :disabled="page >= totalPages" @click="changePage(page + 1)">下一页</button>
-        </div>
-      </footer>
+      <AppPagination
+        v-if="!loading && !error && total"
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        @change="load"
+      />
     </section>
+    <AppDialog v-if="selectedLog" :open="true" size="lg" eyebrow="操作日志详情" :title="actionLabels[selectedLog.action] || selectedLog.action" @close="selectedLog = null">
+        <dl class="detail-grid"><dt>时间</dt><dd>{{ formatDate(selectedLog.createdAt) }}</dd><dt>操作者</dt><dd>{{ selectedLog.actorName || '系统' }}</dd><dt>操作者 ID</dt><dd><code>{{ selectedLog.actorId || '—' }}</code></dd><dt>资源</dt><dd>{{ resourceLabels[selectedLog.resource] || selectedLog.resource }} · {{ selectedLog.resourceId || '—' }}</dd><dt>请求 ID</dt><dd><code>{{ selectedLog.requestId || '—' }}</code></dd><dt>来源 IP</dt><dd>{{ selectedLog.ipAddress || '—' }}</dd><dt>原始动作</dt><dd><code>{{ selectedLog.action }}</code></dd></dl>
+        <div class="code-container" aria-label="技术元数据"><div class="code-container__header">技术元数据</div><pre>{{ JSON.stringify(selectedLog.metadata || {}, null, 2) }}</pre></div>
+    </AppDialog>
   </div>
 </template>
+
+<style scoped>
+.link-button { border: 0; background: transparent; color: #5965d8; font-weight: 700; cursor: pointer; }
+.link-button:hover { color: #3e49bd; text-decoration: underline; }
+.detail-grid { display: grid; grid-template-columns: 110px 1fr; gap: 14px 18px; margin: 0; padding: 24px 30px; }
+.detail-grid dt { color: #7a8496; font-size: 13px; }
+.detail-grid dd { margin: 0; color: #273247; font-size: 14px; word-break: break-word; }
+.code-container { margin-top: 4px; overflow: hidden; border: 1px solid #e1e6ef; border-radius: 10px; background: #f7f8fb; }
+.code-container__header { padding: 10px 14px; border-bottom: 1px solid #e1e6ef; color: #65718a; font-size: 12px; font-weight: 700; }
+.code-container pre { margin: 0; padding: 16px; max-height: 220px; overflow: auto; color: #536078; text-align: left; white-space: pre-wrap; word-break: break-word; font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; }
+</style>

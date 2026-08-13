@@ -320,8 +320,14 @@ try {
           sms: await yes('启用短信配置能力', false),
           email: await yes('启用邮件配置能力', false),
           payment: await yes('启用支付配置能力', false),
+          deploymentCenter: await yes('启用部署中心', false),
         }
-      : { ...presetModules(preset), userWeb, customerAuthentication: userWeb };
+      : {
+          ...presetModules(preset),
+          userWeb,
+          customerAuthentication: userWeb,
+          deploymentCenter: await yes('启用部署中心', false),
+        };
   if (userWeb) {
     modules.sms = true;
     modules.redis = true;

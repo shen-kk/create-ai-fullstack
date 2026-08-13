@@ -149,6 +149,7 @@ onMounted(load);
         ><label
           ><span>角色说明</span><input v-model.trim="form.description" maxlength="240"
         /></label>
+        <div class="permission-grid">
         <fieldset>
           <legend>功能菜单权限</legend>
           <label
@@ -173,6 +174,7 @@ onMounted(load);
             ></label
           >
         </fieldset>
+        </div>
         <p class="permission-help">
           菜单权限决定入口与路由可见性；操作权限由 API
           守卫执行。新增功能的权限代码由共享契约登记并随版本发布，不在后台动态创建。

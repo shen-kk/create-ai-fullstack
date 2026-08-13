@@ -109,6 +109,12 @@ export const permissionCatalog = [
     type: 'menu',
     groupCode: 'integrations',
   },
+  {
+    code: 'menu.deployments',
+    description: '显示部署中心菜单',
+    type: 'menu',
+    groupCode: 'deployments',
+  },
   { code: 'users.read', description: '查看用户', type: 'action', groupCode: 'users' },
   { code: 'users.write', description: '创建和修改用户', type: 'action', groupCode: 'users' },
   {
@@ -138,6 +144,30 @@ export const permissionCatalog = [
     type: 'action',
     groupCode: 'integrations',
   },
+  {
+    code: 'deployments.read',
+    description: '查看部署环境、任务与日志',
+    type: 'action',
+    groupCode: 'deployments',
+  },
+  {
+    code: 'deployments.manage',
+    description: '管理部署环境和加密凭据',
+    type: 'action',
+    groupCode: 'deployments',
+  },
+  {
+    code: 'deployments.execute',
+    description: '执行或取消部署',
+    type: 'action',
+    groupCode: 'deployments',
+  },
+  {
+    code: 'deployments.rollback',
+    description: '回滚到历史成功版本',
+    type: 'action',
+    groupCode: 'deployments',
+  },
 ] as const satisfies readonly PermissionOption[];
 export interface CreateRoleRequest {
   code: string;
@@ -153,12 +183,14 @@ export interface UpdateRoleRequest {
 export interface AuditLogSummary {
   id: string;
   actorId: string | null;
+  actorName?: string | null;
   action: string;
   resource: string;
   resourceId: string | null;
   result: string;
   requestId: string | null;
   ipAddress: string | null;
+  metadata?: Record<string, unknown>;
   createdAt: string;
 }
 export type AuditLogListResponse = PageResult<AuditLogSummary>;
@@ -322,4 +354,133 @@ export interface UpdateIntegrationConfigRequest {
   enabled: boolean;
   values: Record<string, string>;
   secrets: Record<string, string>;
+}
+
+export type DeployApplication = 'admin' | 'api' | 'web';
+export type DeployEnvironmentKind = 'development' | 'test' | 'staging' | 'production' | 'custom';
+export type DeployGitProvider = 'github' | 'gitlab' | 'cnb' | 'gitee' | 'generic';
+export type DeployGitAuthMode = 'none' | 'token' | 'ssh_key';
+export type DeploySshAuthMode = 'password' | 'private_key';
+export type DeployEnvironmentStatus = 'draft' | 'verified' | 'unreachable';
+export type DeployRunStatus =
+  'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'rolling_back' | 'rolled_back';
+export type DeployStepStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'skipped';
+
+export interface DeploymentEnvironmentSummary {
+  id: string;
+  name: string;
+  kind: DeployEnvironmentKind;
+  applications: DeployApplication[];
+  gitProvider: DeployGitProvider;
+  repositoryUrl: string;
+  gitRef: string;
+  gitAuthMode: DeployGitAuthMode;
+  host: string;
+  sshPort: number;
+  sshUser: string;
+  sshAuthMode: DeploySshAuthMode;
+  deployPath: string;
+  adminUrl: string | null;
+  apiUrl: string | null;
+  webUrl: string | null;
+  healthCheckUrl: string | null;
+  retainReleases: number;
+  configuredSecrets: string[];
+  status: DeployEnvironmentStatus;
+  lastVerifiedAt: string | null;
+  currentRelease: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface UpsertDeploymentEnvironmentRequest {
+  name: string;
+  kind: DeployEnvironmentKind;
+  applications: DeployApplication[];
+  gitProvider: DeployGitProvider;
+  repositoryUrl: string;
+  gitRef: string;
+  gitAuthMode: DeployGitAuthMode;
+  host: string;
+  sshPort: number;
+  sshUser: string;
+  sshAuthMode: DeploySshAuthMode;
+  deployPath: string;
+  adminUrl?: string;
+  apiUrl?: string;
+  webUrl?: string;
+  healthCheckUrl?: string;
+  retainReleases: number;
+  secrets: {
+    gitToken?: string;
+    gitSshPrivateKey?: string;
+    sshPassword?: string;
+    sshPrivateKey?: string;
+    databaseUrl?: string;
+    jwtAccessSecret?: string;
+    jwtRefreshSecret?: string;
+    configEncryptionKey?: string;
+    customerJwtAccessSecret?: string;
+    customerJwtRefreshSecret?: string;
+  };
+}
+
+export interface DeploymentCheckItem {
+  key: string;
+  label: string;
+  status: 'passed' | 'failed';
+  message: string;
+}
+export interface DeploymentCheckResult {
+  success: boolean;
+  checkedAt: string;
+  checks: DeploymentCheckItem[];
+}
+export interface DeploymentStepSummary {
+  id: string;
+  key: string;
+  label: string;
+  status: DeployStepStatus;
+  progress: number;
+  message: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+export interface DeploymentRunSummary {
+  id: string;
+  environmentId: string;
+  actorId: string | null;
+  gitRef: string;
+  commitSha: string | null;
+  applications: DeployApplication[];
+  status: DeployRunStatus;
+  progress: number;
+  currentStep: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+  releaseId: string | null;
+  steps: DeploymentStepSummary[];
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+export interface DeploymentLogEntry {
+  id: string;
+  sequence: number;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  createdAt: string;
+}
+export interface DeploymentReleaseSummary {
+  id: string;
+  environmentId: string;
+  version: string;
+  commitSha: string;
+  applications: DeployApplication[];
+  createdAt: string;
+  current: boolean;
+}
+export interface CreateDeploymentRunRequest {
+  applications: DeployApplication[];
+  gitRef?: string;
 }

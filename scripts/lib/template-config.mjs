@@ -17,6 +17,7 @@ export function presetModules(preset) {
       sms: false,
       email: true,
       payment: false,
+      deploymentCenter: false,
     };
   return {
     ...coreModules,
@@ -27,6 +28,7 @@ export function presetModules(preset) {
     sms: false,
     email: false,
     payment: false,
+    deploymentCenter: false,
   };
 }
 

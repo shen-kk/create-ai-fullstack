@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { RoleOption, UserStatus, UserSummary } from '@template/contracts';
-import { computed, onMounted, ref } from 'vue';
+import { onMounted, ref } from 'vue';
 
 import {
   assignUserRoles,
@@ -11,12 +11,14 @@ import {
   updateUser,
 } from '../api/users';
 import AppSelect from '../components/AppSelect.vue';
+import AppPagination from '../components/AppPagination.vue';
+import AppCheckbox from '../components/AppCheckbox.vue';
 
 const keyword = ref('');
 const selectedStatus = ref<'' | UserStatus>('');
 const users = ref<UserSummary[]>([]);
 const page = ref(1);
-const pageSize = 5;
+const pageSize = ref(10);
 const total = ref(0);
 const loading = ref(false);
 const error = ref('');
@@ -32,7 +34,6 @@ const rolesTarget = ref<UserSummary | null>(null);
 const roleOptions = ref<RoleOption[]>([]);
 const selectedRoleCodes = ref<string[]>([]);
 
-const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize)));
 const statusLabels: Record<UserStatus, string> = {
   active: '正常',
   disabled: '已停用',
@@ -64,7 +65,7 @@ async function loadUsers(): Promise<void> {
       ...(keyword.value ? { keyword: keyword.value } : {}),
       ...(selectedStatus.value ? { status: selectedStatus.value } : {}),
       page: page.value,
-      pageSize,
+      pageSize: pageSize.value,
     });
     users.value = result.items;
     total.value = result.total;
@@ -85,10 +86,6 @@ function reset(): void {
   keyword.value = '';
   selectedStatus.value = '';
   page.value = 1;
-  void loadUsers();
-}
-function changePage(next: number): void {
-  page.value = next;
   void loadUsers();
 }
 async function submitCreate(): Promise<void> {
@@ -165,6 +162,11 @@ async function submitRoles(): Promise<void> {
   } finally {
     saving.value = false;
   }
+}
+function toggleRole(code: string, checked: boolean): void {
+  const next = new Set(selectedRoleCodes.value);
+  checked ? next.add(code) : next.delete(code);
+  selectedRoleCodes.value = [...next];
 }
 
 onMounted(loadUsers);
@@ -267,13 +269,13 @@ onMounted(loadUsers);
           </tbody>
         </table>
       </div>
-      <footer v-if="!loading && !error && users.length" class="pagination">
-        <span>第 {{ page }} / {{ totalPages }} 页</span>
-        <div>
-          <button :disabled="page <= 1" @click="changePage(page - 1)">上一页</button
-          ><button :disabled="page >= totalPages" @click="changePage(page + 1)">下一页</button>
-        </div>
-      </footer>
+      <AppPagination
+        v-if="!loading && !error && users.length"
+        v-model:page="page"
+        v-model:page-size="pageSize"
+        :total="total"
+        @change="loadUsers"
+      />
     </section>
     <div v-if="createOpen" class="dialog-backdrop">
       <form class="user-dialog" @submit.prevent="submitCreate">
@@ -365,12 +367,17 @@ onMounted(loadUsers);
           </button>
         </header>
         <div class="role-options">
-          <label v-for="role in roleOptions" :key="role.code"
-            ><input v-model="selectedRoleCodes" type="checkbox" :value="role.code" /><span
-              ><strong>{{ role.name }}</strong
-              ><small>{{ role.description || role.code }}</small></span
-            ><i v-if="role.system">系统</i></label
-          >
+          <div v-for="role in roleOptions" :key="role.code" class="role-option">
+            <AppCheckbox
+              :model-value="selectedRoleCodes.includes(role.code)"
+              :disabled="saving"
+              @update:model-value="toggleRole(role.code, $event)"
+            >
+              <strong>{{ role.name }}</strong>
+              <small>{{ role.description || role.code }}</small>
+            </AppCheckbox>
+            <i v-if="role.system">系统</i>
+          </div>
         </div>
         <footer>
           <button type="button" class="secondary-button" @click="rolesOpen = false">取消</button

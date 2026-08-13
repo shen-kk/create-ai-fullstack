@@ -9,6 +9,7 @@ allowBuilds:
   cpu-features: false
   esbuild: true
   prisma: true
+  ssh2: false
   vue-demi: true
 
 overrides:

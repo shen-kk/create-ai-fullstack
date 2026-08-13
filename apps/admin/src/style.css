@@ -787,6 +787,19 @@ button {
 .table-scroll {
   overflow-x: auto;
 }
+.users-table-panel {
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+}
+.users-table-panel .table-scroll {
+  /* AppSelect 的菜单是浮层，不能被表格容器按高度裁切。 */
+  overflow-x: visible;
+  overflow-y: visible;
+}
+.users-table-panel .app-select.open {
+  z-index: 60;
+}
 table {
   width: 100%;
   border-collapse: collapse;
@@ -947,9 +960,10 @@ tbody tr:hover {
 }
 .role-options {
   display: grid;
-  gap: 10px;
+  gap: 14px;
   max-height: 320px;
   overflow: auto;
+  padding: 4px 2px 8px;
 }
 .role-options label {
   display: flex;
@@ -1908,7 +1922,7 @@ td {
   flex-direction: column;
   width: min(620px, 100%);
   max-height: calc(100vh - 64px);
-  padding: 30px 32px;
+  padding: 30px 32px 0;
   overflow: hidden;
   border: 1px solid #ffffffb8;
   border-radius: 20px;
@@ -1936,7 +1950,32 @@ td {
   z-index: 2;
   flex: 0 0 auto;
   background: #fff;
-  margin-top: 0 !important;
+  margin: 28px -32px 0 !important;
+}
+.role-options .role-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 68px;
+  padding: 14px 16px;
+  border: 1px solid #e4e6ef;
+  border-radius: 9px;
+}
+.role-options .role-option .app-checkbox {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0 0 0 12px;
+  gap: 12px;
+}
+.role-options .role-option .app-checkbox > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+.role-options .role-option .app-checkbox .app-checkbox-mark {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
 }
 .user-dialog header {
   margin-bottom: 24px;
@@ -1983,14 +2022,37 @@ td {
   background: #f0f2ff;
 }
 .role-dialog {
-  width: min(900px, 100%);
+  width: min(1080px, 100%);
+}
+.app-dialog { width: min(440px, calc(100vw - 32px)); max-height: min(760px, calc(100vh - 32px)); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; background: #fff; border-radius: 14px; box-shadow: 0 24px 70px #18203835; }
+.app-dialog--sm { width: min(440px, calc(100vw - 32px)); }
+.app-dialog--lg { width: min(720px, calc(100vw - 32px)); }
+.app-dialog__header, .app-dialog__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 24px; }
+.app-dialog__header { margin-bottom: 0; border-bottom: 1px solid #edf0f5; }
+.app-dialog__header h2 { margin: 6px 0 0; }
+.app-dialog__content { min-height: 0; overflow: auto; padding: 20px 24px; }
+.app-dialog__footer { justify-content: flex-end; border-top: 1px solid #edf0f5; }
+
+/* 统一必填标识：控件声明 required 后，所属表单标签自动显示星号。 */
+label:has(> input:required) > span:first-child::after,
+label:has(> textarea:required) > span:first-child::after {
+  content: ' *';
+  color: #d14343;
+  font-weight: 700;
+}
+.permission-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
 }
 .role-dialog fieldset {
-  display: inline-grid;
+  display: grid;
   box-sizing: border-box;
-  width: calc(50% - 8px);
+  width: 100%;
   max-height: 310px;
-  margin-top: 22px;
+  min-width: 0;
+  margin: 0;
   padding: 16px;
   vertical-align: top;
   border-color: #dde2eb;
@@ -2002,7 +2064,7 @@ td {
   padding-bottom: 24px;
 }
 .role-dialog fieldset + fieldset {
-  margin-left: 12px;
+  margin-left: 0;
 }
 .role-dialog legend {
   padding: 0 8px;
@@ -2245,8 +2307,11 @@ td {
   font-weight: 650;
 }
 .app-select-menu .app-icon {
+  display: block;
   width: 16px;
   height: 16px;
+  flex: 0 0 16px;
+  align-self: center;
 }
 .app-select.disabled {
   opacity: 0.55;
@@ -2360,6 +2425,9 @@ td {
   }
 }
 @media (max-width: 900px) {
+  .permission-grid {
+    grid-template-columns: 1fr;
+  }
   .profile-layout {
     grid-template-columns: 1fr;
   }
@@ -2383,6 +2451,140 @@ td {
   min-height: 20px;
   align-items: center;
   line-height: 1;
+}
+
+/* 表格内选择器只占用固定的紧凑触发器宽度；下拉菜单通过 absolute 浮层展开，
+   不参与表格列宽计算，也不会把相邻列挤开。 */
+.table-scroll .status-select {
+  display: inline-block;
+  width: 96px;
+  min-width: 96px;
+  max-width: 96px;
+  vertical-align: middle;
+}
+.table-scroll .status-select .app-select-trigger {
+  width: 96px;
+  min-width: 96px;
+  box-sizing: border-box;
+  padding-inline: 10px;
+}
+.table-scroll .status-select .app-select-menu {
+  width: 148px;
+  min-width: 148px;
+}
+
+.app-checkbox {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  color: #334155;
+  cursor: pointer;
+  user-select: none;
+}
+.app-checkbox input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.app-checkbox-mark {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  box-sizing: border-box;
+  place-items: center;
+  color: #fff;
+  background: #fff;
+  border: 1px solid #aeb8c9;
+  border-radius: 4px;
+}
+.app-checkbox-mark svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+.app-checkbox.checked .app-checkbox-mark {
+  background: #5267f5;
+  border-color: #5267f5;
+}
+.app-checkbox:focus-within .app-checkbox-mark {
+  box-shadow: 0 0 0 4px #5965eb1f;
+}
+.app-checkbox.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.app-pagination {
+  display: flex;
+  min-height: 68px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  color: #697386;
+  border-top: 1px solid #edf0f4;
+  font-size: 13px;
+}
+.app-pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.app-pagination button {
+  min-height: 36px;
+  padding: 0 12px;
+  color: #445066;
+  background: #fff;
+  border: 1px solid #dce2ec;
+  border-radius: 9px;
+}
+.app-pagination button:hover:not(:disabled) {
+  color: #4654c9;
+  border-color: #aeb7ec;
+}
+.app-pagination button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.page-size-select {
+  width: 112px;
+}
+.page-size-select .app-select-trigger {
+  height: 36px;
+  min-height: 36px;
+}
+.page-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.page-jump input {
+  width: 58px;
+  height: 36px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  text-align: center;
+  border: 1px solid #dce2ec;
+  border-radius: 9px;
+}
+@media (max-width: 760px) {
+  .app-pagination,
+  .app-pagination-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .page-size-select {
+    width: 100%;
+  }
 }
 .avatar-upload-actions {
   display: grid;
