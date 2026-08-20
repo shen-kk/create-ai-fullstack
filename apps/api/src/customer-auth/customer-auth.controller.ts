@@ -16,7 +16,12 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
-import type { CustomerProfile, CustomerSession, CustomerSessionDevice } from '@template/contracts';
+import type {
+  CustomerAuthSettings,
+  CustomerProfile,
+  CustomerSession,
+  CustomerSessionDevice,
+} from '@template/contracts';
 import type { Request, Response } from 'express';
 import { AuditService } from '../audit/audit.service.js';
 import { LoginRateLimiter } from '../auth/login-rate-limiter.service.js';
@@ -26,7 +31,6 @@ import {
   BindCustomerContactDto,
   ChangeCustomerPasswordDto,
   CustomerLoginDto,
-  CustomerRegisterDto,
   ResetCustomerPasswordDto,
   SendVerificationCodeDto,
   UpdateCustomerProfileDto,
@@ -36,6 +40,7 @@ import { VerificationService } from './verification.service.js';
 import { CustomerSessionRepository } from './customer-session.repository.js';
 import type { SendVerificationCodeResponse } from '@template/contracts';
 import { AvatarStorageService, type AvatarFile } from '../integrations/avatar-storage.service.js';
+import { IntegrationsService } from '../integrations/integrations.service.js';
 
 const cookieName = 'customer_refresh';
 
@@ -49,37 +54,26 @@ export class CustomerAuthController {
     private readonly verification: VerificationService,
     private readonly sessions: CustomerSessionRepository,
     private readonly avatars: AvatarStorageService,
+    private readonly integrations: IntegrationsService,
   ) {}
+  @Get('settings') settings(): Promise<CustomerAuthSettings> {
+    return this.integrations.getCustomerAuthSettings();
+  }
   @Post('verification/send') @HttpCode(200) sendVerification(
     @Body() input: SendVerificationCodeDto,
   ): Promise<SendVerificationCodeResponse> {
     return this.verification.send(input.channel, input.target, input.purpose);
-  }
-  @Post('register') async register(
-    @Body() input: CustomerRegisterDto,
-    @Req() request: Request,
-    @Res({ passthrough: true }) response: Response,
-  ): Promise<CustomerSession> {
-    const session = await this.respond(this.auth.register(input, this.metadata(request)), response);
-    await this.audit.record({
-      action: 'customer.register',
-      resource: 'customer',
-      resourceId: session.customer.id,
-      result: 'success',
-      ...this.auditMetadata(request),
-    });
-    return session;
   }
   @Post('login') async login(
     @Body() input: CustomerLoginDto,
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<CustomerSession> {
-    const key = `customer:${request.ip ?? 'unknown'}:${input.phone}`;
+    const key = `customer:${request.ip ?? 'unknown'}:${input.channel}:${input.identifier}`;
     this.loginLimiter.assertAllowed(key);
     try {
       const session = await this.respond(
-        this.auth.login(input.phone, input.password, this.metadata(request)),
+        this.auth.login(input.channel, input.identifier, input.password, this.metadata(request)),
         response,
       );
       this.loginLimiter.recordSuccess(key);
@@ -94,15 +88,28 @@ export class CustomerAuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ): Promise<CustomerSession> {
-    return this.respond(
-      this.auth.loginWithCode(input.phone, input.code, this.metadata(request)),
-      response,
+    const result = await this.auth.loginWithCode(
+      input.channel,
+      input.identifier,
+      input.code,
+      this.metadata(request),
     );
+    const { isNewCustomer, ...sessionResult } = result;
+    const session = await this.respond(Promise.resolve(sessionResult), response);
+    if (isNewCustomer)
+      await this.audit.record({
+        action: 'customer.register',
+        resource: 'customer',
+        resourceId: session.customer.id,
+        result: 'success',
+        ...this.auditMetadata(request),
+      });
+    return session;
   }
   @Post('password/reset') @HttpCode(204) resetPassword(
     @Body() input: ResetCustomerPasswordDto,
   ): Promise<void> {
-    return this.auth.resetPassword(input.phone, input.code, input.newPassword);
+    return this.auth.resetPassword(input.channel, input.identifier, input.code, input.newPassword);
   }
   @Post('refresh') @ApiCookieAuth(cookieName) refresh(
     @Req() request: Request,
@@ -153,7 +160,11 @@ export class CustomerAuthController {
     @UploadedFile() file: AvatarFile | undefined,
     @Req() request: Request & { customer: CustomerProfile },
   ): Promise<CustomerProfile> {
-    const avatarUrl = await this.avatars.upload(request.customer.id, file);
+    const avatarUrl = await this.avatars.upload(
+      request.customer.id,
+      file,
+      'customer.avatar_upload',
+    );
     return this.auth.update(request.customer.id, {
       name: request.customer.name,
       email: request.customer.email,

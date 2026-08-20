@@ -6,7 +6,7 @@ const userKey = 'template_auth_user';
 const versionKey = 'template_session_version';
 const expiryKey = 'template_access_expires_at';
 const currentSessionVersion = '4';
-let refreshTimer: number | undefined;
+let refreshTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const getAccessToken = (): string | null => sessionStorage.getItem(tokenKey);
 export function getCurrentUser(): AuthUser | null {
@@ -20,7 +20,7 @@ export function getCurrentUser(): AuthUser | null {
   }
 }
 export function clearSession(): void {
-  if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
+  if (refreshTimer !== undefined) globalThis.clearTimeout(refreshTimer);
   refreshTimer = undefined;
   sessionStorage.removeItem(tokenKey);
   sessionStorage.removeItem(userKey);
@@ -33,10 +33,13 @@ function saveSession(session: AuthSession): void {
   sessionStorage.setItem(versionKey, currentSessionVersion);
   const expiresAt = Date.now() + Math.max(60, session.expiresIn - 60) * 1000;
   sessionStorage.setItem(expiryKey, String(Date.now() + session.expiresIn * 1000));
-  if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
-  refreshTimer = window.setTimeout(() => {
-    void refreshAccessToken();
-  }, Math.max(1000, expiresAt - Date.now()));
+  if (refreshTimer !== undefined) globalThis.clearTimeout(refreshTimer);
+  refreshTimer = globalThis.setTimeout(
+    () => {
+      void refreshAccessToken();
+    },
+    Math.max(1000, expiresAt - Date.now()),
+  );
 }
 export function saveCurrentUser(user: AuthUser): void {
   sessionStorage.setItem(userKey, JSON.stringify(user));
@@ -82,13 +85,19 @@ export async function restoreSession(): Promise<boolean> {
 }
 
 function scheduleRefresh(expiresAt: number): void {
-  if (refreshTimer !== undefined) window.clearTimeout(refreshTimer);
-  refreshTimer = window.setTimeout(() => void refreshAccessToken(), Math.max(1000, expiresAt - Date.now() - 60_000));
+  if (refreshTimer !== undefined) globalThis.clearTimeout(refreshTimer);
+  refreshTimer = globalThis.setTimeout(
+    () => void refreshAccessToken(),
+    Math.max(1000, expiresAt - Date.now() - 60_000),
+  );
 }
 
 async function refreshAccessToken(): Promise<boolean> {
   try {
-    const response = await fetch(`${apiBaseUrl}/auth/refresh`, { method: 'POST', credentials: 'include' });
+    const response = await fetch(`${apiBaseUrl}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
     if (!response.ok) throw new Error('REFRESH_FAILED');
     saveSession((await response.json()) as AuthSession);
     return true;

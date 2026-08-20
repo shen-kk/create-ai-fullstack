@@ -25,7 +25,12 @@ export class ApiExceptionFilter implements ExceptionFilter {
     const status =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const raw = exception instanceof HttpException ? exception.getResponse() : undefined;
-    const rawMessage = typeof raw === 'object' && raw && 'message' in raw ? raw.message : undefined;
+    const rawMessage =
+      typeof raw === 'string'
+        ? raw
+        : typeof raw === 'object' && raw && 'message' in raw
+          ? raw.message
+          : undefined;
     const stableMessage =
       typeof rawMessage === 'string' && /^[A-Z][A-Z0-9_]+$/.test(rawMessage)
         ? rawMessage

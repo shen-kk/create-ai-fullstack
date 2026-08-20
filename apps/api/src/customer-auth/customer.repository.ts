@@ -15,20 +15,36 @@ export class CustomerRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(input: {
-    phone: string;
+    phone: string | null;
     passwordHash: string;
     name: string;
     email: string | null;
   }): Promise<CustomerProfile> {
-    const existing = await this.prisma.customer.findUnique({ where: { phone: input.phone } });
-    if (existing) throw new ConflictException('CUSTOMER_PHONE_EXISTS');
+    const existing = input.phone
+      ? await this.prisma.customer.findUnique({ where: { phone: input.phone } })
+      : input.email
+        ? await this.prisma.customer.findUnique({ where: { email: input.email } })
+        : null;
+    if (existing) throw new ConflictException('CUSTOMER_IDENTIFIER_EXISTS');
     return this.toProfile(
-      await this.prisma.customer.create({ data: { ...input, phoneVerifiedAt: new Date() } }),
+      await this.prisma.customer.create({
+        data: {
+          ...input,
+          phoneVerifiedAt: input.phone ? new Date() : null,
+          emailVerifiedAt: input.email ? new Date() : null,
+        },
+      }),
     );
   }
 
-  async authenticate(phone: string, password: string): Promise<CustomerProfile | null> {
-    const record = await this.prisma.customer.findUnique({ where: { phone } });
+  async authenticate(
+    channel: 'sms' | 'email',
+    identifier: string,
+    password: string,
+  ): Promise<CustomerProfile | null> {
+    const record = await this.prisma.customer.findUnique({
+      where: channel === 'sms' ? { phone: identifier } : { email: identifier },
+    });
     if (
       !record ||
       record.status !== UserStatus.ACTIVE ||
@@ -42,16 +58,29 @@ export class CustomerRepository {
     return this.toProfile(record);
   }
 
-  async findActiveByPhone(phone: string): Promise<CustomerProfile | null> {
+  async findActiveByIdentifier(
+    channel: 'sms' | 'email',
+    identifier: string,
+  ): Promise<CustomerProfile | null> {
     const record = await this.prisma.customer.findFirst({
-      where: { phone, status: UserStatus.ACTIVE },
+      where: {
+        ...(channel === 'sms' ? { phone: identifier } : { email: identifier }),
+        status: UserStatus.ACTIVE,
+      },
     });
     return record ? this.toProfile(record) : null;
   }
 
-  async resetPassword(phone: string, passwordHash: string): Promise<boolean> {
+  async resetPassword(
+    channel: 'sms' | 'email',
+    identifier: string,
+    passwordHash: string,
+  ): Promise<boolean> {
     const result = await this.prisma.customer.updateMany({
-      where: { phone, status: UserStatus.ACTIVE },
+      where: {
+        ...(channel === 'sms' ? { phone: identifier } : { email: identifier }),
+        status: UserStatus.ACTIVE,
+      },
       data: { passwordHash },
     });
     return result.count > 0;
@@ -154,7 +183,7 @@ export class CustomerRepository {
 
   private toProfile(record: {
     id: string;
-    phone: string;
+    phone: string | null;
     name: string;
     email: string | null;
     avatarUrl: string | null;

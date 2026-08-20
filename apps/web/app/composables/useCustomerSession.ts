@@ -4,7 +4,6 @@ import type {
   ChangeCustomerPasswordRequest,
   CustomerLoginRequest,
   CustomerProfile,
-  CustomerRegisterRequest,
   CustomerSession,
   CustomerSessionDevice,
   ResetCustomerPasswordRequest,
@@ -16,7 +15,10 @@ import type {
 import { readonly } from 'vue';
 
 const errorLabels: Record<string, string> = {
-  INVALID_CUSTOMER_CREDENTIALS: '手机号或密码错误',
+  INVALID_CUSTOMER_CREDENTIALS: '账号或密码错误',
+  CUSTOMER_IDENTIFIER_INVALID: '账号格式不正确',
+  CUSTOMER_IDENTIFIER_EXISTS: '该账号已经注册',
+  CUSTOMER_AUTH_CHANNEL_DISABLED: '当前账号登录方式未启用',
   CUSTOMER_NOT_FOUND: '用户不存在或账号已停用',
   CUSTOMER_PHONE_EXISTS: '该手机号已经注册',
   VERIFICATION_CODE_INVALID: '验证码错误或已过期',
@@ -35,6 +37,8 @@ const errorLabels: Record<string, string> = {
   EMAIL_PROVIDER_ADAPTER_REQUIRED: '邮件服务暂不可用，请联系管理员',
   SMS_DELIVERY_FAILED: '短信发送失败，请稍后重试',
   EMAIL_DELIVERY_FAILED: '邮件发送失败，请稍后重试',
+  MESSAGE_TEMPLATE_NOT_CONFIGURED: '消息模板未配置，请联系管理员',
+  MESSAGE_TEMPLATE_INVALID: '消息模板配置无效，请联系管理员',
   AVATAR_FILE_REQUIRED: '请选择要上传的头像',
   AVATAR_FILE_TYPE_INVALID: '仅支持 JPG、PNG 或 WebP 图片',
   AVATAR_FILE_TOO_LARGE: '头像大小不能超过 2 MB',
@@ -190,9 +194,6 @@ export function useCustomerSession() {
   async function loginWithCode(input: VerificationCodeLoginRequest): Promise<void> {
     await requestSession('/login/code', { method: 'POST', body: JSON.stringify(input) });
   }
-  async function register(input: CustomerRegisterRequest): Promise<void> {
-    await requestSession('/register', { method: 'POST', body: JSON.stringify(input) });
-  }
   async function resetPassword(input: ResetCustomerPasswordRequest): Promise<void> {
     const response = await fetchApi(`${apiBase()}/customer-auth/password/reset`, {
       method: 'POST',
@@ -249,7 +250,6 @@ export function useCustomerSession() {
     restored: readonly(restored),
     login,
     loginWithCode,
-    register,
     resetPassword,
     restore,
     logout,

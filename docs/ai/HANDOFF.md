@@ -19,7 +19,7 @@
 - 对象存储、Redis、短信、邮件和支付配置；敏感字段加密且不回显。
 - quick、standard、custom 初始化模式、数据库迁移和初始管理员种子。
 - 分端 AI 规范、UI 一致性检查、Template Doctor 和干净副本验证。
-- 可选部署中心：通用 Git、Linux SSH、Docker Compose、SSE 进度、持久化日志、发布版本与应用回滚。
+- 可选部署中心：平台托管通用部署项目、Git/服务器/服务资源环境绑定、独立 Deploy Worker、SSE 进度、持久化日志、发布版本与应用回滚。
 
 ## 新项目流程
 
@@ -45,22 +45,22 @@ CLI 内部完成模板获取、依赖安装、交互配置、workspace 刷新、
 
 ## 部署中心实现状态
 
-- 数据模型：环境、任务、步骤、日志、不可变 release；迁移为 `20260811000100_add_deployment_orchestration`。
-- 真实 PostgreSQL 已成功应用全部 14 个 migration。
+- 数据模型：部署项目、环境、任务执行快照、步骤、日志、不可变 release；通用项目迁移为 `20260818000100_deployment_projects`。
+- 部署规则由数据库托管，不要求业务仓库提交 `aiforge.deploy.yml`；AIForge 三端仅为内置预设，其他 Docker Compose 项目可在后台定义动态单元和变量。
 - Git 支持公开仓库、HTTPS Token 和 SSH Key；服务器支持 SSH 密码和私钥。
 - 环境检查覆盖 Git ref、SSH 登录、Git、Docker、Docker Compose、磁盘和可写部署目录。Git 与服务器均通过才可部署。
-- Worker 从 PostgreSQL 领取任务，在目标服务器拉取代码、写入权限为 `600` 的 `.env`、构建所选服务、启动和健康检查。只有 API 部署会运行 Prisma migration。
+- 独立 Worker 进程从 PostgreSQL 领取任务，在目标服务器拉取代码、组合环境/资源/加密变量、写入权限为 `600` 的 `.env`，再按不可变快照构建、迁移、启动和健康检查。API HTTP 进程不执行部署任务。
 - Admin 提供环境列表、独立配置页、部署详情、步骤进度、SSE 实时终端、取消和历史版本回滚确认。
 - 回滚只回滚应用 release，不自动回滚数据库。
 - 生产 Compose 不创建本地 PostgreSQL，要求通过运行环境提供真实 `DATABASE_URL`，并包含 Admin/API/Web 三个独立服务。
-- 详细领域边界：`docs/domain/DEPLOYMENTS.md`；架构决策：`docs/decisions/0010-optional-deployment-orchestration.md`。
+- 详细领域边界：`docs/domain/DEPLOYMENTS.md`；架构决策：ADR-0010、ADR-0011。
 
 ## 已验证
 
 - 真实 PostgreSQL migration 成功。
 - Contracts、API、Admin 类型检查通过。
 - `pnpm ui:check` 通过。
-- API 14 个测试文件、44 项单测通过。
+- API 15 个测试文件通过，并包含通用部署项目 DTO 校验。
 - 模板脚本 13 项测试通过。
 
 最终仍需项目所有者在后台新增一条真实部署环境，完成 Git、SSH、Docker 构建、健康检查和回滚的服务器联调。真实凭据只在后台或私有环境文件填写，不能进入 Git、日志、截图或文档。联调完成前不要发布 npm 新版本。

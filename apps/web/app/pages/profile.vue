@@ -23,6 +23,7 @@ const devices = ref<CustomerSessionDevice[]>([]);
 const deviceMessage = ref('');
 const avatarInput = ref<HTMLInputElement | null>(null);
 const avatarUploading = ref(false);
+const emailCodeSending = ref(false);
 type ProfileSection = 'profile' | 'contact' | 'security' | 'devices';
 const activeSection = ref<ProfileSection>('profile');
 const sections: Array<{ id: ProfileSection; label: string; description: string }> = [
@@ -31,36 +32,48 @@ const sections: Array<{ id: ProfileSection; label: string; description: string }
   { id: 'security', label: '安全设置', description: '密码与验证' },
   { id: 'devices', label: '登录设备', description: '会话与访问' },
 ];
-const { showToast } = useAppToast();
-watch([profileMessage, passwordMessage, emailMessage, deviceMessage], (values, previous) => {
-  values.forEach((value, index) => {
-    if (value && value !== previous[index])
-      showToast(value, /失败|错误/.test(value) ? 'error' : 'success');
-  });
-});
+const { showSuccess, showError } = useAppToast();
+const {
+  remaining: emailCodeRemaining,
+  restore: restoreEmailCountdown,
+  start: startEmailCountdown,
+} = useVerificationCountdown('bind-email');
+watch(
+  () => emailBinding.email,
+  (email) => restoreEmailCountdown(email),
+  { immediate: true },
+);
+function success(target: { value: string }, message: string): void {
+  target.value = message;
+  showSuccess(message);
+}
+function failure(target: { value: string }, message: string): void {
+  target.value = message;
+  showError(message);
+}
 async function loadDevices(): Promise<void> {
   try {
     devices.value = await listSessions();
   } catch {
-    deviceMessage.value = '登录设备加载失败';
+    failure(deviceMessage, '登录设备加载失败');
   }
 }
 async function revokeDevice(id: string): Promise<void> {
   try {
     await revokeSession(id);
-    deviceMessage.value = '该设备已退出';
+    success(deviceMessage, '该设备已退出');
     await loadDevices();
   } catch {
-    deviceMessage.value = '退出设备失败';
+    failure(deviceMessage, '退出设备失败');
   }
 }
 async function revokeOthers(): Promise<void> {
   try {
     await revokeOtherSessions();
-    deviceMessage.value = '其他设备已全部退出';
+    success(deviceMessage, '其他设备已全部退出');
     await loadDevices();
   } catch {
-    deviceMessage.value = '操作失败';
+    failure(deviceMessage, '操作失败');
   }
 }
 onMounted(loadDevices);
@@ -89,9 +102,9 @@ async function saveProfile(): Promise<void> {
       email: result.email ?? '',
       avatarUrl: result.avatarUrl ?? '',
     });
-    profileMessage.value = '资料已保存';
+    success(profileMessage, '资料已保存');
   } catch (error) {
-    profileMessage.value = error instanceof Error ? error.message : '保存失败';
+    failure(profileMessage, error instanceof Error ? error.message : '保存失败');
   }
 }
 async function selectAvatar(event: Event): Promise<void> {
@@ -102,24 +115,28 @@ async function selectAvatar(event: Event): Promise<void> {
   try {
     const updated = await uploadAvatar(file);
     profile.avatarUrl = updated.avatarUrl ?? '';
-    profileMessage.value = '头像已更新';
+    success(profileMessage, '头像已更新');
   } catch (error) {
-    profileMessage.value = error instanceof Error ? error.message : '头像上传失败';
+    failure(profileMessage, error instanceof Error ? error.message : '头像上传失败');
   } finally {
     avatarUploading.value = false;
     input.value = '';
   }
 }
 async function sendEmailCode(): Promise<void> {
+  emailCodeSending.value = true;
   try {
     const result = await sendVerification({
       channel: 'email',
       target: emailBinding.email,
       purpose: 'bind_contact',
     });
-    emailMessage.value = '验证邮件已发送';
+    startEmailCountdown(result.retryAfter, emailBinding.email);
+    success(emailMessage, `验证邮件已发送，${Math.ceil(result.expiresIn / 60)} 分钟内有效`);
   } catch (error) {
-    emailMessage.value = error instanceof Error ? error.message : '发送失败';
+    failure(emailMessage, error instanceof Error ? error.message : '发送失败');
+  } finally {
+    emailCodeSending.value = false;
   }
 }
 async function bindEmail(): Promise<void> {
@@ -130,15 +147,15 @@ async function bindEmail(): Promise<void> {
       code: emailBinding.code,
     });
     profile.email = updated.email ?? '';
-    emailMessage.value = '邮箱已验证并绑定';
+    success(emailMessage, '邮箱已验证并绑定');
   } catch (error) {
-    emailMessage.value = error instanceof Error ? error.message : '绑定失败';
+    failure(emailMessage, error instanceof Error ? error.message : '绑定失败');
   }
 }
 async function changePassword(): Promise<void> {
   passwordMessage.value = '';
   if (passwords.newPassword !== passwords.confirmPassword) {
-    passwordMessage.value = '两次输入的新密码不一致';
+    failure(passwordMessage, '两次输入的新密码不一致');
     return;
   }
   try {
@@ -147,9 +164,9 @@ async function changePassword(): Promise<void> {
       newPassword: passwords.newPassword,
     });
     Object.assign(passwords, { currentPassword: '', newPassword: '', confirmPassword: '' });
-    passwordMessage.value = '密码已更新';
+    success(passwordMessage, '密码已更新');
   } catch (error) {
-    passwordMessage.value = error instanceof Error ? error.message : '修改失败';
+    failure(passwordMessage, error instanceof Error ? error.message : '修改失败');
   }
 }
 function formatDate(value: string): string {
@@ -180,7 +197,7 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
           </div>
           <div>
             <strong>{{ customer.name }}</strong
-            ><span>{{ customer.phone }}</span>
+            ><span>{{ customer.phone || customer.email || '未绑定账号' }}</span>
           </div>
         </div>
       </header>
@@ -195,7 +212,7 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
             </div>
             <div>
               <h2>{{ customer.name }}</h2>
-              <p>{{ customer.phone }}</p>
+              <p>{{ customer.phone || customer.email || '未绑定账号' }}</p>
             </div>
             <span class="account-badge"><i /> 账号正常</span>
           </div>
@@ -296,7 +313,8 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
             </div>
             <div class="contact-current">
               <div>
-                <span>登录手机号</span><strong>{{ customer.phone }}</strong>
+                <span>登录账号</span
+                ><strong>{{ customer.phone || customer.email || '未绑定账号' }}</strong>
               </div>
               <b>已验证</b>
             </div>
@@ -324,8 +342,19 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
                     maxlength="6"
                     placeholder="6 位验证码"
                   />
-                  <button type="button" class="button button-light" @click="sendEmailCode">
-                    获取验证码
+                  <button
+                    type="button"
+                    class="button button-light"
+                    :disabled="emailCodeSending || emailCodeRemaining > 0"
+                    @click="sendEmailCode"
+                  >
+                    {{
+                      emailCodeSending
+                        ? '发送中…'
+                        : emailCodeRemaining > 0
+                          ? `${emailCodeRemaining} 秒后重试`
+                          : '获取验证码'
+                    }}
                   </button>
                 </div>
               </label>

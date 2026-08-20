@@ -1,9 +1,10 @@
-import { IsArray, IsIn, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsOptional, IsString, Matches } from 'class-validator';
 import type { CreateDeploymentRunRequest } from '@template/contracts';
 
 export class CreateDeploymentRunDto implements CreateDeploymentRunRequest {
+  @IsOptional()
   @IsArray()
-  @IsIn(['admin', 'api', 'web'], { each: true })
-  applications!: CreateDeploymentRunRequest['applications'];
+  @Matches(/^[a-z][a-z0-9_-]{0,63}$/, { each: true })
+  applications!: NonNullable<CreateDeploymentRunRequest['applications']>;
   @IsOptional() @IsString() gitRef?: string;
 }

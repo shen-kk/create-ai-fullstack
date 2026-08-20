@@ -1,38 +1,56 @@
 <script setup lang="ts">
 const { resetPassword, sendVerification } = useCustomerSession();
-const form = reactive({ phone: '', code: '', newPassword: '', confirmPassword: '' });
+const { defaultChannel } = await useCustomerAuthSettings();
+const channel = ref(defaultChannel.value);
+const form = reactive({ identifier: '', code: '', newPassword: '', confirmPassword: '' });
 const loading = ref(false);
 const sending = ref(false);
-const { showToast } = useAppToast();
-const notify = (value: string) =>
-  showToast(value, /失败|错误|不一致|检查/.test(value) ? 'error' : 'success');
+const { showSuccess, showError } = useAppToast();
+const {
+  remaining,
+  restore: restoreCountdown,
+  start: startCountdown,
+} = useVerificationCountdown('reset-password');
+watch(
+  [channel, () => form.identifier],
+  ([nextChannel, identifier]) => {
+    restoreCountdown(`${nextChannel}:${identifier}`);
+  },
+  { immediate: true },
+);
 async function sendCode(): Promise<void> {
   sending.value = true;
   try {
     const result = await sendVerification({
-      channel: 'sms',
-      target: form.phone,
+      channel: channel.value,
+      target: form.identifier,
       purpose: 'reset_password',
     });
-    notify('验证码已发送');
+    startCountdown(result.retryAfter, `${channel.value}:${form.identifier}`);
+    showSuccess(`验证码已发送，${Math.ceil(result.expiresIn / 60)} 分钟内有效`);
   } catch (error) {
-    notify(error instanceof Error ? error.message : '发送失败');
+    showError(error instanceof Error ? error.message : '发送失败');
   } finally {
     sending.value = false;
   }
 }
 async function submit(): Promise<void> {
   if (form.newPassword !== form.confirmPassword) {
-    notify('两次密码不一致');
+    showError('两次密码不一致');
     return;
   }
   loading.value = true;
   try {
-    await resetPassword({ phone: form.phone, code: form.code, newPassword: form.newPassword });
-    notify('密码已重置，即将返回登录');
+    await resetPassword({
+      channel: channel.value,
+      identifier: form.identifier,
+      code: form.code,
+      newPassword: form.newPassword,
+    });
+    showSuccess('密码已重置，即将返回登录');
     setTimeout(() => navigateTo('/login'), 900);
   } catch (error) {
-    notify(error instanceof Error ? error.message : '重置失败');
+    showError(error instanceof Error ? error.message : '重置失败');
   } finally {
     loading.value = false;
   }
@@ -44,7 +62,7 @@ useSeoMeta({ title: '找回密码 · 澄序', robots: 'noindex,nofollow' });
     <section class="auth-intro">
       <p class="eyebrow"><span /> SECURITY</p>
       <h1>重新获得，<br />账号访问权。</h1>
-      <p>通过已绑定手机号验证身份并设置新密码。</p>
+      <p>通过已启用的账号方式验证身份并设置新密码。</p>
     </section>
     <section class="auth-card auth-card-wide">
       <div>
@@ -53,21 +71,23 @@ useSeoMeta({ title: '找回密码 · 澄序', robots: 'noindex,nofollow' });
       </div>
       <form class="form-grid" @submit.prevent="submit">
         <label class="full"
-          >手机号<input
-            v-model.trim="form.phone"
+          >{{ channel === 'sms' ? '手机号' : '邮箱'
+          }}<input
+            v-model.trim="form.identifier"
             required
-            inputmode="numeric"
-            maxlength="11" /></label
+            :inputmode="channel === 'sms' ? 'numeric' : 'email'"
+            :type="channel === 'email' ? 'email' : 'text'"
+            :maxlength="channel === 'sms' ? 11 : 120" /></label
         ><label class="full"
-          >短信验证码
+          >{{ channel === 'sms' ? '短信验证码' : '邮件验证码' }}
           <div class="code-input">
             <input v-model.trim="form.code" required maxlength="6" inputmode="numeric" /><button
               type="button"
               class="button button-light"
-              :disabled="sending"
+              :disabled="sending || remaining > 0"
               @click="sendCode"
             >
-              {{ sending ? '发送中…' : '获取验证码' }}
+              {{ sending ? '发送中…' : remaining > 0 ? `${remaining} 秒后重试` : '获取验证码' }}
             </button>
           </div></label
         ><label

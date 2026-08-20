@@ -23,5 +23,9 @@ export function useAppToast() {
     toast.value = null;
   }
 
-  return { toast, showToast, dismissToast };
+  const showSuccess = (message: string): void => showToast(message, 'success');
+  const showError = (message: string): void => showToast(message, 'error');
+  const showInfo = (message: string): void => showToast(message, 'info');
+
+  return { toast, showToast, showSuccess, showError, showInfo, dismissToast };
 }

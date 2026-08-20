@@ -9,6 +9,25 @@ import { Client, type ConnectConfig } from 'ssh2';
 import { PrismaService } from '../database/prisma.service.js';
 import { decryptDeploymentSecrets } from './deployment-secrets.js';
 
+interface DeploymentExecutionUnit {
+  key: string;
+  service: string;
+  migrationCommand: string | null;
+  healthCheckUrl: string | null;
+}
+interface DeploymentExecutionSnapshot {
+  schemaVersion: number;
+  project: {
+    id: string;
+    code: string;
+    version: number;
+    type: string;
+    composeFile: string;
+    units: DeploymentExecutionUnit[];
+    variables: Array<{ key: string; required: boolean; secret: boolean }>;
+  };
+}
+
 const shell = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
 const terminalStatuses: DeployRunStatus[] = [
   DeployRunStatus.SUCCEEDED,
@@ -27,7 +46,6 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
   onApplicationBootstrap(): void {
     if (process.env.DEPLOY_WORKER_ENABLED === 'false') return;
     this.timer = setInterval(() => void this.tick(), 1500);
-    this.timer.unref();
     void this.tick();
   }
   onApplicationShutdown(): void {
@@ -48,7 +66,10 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
         where: { id: queued.id, status: DeployRunStatus.QUEUED },
         data: { status: DeployRunStatus.RUNNING, startedAt: new Date(), currentStep: 'prepare' },
       });
-      if (claimed.count) await this.execute(queued, queued.environment);
+      if (claimed.count) {
+        this.logger.log(`已领取部署任务 ${queued.id}，开始执行`);
+        await this.execute(queued, queued.environment);
+      }
     } catch (error) {
       this.logger.error(error instanceof Error ? error.message : String(error));
     } finally {
@@ -93,7 +114,8 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       );
       await this.command(client, run.id, clone.command);
       if (clone.cleanup) await this.command(client, run.id, clone.cleanup);
-      await this.uploadRuntimeEnvironment(client, releasePath, environment, run.applications);
+      const snapshot = this.snapshot(run);
+      await this.uploadRuntimeEnvironment(client, releasePath, environment, run, snapshot);
       const commitSha = (
         await this.command(client, run.id, `git -C ${shell(releasePath)} rev-parse HEAD`, false)
       ).trim();
@@ -101,21 +123,27 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       await this.completeStep(run.id, 'checkout', 28, `已获取提交 ${commitSha.slice(0, 12)}`);
 
       await this.step(run.id, 'build', 35, '正在构建所选应用');
-      const services = run.applications.join(' ');
-      const compose = `docker compose -p ${shell(`aiforge-${environment.id}`)} -f docker-compose.production.yml`;
+      const selectedUnits = snapshot.project.units.filter((unit) =>
+        run.applications.includes(unit.key),
+      );
+      if (!selectedUnits.length) throw new Error('未选择可部署的应用单元');
+      const services = selectedUnits.map((unit) => shell(unit.service)).join(' ');
+      const compose = `docker compose -p ${shell(`aiforge-${environment.id}`)} -f ${shell(snapshot.project.composeFile)}`;
       await this.command(
         client,
         run.id,
         `cd ${shell(releasePath)} && ${compose} build ${services}`,
       );
       await this.completeStep(run.id, 'build', 62, '容器镜像构建完成');
-      if (run.applications.includes('api')) {
+      const migrations = selectedUnits.filter((unit) => unit.migrationCommand);
+      if (migrations.length) {
         await this.step(run.id, 'migrate', 64, '正在执行待应用的数据库迁移');
-        await this.command(
-          client,
-          run.id,
-          `cd ${shell(releasePath)} && ${compose} run --rm api ./node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma`,
-        );
+        for (const unit of migrations)
+          await this.command(
+            client,
+            run.id,
+            `cd ${shell(releasePath)} && ${compose} run --rm ${shell(unit.service)} sh -lc ${shell(unit.migrationCommand ?? '')}`,
+          );
         await this.completeStep(run.id, 'migrate', 67, '数据库迁移完成');
       }
       await this.skipStep(run.id, 'upload', 68, '采用服务器端拉取与构建，无需上传制品');
@@ -124,7 +152,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       await this.command(
         client,
         run.id,
-        `cd ${shell(releasePath)} && ${compose} up -d --remove-orphans ${services}`,
+        `cd ${shell(releasePath)} && ${compose} up -d ${services}`,
       );
       await this.completeStep(run.id, 'start', 82, '新版本容器已启动');
 
@@ -238,12 +266,21 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     });
     if (!release) throw new Error('目标回滚版本不存在');
     const releasePath = `${environment.deployPath}/releases/${release.version}`;
-    const compose = `docker compose -p ${shell(`aiforge-${environment.id}`)} -f docker-compose.production.yml`;
+    const project = await this.prisma.deployProject.findUnique({
+      where: { id: environment.projectId },
+    });
+    if (!project) throw new Error('部署项目不存在');
+    const units = project.units as unknown as DeploymentExecutionUnit[];
+    const services = units
+      .filter((unit) => release.applications.includes(unit.key))
+      .map((unit) => shell(unit.service))
+      .join(' ');
+    const compose = `docker compose -p ${shell(`aiforge-${environment.id}`)} -f ${shell(project.composeFile)}`;
     await this.step(run.id, 'start', 40, `正在启动历史版本 ${release.version}`);
     await this.command(
       client,
       run.id,
-      `test -f ${shell(`${releasePath}/docker-compose.production.yml`)} && cd ${shell(releasePath)} && ${compose} up -d --remove-orphans ${release.applications.join(' ')}`,
+      `test -f ${shell(`${releasePath}/${project.composeFile}`)} && cd ${shell(releasePath)} && ${compose} up -d ${services}`,
     );
     await this.completeStep(run.id, 'start', 70, '历史版本容器已启动');
     await this.step(run.id, 'health', 78, '正在检查回滚版本');
@@ -329,26 +366,53 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     client: Client,
     releasePath: string,
     environment: DeployEnvironment,
-    applications: string[],
+    run: DeployRun,
+    snapshot: DeploymentExecutionSnapshot,
   ): Promise<void> {
     const secrets = decryptDeploymentSecrets(environment.encryptedSecrets);
-    if (applications.includes('api') && (!secrets.databaseUrl || !secrets.jwtAccessSecret || !secrets.jwtRefreshSecret || !secrets.configEncryptionKey))
-      return Promise.reject(new Error('部署运行配置缺少 API 必填密钥'));
+    const databaseValues: Record<string, string> = {};
+    if (secrets.databaseUrl) {
+      try {
+        const databaseUrl = new URL(secrets.databaseUrl);
+        if (databaseUrl.protocol === 'postgresql:' || databaseUrl.protocol === 'postgres:') {
+          if (databaseUrl.username) databaseValues.POSTGRES_USER = decodeURIComponent(databaseUrl.username);
+          if (databaseUrl.password) databaseValues.POSTGRES_PASSWORD = decodeURIComponent(databaseUrl.password);
+          if (databaseUrl.pathname.slice(1)) databaseValues.POSTGRES_DB = decodeURIComponent(databaseUrl.pathname.slice(1));
+        }
+      } catch {
+        // DATABASE_URL 的格式校验由 API/迁移步骤负责，这里不阻断其他变量写入。
+      }
+    }
     const values: Record<string, string> = {
+      ...(environment.environmentValues as Record<string, string>),
       NODE_ENV: 'production',
       DATABASE_URL: secrets.databaseUrl ?? '',
+      REDIS_URL: secrets.redisUrl ?? '',
       JWT_ACCESS_SECRET: secrets.jwtAccessSecret ?? '',
       JWT_REFRESH_SECRET: secrets.jwtRefreshSecret ?? '',
       CONFIG_ENCRYPTION_KEY: secrets.configEncryptionKey ?? '',
       CUSTOMER_JWT_ACCESS_SECRET: secrets.customerJwtAccessSecret ?? '',
       CUSTOMER_JWT_REFRESH_SECRET: secrets.customerJwtRefreshSecret ?? '',
-      ADMIN_ORIGIN: environment.adminUrl ?? process.env.ADMIN_ORIGIN ?? '',
-      WEB_ORIGIN: environment.webUrl ?? process.env.WEB_ORIGIN ?? '',
-      PUBLIC_API_BASE_URL: environment.apiUrl ?? process.env.PUBLIC_API_BASE_URL ?? '',
+      ADMIN_ORIGIN:
+        environment.adminUrl ?? process.env.ADMIN_ORIGIN ?? `http://${environment.host}:3000`,
+      WEB_ORIGIN:
+        environment.webUrl ?? process.env.WEB_ORIGIN ?? `http://${environment.host}:3002`,
+      PUBLIC_API_BASE_URL:
+        (environment.environmentValues as Record<string, string>).PUBLIC_API_BASE_URL ??
+        environment.apiUrl ??
+        process.env.PUBLIC_API_BASE_URL ??
+        '',
       ADMIN_PORT: process.env.ADMIN_PORT ?? '3000',
       API_PORT: process.env.API_PORT ?? '3001',
       WEB_PORT: process.env.WEB_PORT ?? '3002',
+      ...databaseValues,
+      ...(secrets.variables ?? {}),
     };
+    const missing = snapshot.project.variables
+      .filter((variable) => variable.required && !values[variable.key])
+      .map((variable) => variable.key);
+    if (missing.length)
+      return Promise.reject(new Error(`部署运行配置缺少必填变量：${missing.join('、')}`));
     const body = `${Object.entries(values)
       .map(([name, value]) => `${name}=${JSON.stringify(value)}`)
       .join('\n')}\n`;
@@ -363,6 +427,31 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
         );
       }),
     );
+  }
+  private snapshot(run: DeployRun): DeploymentExecutionSnapshot {
+    if (!run.executionSnapshot) {
+      return {
+        schemaVersion: 0,
+        project: {
+          id: 'legacy',
+          code: 'legacy-aiforge',
+          version: 0,
+          type: 'docker-compose',
+          composeFile: 'docker-compose.production.yml',
+          units: run.applications.map((key) => ({
+            key,
+            service: key,
+            migrationCommand:
+              key === 'api'
+                ? './node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma'
+                : null,
+            healthCheckUrl: null,
+          })),
+          variables: [],
+        },
+      };
+    }
+    return run.executionSnapshot as unknown as DeploymentExecutionSnapshot;
   }
   private gitCloneCommand(
     environment: DeployEnvironment,

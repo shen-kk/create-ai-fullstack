@@ -16,6 +16,7 @@ import type {
   DeploymentCheckResult,
   DeploymentEnvironmentSummary,
   DeploymentLogEntry,
+  DeploymentProjectSummary,
   DeploymentReleaseSummary,
   DeploymentRunSummary,
 } from '@template/contracts';
@@ -34,6 +35,7 @@ import { PermissionsGuard } from '../auth/permissions.guard.js';
 import { RequirePermissions } from '../auth/require-permissions.decorator.js';
 import { CreateDeploymentRunDto } from './dto/create-deployment-run.dto.js';
 import { UpsertDeploymentEnvironmentDto } from './dto/upsert-deployment-environment.dto.js';
+import { UpsertDeploymentProjectDto } from './dto/upsert-deployment-project.dto.js';
 import { DeploymentsService } from './deployments.service.js';
 
 type AuthenticatedRequest = Request & { user: AuthUser; requestId?: string };
@@ -45,6 +47,26 @@ type AuthenticatedRequest = Request & { user: AuthUser; requestId?: string };
 @RequirePermissions('deployments.read')
 export class DeploymentsController {
   constructor(private readonly deployments: DeploymentsService) {}
+
+  @Get('projects') listProjects(): Promise<DeploymentProjectSummary[]> {
+    return this.deployments.listProjects();
+  }
+  @Get('projects/:id') getProject(@Param('id') id: string): Promise<DeploymentProjectSummary> {
+    return this.deployments.getProject(id);
+  }
+  @Post('projects') @RequirePermissions('deployments.manage') createProject(
+    @Body() input: UpsertDeploymentProjectDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<DeploymentProjectSummary> {
+    return this.deployments.createProject(input, this.context(request));
+  }
+  @Patch('projects/:id') @RequirePermissions('deployments.manage') updateProject(
+    @Param('id') id: string,
+    @Body() input: UpsertDeploymentProjectDto,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<DeploymentProjectSummary> {
+    return this.deployments.updateProject(id, input, this.context(request));
+  }
 
   @Get('environments') listEnvironments(): Promise<DeploymentEnvironmentSummary[]> {
     return this.deployments.listEnvironments();

@@ -6,11 +6,13 @@ export interface DeploymentSecrets {
   sshPassword?: string;
   sshPrivateKey?: string;
   databaseUrl?: string;
+  redisUrl?: string;
   jwtAccessSecret?: string;
   jwtRefreshSecret?: string;
   configEncryptionKey?: string;
   customerJwtAccessSecret?: string;
   customerJwtRefreshSecret?: string;
+  variables?: Record<string, string>;
 }
 
 const key = (): Buffer =>

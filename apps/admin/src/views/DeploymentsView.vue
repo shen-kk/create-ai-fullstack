@@ -4,8 +4,8 @@ import type {
   DeploymentReleaseSummary,
   DeploymentRunSummary,
 } from '@template/contracts';
-import { onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
   checkDeploymentGit,
   checkDeploymentServer,
@@ -17,6 +17,14 @@ import {
 } from '../api/deployments';
 
 const router = useRouter();
+const route = useRoute();
+const projectId = computed(() =>
+  typeof route.params.projectId === 'string'
+    ? route.params.projectId
+    : typeof route.query.projectId === 'string'
+      ? route.query.projectId
+      : '',
+);
 const environments = ref<DeploymentEnvironmentSummary[]>([]);
 const runs = ref<Record<string, DeploymentRunSummary[]>>({});
 const releases = ref<Record<string, DeploymentReleaseSummary[]>>({});
@@ -40,7 +48,9 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = '';
   try {
-    environments.value = await listDeploymentEnvironments();
+    environments.value = (await listDeploymentEnvironments()).filter(
+      (item) => !projectId.value || item.projectId === projectId.value,
+    );
     await Promise.all(
       environments.value.map(async (item) => {
         const [nextRuns, nextReleases] = await Promise.all([
@@ -76,7 +86,7 @@ async function check(item: DeploymentEnvironmentSummary): Promise<void> {
 async function deploy(item: DeploymentEnvironmentSummary): Promise<void> {
   workingId.value = item.id;
   try {
-    const run = await createDeploymentRun(item.id, { applications: item.applications });
+    const run = await createDeploymentRun(item.id, {});
     await router.push(`/deployments/runs/${run.id}`);
   } catch (cause) {
     notice.value = cause instanceof Error ? cause.message : '创建部署任务失败';
@@ -107,11 +117,26 @@ onMounted(load);
   <div>
     <section class="page-heading">
       <div>
-        <p class="eyebrow">交付管理 / 部署中心</p>
-        <h1>部署中心</h1>
+        <p class="eyebrow">部署中心 / {{ projectId ? '项目环境' : '项目管理' }}</p>
+        <h1>{{ projectId ? '项目环境' : '部署项目' }}</h1>
         <p>管理 Git、服务器、部署任务和可回滚版本。凭据只加密保存，不会明文回显。</p>
       </div>
-      <div class="heading-actions"><button class="secondary-button" @click="router.push('/deployments/history')">部署记录</button><button class="primary-button" @click="router.push('/deployments/new')">新增环境</button></div>
+      <div class="heading-actions">
+        <button v-if="projectId" class="secondary-button" @click="router.push('/deployments')">
+          返回项目</button
+        ><button class="secondary-button" @click="router.push('/deployments/history')">
+          部署记录</button
+        ><button
+          class="primary-button"
+          @click="
+            router.push(
+              projectId ? { path: '/deployments/new', query: { projectId } } : '/deployments/new',
+            )
+          "
+        >
+          新增环境
+        </button>
+      </div>
     </section>
     <pre v-if="notice" class="operation-notice deployment-notice" role="status">{{ notice }}</pre>
     <div v-if="loading" class="panel table-state">
@@ -121,7 +146,7 @@ onMounted(load);
       {{ error }}<button class="secondary-button" @click="load">重试</button>
     </div>
     <section v-else-if="!environments.length" class="panel deployment-empty">
-      <h2>还没有部署环境</h2>
+      <h2>{{ projectId ? '该项目还没有部署环境' : '还没有部署项目' }}</h2>
       <p>先添加 Git 仓库和 Linux 服务器信息，检查通过后才能部署。</p>
       <button class="primary-button" @click="router.push('/deployments/new')">
         创建第一个环境
@@ -138,8 +163,8 @@ onMounted(load);
         </header>
         <dl>
           <div>
-            <dt>部署应用</dt>
-            <dd>{{ item.applications.join(' / ') }}</dd>
+            <dt>部署项目</dt>
+            <dd>{{ item.projectName }}</dd>
           </div>
           <div>
             <dt>Git</dt>
@@ -224,7 +249,9 @@ onMounted(load);
   margin-top: 22px;
   padding: 0;
 }
-.deployment-history-list { display: grid; }
+.deployment-history-list {
+  display: grid;
+}
 .deployment-history-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -233,10 +260,18 @@ onMounted(load);
   padding: 16px 26px;
   border-top: 1px solid #edf0f4;
 }
-.deployment-history-item div { display: grid; gap: 5px; }
-.deployment-history-item span { color: #64748b; font-size: 12px; }
+.deployment-history-item div {
+  display: grid;
+  gap: 5px;
+}
+.deployment-history-item span {
+  color: #64748b;
+  font-size: 12px;
+}
 @media (max-width: 720px) {
-  .deployment-history-item { grid-template-columns: 1fr; }
+  .deployment-history-item {
+    grid-template-columns: 1fr;
+  }
 }
 .deployment-card h2 {
   margin: 6px 0 0;

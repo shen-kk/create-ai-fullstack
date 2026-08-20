@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import type { IntegrationKind } from '@template/contracts';
-import { project } from '../generated/project.js';
 import { IntegrationsService } from './integrations.service.js';
 
 const sqlValues = {
@@ -36,7 +35,10 @@ const createService = (): IntegrationsService => {
     },
   };
   return new IntegrationsService(
-    { integrationConfig } as never,
+    {
+      integrationConfig,
+      serviceResource: { findFirst: () => Promise.resolve(null) },
+    } as never,
     {
       record: (event: Record<string, unknown>) => {
         auditEvents.push(event);
@@ -57,16 +59,18 @@ describe('IntegrationsService', () => {
     expect(saved.values).not.toHaveProperty('password');
     expect(JSON.stringify(saved)).not.toContain('top-secret');
   });
-  it('lists the infrastructure integrations enabled by the project declaration', async () => {
+  it('lists the fixed service resource types independently of project modules', async () => {
     const service = createService();
     const items = await service.list();
     const expected: IntegrationKind[] = [
-      ...(project.modules.objectStorage ? (['object_storage'] as const) : []),
+      'object_storage',
       'sql',
-      ...(project.modules.redis ? (['redis'] as const) : []),
-      ...(project.modules.sms ? (['sms'] as const) : []),
-      ...(project.modules.email ? (['email'] as const) : []),
-      ...(project.modules.payment ? (['payment'] as const) : []),
+      'redis',
+      'sms',
+      'email',
+      'payment',
+      'server',
+      'git',
     ];
     expect(items.map((item) => item.kind)).toEqual(expected);
   });

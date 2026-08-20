@@ -12,6 +12,7 @@ import { hashRefreshToken } from '../auth/refresh-token-hash.js';
 import { CustomerRepository } from './customer.repository.js';
 import { CustomerSessionRepository } from './customer-session.repository.js';
 import { VerificationService } from './verification.service.js';
+import { IntegrationsService } from '../integrations/integrations.service.js';
 
 const refreshLifetimeSeconds = 7 * 24 * 60 * 60;
 interface CustomerToken {
@@ -30,39 +31,45 @@ export class CustomerAuthService {
     private readonly customers: CustomerRepository,
     private readonly sessions: CustomerSessionRepository,
     private readonly verification: VerificationService,
+    private readonly integrations: IntegrationsService,
   ) {}
-  async register(
-    input: {
-      phone: string;
-      password: string;
-      name: string;
-      email?: string;
-      verificationCode: string;
-    },
-    metadata: { ipAddress?: string; userAgent?: string },
-  ): Promise<CustomerSession & { refreshToken: string }> {
-    await this.verification.consume('sms', input.phone, 'register', input.verificationCode);
-    const customer = await this.customers.create({
-      phone: input.phone.trim(),
-      passwordHash: await hashScryptPassword(input.password),
-      name: input.name.trim(),
-      email: input.email?.trim() || null,
-    });
-    return this.issue(customer, metadata);
-  }
   async loginWithCode(
-    phone: string,
+    channel: 'sms' | 'email',
+    identifier: string,
     code: string,
     metadata: { ipAddress?: string; userAgent?: string },
-  ): Promise<CustomerSession & { refreshToken: string }> {
-    await this.verification.consume('sms', phone, 'login', code);
-    const customer = await this.customers.findActiveByPhone(phone.trim());
-    if (!customer) throw new UnauthorizedException('CUSTOMER_NOT_FOUND');
-    return this.issue(customer, metadata);
+  ): Promise<CustomerSession & { refreshToken: string; isNewCustomer: boolean }> {
+    await this.integrations.assertCustomerAuthChannel(channel);
+    const normalized = this.normalizeIdentifier(channel, identifier);
+    await this.verification.consume(channel, normalized, 'login', code);
+    let customer = await this.customers.findActiveByIdentifier(channel, normalized);
+    const isNewCustomer = !customer;
+    if (!customer)
+      customer = await this.customers.create({
+        phone: channel === 'sms' ? normalized : null,
+        email: channel === 'email' ? normalized : null,
+        name:
+          channel === 'sms' ? `用户${normalized.slice(-4)}` : normalized.split('@')[0] || '新用户',
+        passwordHash: await hashScryptPassword(randomUUID()),
+      });
+    return { ...(await this.issue(customer, metadata)), isNewCustomer };
   }
-  async resetPassword(phone: string, code: string, newPassword: string): Promise<void> {
-    await this.verification.consume('sms', phone, 'reset_password', code);
-    if (!(await this.customers.resetPassword(phone.trim(), await hashScryptPassword(newPassword))))
+  async resetPassword(
+    channel: 'sms' | 'email',
+    identifier: string,
+    code: string,
+    newPassword: string,
+  ): Promise<void> {
+    await this.integrations.assertCustomerAuthChannel(channel);
+    const normalized = this.normalizeIdentifier(channel, identifier);
+    await this.verification.consume(channel, normalized, 'reset_password', code);
+    if (
+      !(await this.customers.resetPassword(
+        channel,
+        normalized,
+        await hashScryptPassword(newPassword),
+      ))
+    )
       throw new NotFoundException('CUSTOMER_NOT_FOUND');
   }
   async bindContact(
@@ -77,13 +84,27 @@ export class CustomerAuthService {
     return customer;
   }
   async login(
-    phone: string,
+    channel: 'sms' | 'email',
+    identifier: string,
     password: string,
     metadata: { ipAddress?: string; userAgent?: string },
   ): Promise<CustomerSession & { refreshToken: string }> {
-    const customer = await this.customers.authenticate(phone.trim(), password);
+    await this.integrations.assertCustomerAuthChannel(channel);
+    const customer = await this.customers.authenticate(
+      channel,
+      this.normalizeIdentifier(channel, identifier),
+      password,
+    );
     if (!customer) throw new UnauthorizedException('INVALID_CUSTOMER_CREDENTIALS');
     return this.issue(customer, metadata);
+  }
+  private normalizeIdentifier(channel: 'sms' | 'email', value: string): string {
+    const normalized = value.trim();
+    if (channel === 'sms' && !/^1\d{10}$/.test(normalized))
+      throw new UnauthorizedException('CUSTOMER_IDENTIFIER_INVALID');
+    if (channel === 'email' && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalized))
+      throw new UnauthorizedException('CUSTOMER_IDENTIFIER_INVALID');
+    return channel === 'email' ? normalized.toLowerCase() : normalized;
   }
   async refresh(
     token: string | undefined,

@@ -51,15 +51,56 @@ export const router = createRouter({
     },
     {
       path: '/integrations',
-      component: () => import('../views/IntegrationsView.vue'),
+      redirect: '/integrations/resources',
       meta: { title: '服务配置', permissions: ['menu.integrations', 'integrations.manage'] },
+    },
+    {
+      path: '/integrations/resources',
+      component: () => import('../views/IntegrationsView.vue'),
+      meta: { title: '服务资源', permissions: ['menu.integrations', 'integrations.manage'] },
+    },
+    {
+      path: '/integrations/bindings',
+      component: () => import('../views/IntegrationsView.vue'),
+      meta: { title: '功能绑定', permissions: ['menu.integrations', 'integrations.manage'] },
+    },
+    {
+      path: '/integrations/templates',
+      component: () => import('../views/IntegrationsView.vue'),
+      meta: { title: '消息模板', permissions: ['menu.integrations', 'integrations.manage'] },
     },
     ...(project.modules.deploymentCenter
       ? [
           {
             path: '/deployments',
-            component: () => import('../views/DeploymentsView.vue'),
+            component: () => import('../views/DeploymentProjectsView.vue'),
             meta: { title: '部署中心', permissions: ['menu.deployments', 'deployments.read'] },
+          },
+          {
+            path: '/deployments/projects',
+            redirect: '/deployments',
+            meta: { title: '部署项目', permissions: ['menu.deployments', 'deployments.read'] },
+          },
+          {
+            path: '/deployments/projects/new',
+            component: () => import('../views/DeploymentProjectFormView.vue'),
+            meta: {
+              title: '新增部署项目',
+              permissions: ['menu.deployments', 'deployments.manage'],
+            },
+          },
+          {
+            path: '/deployments/projects/:id/edit',
+            component: () => import('../views/DeploymentProjectFormView.vue'),
+            meta: {
+              title: '编辑部署项目',
+              permissions: ['menu.deployments', 'deployments.manage'],
+            },
+          },
+          {
+            path: '/deployments/projects/:projectId',
+            component: () => import('../views/DeploymentsView.vue'),
+            meta: { title: '项目环境', permissions: ['menu.deployments', 'deployments.read'] },
           },
           {
             path: '/deployments/new',

@@ -65,7 +65,7 @@ model User {
   roles           UserRole[]
   sessions        RefreshSession[]
   auditLogs       AuditLog[]       @relation("AuditActor")
-  deploymentRuns DeployRun[]       @relation("DeployActor")
+  deploymentRuns  DeployRun[]      @relation("DeployActor")
 
   @@index([status, createdAt])
 }
@@ -86,7 +86,7 @@ model Permission {
   id          String           @id @default(cuid())
   code        String           @unique
   description String
-  type        PermissionType @default(ACTION)
+  type        PermissionType   @default(ACTION)
   groupCode   String
   createdAt   DateTime         @default(now())
   roles       RolePermission[]
@@ -158,60 +158,89 @@ model AuditLog {
 }
 
 model Customer {
-  id           String                   @id @default(cuid())
-  phone        String                   @unique
-  email        String?
-  name         String
-  avatarUrl    String?
-  passwordHash String
-  status       UserStatus               @default(ACTIVE)
-  lastActiveAt DateTime?
-  createdAt    DateTime                 @default(now())
-  updatedAt    DateTime                 @updatedAt
+  id              String                   @id @default(cuid())
+  phone           String?                  @unique
+  email           String?                  @unique
+  name            String
+  avatarUrl       String?
+  passwordHash    String
+  status          UserStatus               @default(ACTIVE)
+  lastActiveAt    DateTime?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
   phoneVerifiedAt DateTime?
   emailVerifiedAt DateTime?
-  sessions     CustomerRefreshSession[]
+  sessions        CustomerRefreshSession[]
 
   @@index([status, createdAt])
 }
 
+model CustomerAuthSetting {
+  id                       Int      @id @default(1)
+  mode                     String   @default("phone")
+  verificationTtlSeconds   Int      @default(300)
+  verificationRetrySeconds Int      @default(60)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
 model VerificationCode {
-  id          String   @id @default(cuid())
-  channel     String
-  targetHash  String
-  purpose     String
-  codeHash    String
-  attempts    Int      @default(0)
-  expiresAt   DateTime
-  consumedAt  DateTime?
-  createdAt   DateTime @default(now())
-  targetMasked String
-  deliveryStatus String @default("sent")
-  failureCode String?
+  id             String    @id @default(cuid())
+  channel        String
+  targetHash     String
+  purpose        String
+  codeHash       String
+  attempts       Int       @default(0)
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  targetMasked   String
+  deliveryStatus String    @default("sent")
+  failureCode    String?
 
   @@index([targetHash, purpose, createdAt])
   @@index([expiresAt])
 }
 
 model CustomerRefreshSession {
-  id        String    @id @default(cuid())
+  id         String    @id @default(cuid())
   customerId String
-  tokenHash String    @unique
-  userAgent String?
-  ipAddress String?
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
-  customer  Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  userAgent  String?
+  ipAddress  String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
   @@index([customerId, expiresAt])
+}
+
+model DeployProject {
+  id          String              @id @default(cuid())
+  name        String              @unique
+  code        String              @unique
+  description String?
+  type        String              @default("docker-compose")
+  composeFile String              @default("docker-compose.production.yml")
+  units       Json
+  variables   Json
+  system      Boolean             @default(false)
+  version     Int                 @default(1)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  environments DeployEnvironment[]
+
+  @@index([updatedAt])
 }
 
 model DeployEnvironment {
   id               String                  @id @default(cuid())
   name             String                  @unique
   kind             DeployEnvironmentKind
+  projectId        String
   applications     String[]
+  environmentValues Json                   @default("{}")
   gitProvider      String
   repositoryUrl    String
   gitRef           String                  @default("main")
@@ -226,6 +255,10 @@ model DeployEnvironment {
   webUrl           String?
   healthCheckUrl   String?
   retainReleases   Int                     @default(5)
+  serverResourceId String?
+  gitResourceId    String?
+  sqlResourceId    String?
+  redisResourceId  String?
   encryptedSecrets String?
   status           DeployEnvironmentStatus @default(DRAFT)
   gitVerifiedAt    DateTime?
@@ -234,26 +267,76 @@ model DeployEnvironment {
   currentReleaseId String?
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
+  project          DeployProject           @relation(fields: [projectId], references: [id], onDelete: Restrict)
   runs             DeployRun[]
   releases         DeployRelease[]
 
-  @@index([kind, updatedAt])
+  @@index([projectId, kind, updatedAt])
+}
+
+model ServiceResource {
+  id               String                  @id @default(cuid())
+  name             String
+  kind             String
+  provider         String
+  enabled          Boolean                 @default(true)
+  values           Json
+  encryptedSecrets String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  featureBindings  ServiceFeatureBinding[]
+
+  @@unique([kind, name])
+  @@index([kind, enabled])
+}
+
+model ServiceFeatureBinding {
+  code       String           @id
+  resourceId String
+  templateId String?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+  resource   ServiceResource  @relation(fields: [resourceId], references: [id], onDelete: Restrict)
+  template   MessageTemplate? @relation(fields: [templateId], references: [id], onDelete: Restrict)
+
+  @@index([resourceId])
+  @@index([templateId])
+}
+
+model MessageTemplate {
+  id                 String                  @id @default(cuid())
+  code               String                  @unique
+  name               String
+  channel            String
+  subject            String?
+  textBody           String?
+  htmlBody           String?
+  providerTemplateId String?
+  parameterMapping   Json
+  enabled            Boolean                 @default(true)
+  system             Boolean                 @default(false)
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  featureBindings    ServiceFeatureBinding[]
+
+  @@index([channel, enabled])
 }
 
 model DeployRun {
-  id            String          @id @default(cuid())
+  id            String            @id @default(cuid())
   environmentId String
   actorId       String?
   gitRef        String
   commitSha     String?
   applications  String[]
-  status        DeployRunStatus @default(QUEUED)
-  progress      Int             @default(0)
+  executionSnapshot Json?
+  status        DeployRunStatus   @default(QUEUED)
+  progress      Int               @default(0)
   currentStep   String?
   errorCode     String?
   errorMessage  String?
   releaseId     String?
-  createdAt     DateTime        @default(now())
+  createdAt     DateTime          @default(now())
   startedAt     DateTime?
   completedAt   DateTime?
   environment   DeployEnvironment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
@@ -283,12 +366,12 @@ model DeployStep {
 }
 
 model DeployLog {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   runId     String
   sequence  Int
   level     String
   message   String
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   run       DeployRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@unique([runId, sequence])
@@ -296,13 +379,13 @@ model DeployLog {
 }
 
 model DeployRelease {
-  id            String   @id @default(cuid())
+  id            String            @id @default(cuid())
   environmentId String
   version       String
   commitSha     String
   applications  String[]
   artifactHash  String?
-  createdAt     DateTime @default(now())
+  createdAt     DateTime          @default(now())
   environment   DeployEnvironment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
 
   @@unique([environmentId, version])

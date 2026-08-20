@@ -233,7 +233,7 @@ export type CustomerStatus = 'active' | 'disabled';
 export interface CustomerProfile {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   avatarUrl: string | null;
   status: CustomerStatus;
@@ -259,15 +259,9 @@ export interface CustomerSession {
   expiresIn: number;
   customer: CustomerProfile;
 }
-export interface CustomerRegisterRequest {
-  phone: string;
-  password: string;
-  name: string;
-  email?: string;
-  verificationCode: string;
-}
 export interface CustomerLoginRequest {
-  phone: string;
+  channel: VerificationChannel;
+  identifier: string;
   password: string;
 }
 export type VerificationChannel = 'sms' | 'email';
@@ -282,13 +276,28 @@ export interface SendVerificationCodeResponse {
   retryAfter: number;
 }
 export interface VerificationCodeLoginRequest {
-  phone: string;
+  channel: VerificationChannel;
+  identifier: string;
   code: string;
 }
 export interface ResetCustomerPasswordRequest {
-  phone: string;
+  channel: VerificationChannel;
+  identifier: string;
   code: string;
   newPassword: string;
+}
+export type CustomerAuthMode = 'phone' | 'email';
+export interface CustomerAuthSettings {
+  mode: CustomerAuthMode;
+  availableChannels: VerificationChannel[];
+  verificationTtlSeconds: number;
+  verificationRetrySeconds: number;
+  updatedAt: string | null;
+}
+export interface UpdateCustomerAuthSettingsRequest {
+  mode: CustomerAuthMode;
+  verificationTtlSeconds: number;
+  verificationRetrySeconds: number;
 }
 export interface BindCustomerContactRequest {
   channel: VerificationChannel;
@@ -331,13 +340,15 @@ export interface ChangeCustomerPasswordRequest {
   currentPassword: string;
   newPassword: string;
 }
-export type IntegrationKind = 'object_storage' | 'sql' | 'redis' | 'sms' | 'email' | 'payment';
+export type IntegrationKind =
+  'object_storage' | 'sql' | 'redis' | 'sms' | 'email' | 'payment' | 'server' | 'git';
 export interface IntegrationField {
   key: string;
   label: string;
   secret: boolean;
   required: boolean;
   options?: Array<{ value: string; label: string }>;
+  providers?: string[];
 }
 export interface IntegrationConfigSummary {
   kind: IntegrationKind;
@@ -355,8 +366,126 @@ export interface UpdateIntegrationConfigRequest {
   values: Record<string, string>;
   secrets: Record<string, string>;
 }
+export interface ServiceResourceSummary {
+  id: string;
+  name: string;
+  kind: IntegrationKind;
+  provider: string;
+  enabled: boolean;
+  values: Record<string, string>;
+  configuredSecrets: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+export interface UpsertServiceResourceRequest {
+  name: string;
+  kind: IntegrationKind;
+  provider: string;
+  enabled: boolean;
+  values: Record<string, string>;
+  secrets: Record<string, string>;
+}
+export interface DeleteServiceResourceResponse {
+  id: string;
+}
+export type ServiceFeatureCode =
+  | 'admin.avatar_upload'
+  | 'customer.avatar_upload'
+  | 'customer.email_login'
+  | 'customer.email_password_reset'
+  | 'customer.email_bind_contact'
+  | 'customer.sms_login'
+  | 'customer.sms_password_reset'
+  | 'customer.sms_bind_contact';
+export interface ServiceFeatureBindingSummary {
+  code: ServiceFeatureCode;
+  groupCode: 'common' | 'customer_auth';
+  groupName: string;
+  name: string;
+  description: string;
+  requiredKind: IntegrationKind;
+  resourceId: string | null;
+  resourceName: string | null;
+  templateId: string | null;
+  templateName: string | null;
+  enabled: boolean;
+  updatedAt: string | null;
+}
+export interface UpdateServiceFeatureBindingRequest {
+  resourceId: string | null;
+  templateId?: string | null;
+}
+export type MessageTemplateChannel = 'email' | 'sms';
+export interface MessageTemplateSummary {
+  id: string;
+  code: string;
+  name: string;
+  channel: MessageTemplateChannel;
+  subject: string | null;
+  textBody: string | null;
+  htmlBody: string | null;
+  providerTemplateId: string | null;
+  parameterMapping: Record<string, string>;
+  enabled: boolean;
+  system: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface UpsertMessageTemplateRequest {
+  code: string;
+  name: string;
+  channel: MessageTemplateChannel;
+  subject: string | null;
+  textBody: string | null;
+  htmlBody: string | null;
+  providerTemplateId: string | null;
+  parameterMapping: Record<string, string>;
+  enabled: boolean;
+}
 
-export type DeployApplication = 'admin' | 'api' | 'web';
+export type DeployUnitKey = string;
+/** @deprecated 使用 DeployUnitKey；保留别名以兼容已有消费者。 */
+export type DeployApplication = DeployUnitKey;
+export type DeployProjectType = 'docker-compose';
+export interface DeploymentUnitDefinition {
+  key: DeployUnitKey;
+  name: string;
+  service: string;
+  migrationCommand: string | null;
+  healthCheckUrl: string | null;
+}
+export type DeployResourceKind = 'sql' | 'redis' | 'object_storage' | 'custom';
+export interface DeploymentVariableDefinition {
+  key: string;
+  label: string;
+  required: boolean;
+  secret: boolean;
+  resourceKind: DeployResourceKind | null;
+}
+export interface DeploymentProjectSummary {
+  id: string;
+  name: string;
+  code: string;
+  description: string | null;
+  type: DeployProjectType;
+  composeFile: string;
+  units: DeploymentUnitDefinition[];
+  variables: DeploymentVariableDefinition[];
+  system: boolean;
+  version: number;
+  environmentCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface UpsertDeploymentProjectRequest {
+  name: string;
+  code: string;
+  description?: string;
+  type: DeployProjectType;
+  composeFile: string;
+  units: DeploymentUnitDefinition[];
+  variables: DeploymentVariableDefinition[];
+}
 export type DeployEnvironmentKind = 'development' | 'test' | 'staging' | 'production' | 'custom';
 export type DeployGitProvider = 'github' | 'gitlab' | 'cnb' | 'gitee' | 'generic';
 export type DeployGitAuthMode = 'none' | 'token' | 'ssh_key';
@@ -370,7 +499,9 @@ export interface DeploymentEnvironmentSummary {
   id: string;
   name: string;
   kind: DeployEnvironmentKind;
-  applications: DeployApplication[];
+  projectId: string;
+  projectName: string;
+  applications: DeployUnitKey[];
   gitProvider: DeployGitProvider;
   repositoryUrl: string;
   gitRef: string;
@@ -385,6 +516,11 @@ export interface DeploymentEnvironmentSummary {
   webUrl: string | null;
   healthCheckUrl: string | null;
   retainReleases: number;
+  serverResourceId: string | null;
+  gitResourceId: string | null;
+  sqlResourceId: string | null;
+  redisResourceId: string | null;
+  values: Record<string, string>;
   configuredSecrets: string[];
   status: DeployEnvironmentStatus;
   lastVerifiedAt: string | null;
@@ -396,7 +532,8 @@ export interface DeploymentEnvironmentSummary {
 export interface UpsertDeploymentEnvironmentRequest {
   name: string;
   kind: DeployEnvironmentKind;
-  applications: DeployApplication[];
+  projectId: string;
+  applications?: DeployUnitKey[];
   gitProvider: DeployGitProvider;
   repositoryUrl: string;
   gitRef: string;
@@ -411,17 +548,24 @@ export interface UpsertDeploymentEnvironmentRequest {
   webUrl?: string;
   healthCheckUrl?: string;
   retainReleases: number;
+  serverResourceId: string;
+  gitResourceId: string;
+  sqlResourceId?: string;
+  redisResourceId?: string;
+  values?: Record<string, string>;
   secrets: {
     gitToken?: string;
     gitSshPrivateKey?: string;
     sshPassword?: string;
     sshPrivateKey?: string;
     databaseUrl?: string;
+    redisUrl?: string;
     jwtAccessSecret?: string;
     jwtRefreshSecret?: string;
     configEncryptionKey?: string;
     customerJwtAccessSecret?: string;
     customerJwtRefreshSecret?: string;
+    variables?: Record<string, string>;
   };
 }
 
@@ -452,7 +596,7 @@ export interface DeploymentRunSummary {
   actorId: string | null;
   gitRef: string;
   commitSha: string | null;
-  applications: DeployApplication[];
+  applications: DeployUnitKey[];
   status: DeployRunStatus;
   progress: number;
   currentStep: string | null;
@@ -476,11 +620,11 @@ export interface DeploymentReleaseSummary {
   environmentId: string;
   version: string;
   commitSha: string;
-  applications: DeployApplication[];
+  applications: DeployUnitKey[];
   createdAt: string;
   current: boolean;
 }
 export interface CreateDeploymentRunRequest {
-  applications: DeployApplication[];
+  applications?: DeployUnitKey[];
   gitRef?: string;
 }

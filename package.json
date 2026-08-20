@@ -11,6 +11,7 @@
     "dev:local": "node scripts/run-enabled.mjs dev",
     "dev:admin": "node scripts/run-enabled.mjs dev admin",
     "dev:api": "node scripts/run-enabled.mjs dev api",
+    "dev:worker": "pnpm --filter @template/api dev:worker",
     "dev:web": "node scripts/run-enabled.mjs dev web",
     "build": "node scripts/run-enabled.mjs build",
     "lint": "node scripts/run-enabled.mjs lint",

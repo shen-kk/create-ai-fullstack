@@ -147,8 +147,10 @@ onMounted(loadCustomers);
                   <div>
                     <strong>{{ customer.name }}</strong
                     ><small
-                      >{{ customer.phone
-                      }}<template v-if="customer.email"> · {{ customer.email }}</template></small
+                      >{{ customer.phone || customer.email || '未绑定账号'
+                      }}<template v-if="customer.phone && customer.email">
+                        · {{ customer.email }}</template
+                      ></small
                     >
                   </div>
                 </div>
@@ -159,7 +161,13 @@ onMounted(loadCustomers);
                 }}</span>
               </td>
               <td>
-                <span class="status-badge active">手机已验证</span
+                <span class="status-badge active">{{
+                  customer.phoneVerifiedAt
+                    ? '手机已验证'
+                    : customer.emailVerifiedAt
+                      ? '邮箱已验证'
+                      : '未验证'
+                }}</span
                 ><small v-if="customer.email" style="display: block; margin-top: 6px">{{
                   customer.emailVerifiedAt ? '邮箱已验证' : '邮箱未验证'
                 }}</small>

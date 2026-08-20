@@ -85,9 +85,7 @@ onBeforeUnmount(() => controller.abort());
       <div>
         <p class="eyebrow">部署中心 / 部署进度</p>
         <h1>部署任务</h1>
-        <p v-if="run">
-          {{ run.gitRef }} · {{ run.applications.join(' / ') }} · {{ run.createdAt }}
-        </p>
+        <p v-if="run">{{ run.gitRef }} · {{ run.createdAt }}</p>
       </div>
       <div class="heading-actions">
         <button class="secondary-button" @click="router.push('/deployments')">返回部署中心</button

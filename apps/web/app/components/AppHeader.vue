@@ -34,9 +34,10 @@ async function signOut(): Promise<void> {
         <span /><span />
       </button>
       <nav :class="['site-nav', { open: menuOpen }]" aria-label="主导航">
-        <NuxtLink to="/">产品</NuxtLink>
-        <a href="/#capabilities">能力</a>
-        <a href="/#principles">原则</a>
+        <NuxtLink to="/">使用指南</NuxtLink>
+        <a href="/#architecture">项目组成</a>
+        <a href="/#quick-start">快速开始</a>
+        <a href="/#configuration">服务配置</a>
         <template v-if="customer">
           <div class="account-menu" :class="{ open: accountOpen }">
             <button
@@ -68,7 +69,7 @@ async function signOut(): Promise<void> {
                 >
                 <div>
                   <strong>{{ customer.name }}</strong
-                  ><small>{{ customer.phone }}</small>
+                  ><small>{{ customer.phone || customer.email || '未绑定账号' }}</small>
                 </div>
                 <i title="账号正常" />
               </div>
@@ -90,7 +91,7 @@ async function signOut(): Promise<void> {
         </template>
         <template v-else>
           <NuxtLink to="/login">登录</NuxtLink>
-          <Button as-child size="sm"><NuxtLink to="/register">开始使用</NuxtLink></Button>
+          <Button as-child size="sm"><NuxtLink to="/login">开始使用</NuxtLink></Button>
         </template>
       </nav>
     </div>

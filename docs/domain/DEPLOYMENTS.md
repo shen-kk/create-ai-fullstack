@@ -1,8 +1,22 @@
 # 部署领域
 
+## 部署项目
+
+部署规则由平台数据库中的部署项目管理，不要求业务仓库提交部署清单。项目定义包含动态部署单元、Compose 文件、服务名、迁移命令和环境变量需求；部署单元代码使用 `^[a-z][a-z0-9_-]{0,63}$`，不得硬编码为 Admin、API、Web。
+
+AIForge 全栈模板作为内置预设。其他 Git 项目由管理员在部署中心创建项目并确认构建规则，平台可以给出检测建议，但不得未经确认自动执行猜测命令。
+
+## 资源绑定
+
+部署环境必须绑定 Git 仓库和 Linux 服务器资源；项目声明需要 SQL 或 Redis 变量时，还必须绑定对应资源。绑定后，API 在发起任务时把项目版本、环境和资源引用转换成执行快照。环境页面不再提供仓库、SSH、数据库或 Redis 的备用输入，避免同一密钥存在两套来源。
+
+服务器资源负责保存服务器地址、认证方式和默认部署根目录（`deployRoot`）。部署环境绑定服务器后会带出该默认路径，但必须确认并填写当前环境的实际部署路径（`deployPath`）；部署任务最终使用环境路径。这样可以让同一台服务器支持测试、预发布和正式环境的不同目录。
+
+SQL 资源生成 `DATABASE_URL`，Redis 资源生成 `REDIS_URL`，并与项目定义要求的普通变量和加密密钥一起写入目标 release 的受限 `.env`。资源后续修改不会悄悄改变既有任务；每次发起部署都生成包含项目定义版本、资源引用和 Git 提交的不可变执行快照。
+
 ## 目标
 
-管理员配置 Git 仓库和 Linux 服务器，分别验证后发起 Admin、API、Web 的独立部署，并在后台持续查看步骤、终端日志和历史版本。部署失败不得覆盖一条成功发布记录。
+管理员创建部署项目并配置 Git 仓库和 Linux 服务器，分别验证后发起完整或部分部署单元发布，并在后台持续查看步骤、终端日志和历史版本。部署失败不得覆盖一条成功发布记录。
 
 ## 状态
 
@@ -15,15 +29,21 @@
 
 服务器使用 `<deployPath>/releases/<version>` 保存不可变版本，`current` 符号链接指向当前版本。回滚会重新启动历史 release、健康检查后切换 `current`，不会自动回滚数据库。
 
+## Deploy Worker 与自部署
+
+API 只创建任务和保存不可变执行快照，不在 HTTP 服务进程中执行 SSH、Git 或 Docker 命令。Deploy Worker 使用 `pnpm dev:worker`（开发）或 `pnpm --filter @template/api start:worker`（构建后）作为独立进程运行，只需要 `DATABASE_URL` 与 `CONFIG_ENCRYPTION_KEY`。
+
+Deploy Worker 不属于任何业务部署项目的部署单元。部署 AIForge 自身时只更新 Admin、API、Web，正在工作的 Worker 不被替换；Worker 自身升级采用独立运维流程。首次安装必须先在可信管理节点启动一个 Worker，之后后台发起的任务均可远程执行。
+
 ## 安全边界
 
 - Git Token、Git SSH 私钥、服务器密码和服务器私钥使用 AES-256-GCM 加密。
 - API 只返回 `configuredSecrets`，日志必须脱敏且不得记录执行命令中的凭据。
 - 正式环境部署、取消和回滚全部需要独立权限并写入审计日志。
-- Worker 默认随 API 启动；可设置 `DEPLOY_WORKER_ENABLED=false` 禁用本实例消费任务，为后续拆分专用 Worker 进程保留边界。
+- Worker 与 API 进程隔离，只读取任务快照并写入进度和日志；不得把 Worker 加入它所管理的部署项目。
 
 ## 第一版服务器约定
 
 - Linux 已安装 Git、Docker 和 Docker Compose。
-- 仓库包含 `docker-compose.production.yml`，Compose 服务名为 `admin`、`api`、`web`。
+- Docker Compose 项目的仓库包含项目定义指定的 Compose 文件，服务名来自动态部署单元。
 - API 运行时需要的 `.env` 或平台 Secret 必须在服务器部署目录按项目部署规范准备；构建日志不得显示其内容。

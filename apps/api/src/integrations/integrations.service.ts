@@ -3,11 +3,20 @@ import type {
   IntegrationConfigSummary,
   IntegrationField,
   IntegrationKind,
+  ServiceResourceSummary,
+  ServiceFeatureBindingSummary,
+  DeleteServiceResourceResponse,
+  CustomerAuthMode,
+  CustomerAuthSettings,
+  UpdateCustomerAuthSettingsRequest,
+  ServiceFeatureCode,
+  UpsertServiceResourceRequest,
+  MessageTemplateSummary,
+  UpsertMessageTemplateRequest,
   UpdateIntegrationConfigRequest,
 } from '@template/contracts';
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../database/prisma.service.js';
-import { project } from '../generated/project.js';
 import { AuditService } from '../audit/audit.service.js';
 
 const field = (
@@ -16,7 +25,15 @@ const field = (
   secret = false,
   required = true,
   options?: Array<{ value: string; label: string }>,
-): IntegrationField => ({ key, label, secret, required, ...(options ? { options } : {}) });
+  providers?: string[],
+): IntegrationField => ({
+  key,
+  label,
+  secret,
+  required,
+  ...(options ? { options } : {}),
+  ...(providers ? { providers } : {}),
+});
 const definitions: Record<
   IntegrationKind,
   { name: string; description: string; fields: IntegrationField[] }
@@ -86,22 +103,32 @@ const definitions: Record<
   },
   email: {
     name: '邮件服务',
-    description: 'SMTP 通知和验证邮件',
+    description: 'SMTP、腾讯云 SES 邮件推送和验证码',
     fields: [
       field('provider', '邮件平台', false, true, [
         { value: 'smtp', label: '通用 SMTP' },
-        { value: 'tencent_ses', label: '腾讯云 SES' },
-        { value: 'aliyun_dm', label: '阿里云邮件推送' },
+        { value: 'tencent_ses', label: '腾讯云 SES（API）' },
       ]),
-      field('host', 'SMTP 主机'),
-      field('port', '端口'),
-      field('username', '用户名'),
-      field('password', '密码', true),
-      field('from', '发件地址'),
-      field('secure', '使用 SSL/TLS', false, false, [
-        { value: 'true', label: '是' },
-        { value: 'false', label: '否' },
-      ]),
+      field('host', 'SMTP 主机', false, true, undefined, ['smtp']),
+      field('port', 'SMTP 端口', false, true, undefined, ['smtp']),
+      field('username', 'SMTP 用户名', false, true, undefined, ['smtp']),
+      field('password', 'SMTP 密码', true, true, undefined, ['smtp']),
+      field('region', '区域', false, true, undefined, ['tencent_ses']),
+      field('accessKeyId', 'SecretId', false, true, undefined, ['tencent_ses']),
+      field('accessKeySecret', 'SecretKey', true, true, undefined, ['tencent_ses']),
+      field('from', '发件地址', false, true, undefined, ['smtp', 'tencent_ses']),
+      field('templateId', '验证码模板 ID', false, true, undefined, ['tencent_ses']),
+      field(
+        'secure',
+        '使用 SSL/TLS',
+        false,
+        false,
+        [
+          { value: 'true', label: '是' },
+          { value: 'false', label: '否' },
+        ],
+        ['smtp'],
+      ),
     ],
   },
   payment: {
@@ -119,6 +146,104 @@ const definitions: Record<
       field('webhookSecret', '回调密钥', true),
     ],
   },
+  server: {
+    name: '服务器',
+    description: 'Linux SSH 部署服务器',
+    fields: [
+      field('host', '服务器 IP 或域名'),
+      field('port', 'SSH 端口'),
+      field('username', 'SSH 用户'),
+      field('authMode', '认证方式', false, true, [
+        { value: 'private_key', label: 'SSH 私钥' },
+        { value: 'password', label: 'SSH 密码' },
+      ]),
+      field('deployRoot', '默认部署根目录'),
+      field('password', 'SSH 密码', true, false),
+      field('privateKey', 'SSH 私钥', true, false),
+    ],
+  },
+  git: {
+    name: 'Git 仓库',
+    description: '部署使用的代码仓库与访问凭据',
+    fields: [
+      field('repositoryUrl', '仓库地址'),
+      field('defaultRef', '默认分支或 Tag'),
+      field('authMode', '认证方式', false, true, [
+        { value: 'none', label: '公开仓库' },
+        { value: 'token', label: 'HTTPS 令牌' },
+        { value: 'ssh_key', label: 'SSH 私钥' },
+      ]),
+      field('token', '访问令牌', true, false),
+      field('privateKey', 'SSH 私钥', true, false),
+    ],
+  },
+};
+const featureDefinitions: Record<
+  ServiceFeatureCode,
+  {
+    groupCode: 'common' | 'customer_auth';
+    groupName: string;
+    name: string;
+    description: string;
+    requiredKind: IntegrationKind;
+  }
+> = {
+  'admin.avatar_upload': {
+    groupCode: 'common',
+    groupName: '公共功能',
+    name: '后台管理员头像上传',
+    description: '后台个人中心上传管理员头像',
+    requiredKind: 'object_storage',
+  },
+  'customer.avatar_upload': {
+    groupCode: 'common',
+    groupName: '公共功能',
+    name: '用户端头像上传',
+    description: '用户端个人中心上传头像',
+    requiredKind: 'object_storage',
+  },
+  'customer.email_login': {
+    groupCode: 'customer_auth',
+    groupName: '用户端认证',
+    name: '用户登录邮件',
+    description: '邮箱验证码登录',
+    requiredKind: 'email',
+  },
+  'customer.email_password_reset': {
+    groupCode: 'customer_auth',
+    groupName: '用户端认证',
+    name: '找回密码邮件',
+    description: '通过邮箱找回密码',
+    requiredKind: 'email',
+  },
+  'customer.email_bind_contact': {
+    groupCode: 'customer_auth',
+    groupName: '用户端认证',
+    name: '绑定邮箱邮件',
+    description: '用户绑定或更换邮箱',
+    requiredKind: 'email',
+  },
+  'customer.sms_login': {
+    groupCode: 'customer_auth',
+    groupName: '用户端认证',
+    name: '用户登录短信',
+    description: '短信验证码登录',
+    requiredKind: 'sms',
+  },
+  'customer.sms_password_reset': {
+    groupCode: 'customer_auth',
+    groupName: '用户端认证',
+    name: '找回密码短信',
+    description: '通过短信找回密码',
+    requiredKind: 'sms',
+  },
+  'customer.sms_bind_contact': {
+    groupCode: 'customer_auth',
+    groupName: '用户端认证',
+    name: '绑定手机号短信',
+    description: '用户绑定或更换手机号',
+    requiredKind: 'sms',
+  },
 };
 interface StoredConfig {
   enabled: boolean;
@@ -131,17 +256,9 @@ interface IntegrationAuditContext {
   requestId?: string;
   ipAddress?: string;
 }
-const moduleByKind: Record<IntegrationKind, keyof typeof project.modules | undefined> = {
-  object_storage: 'objectStorage',
-  sql: undefined,
-  redis: 'redis',
-  sms: 'sms',
-  email: 'email',
-  payment: 'payment',
-};
 const isAvailable = (kind: IntegrationKind): boolean => {
-  const moduleName = moduleByKind[kind];
-  return moduleName === undefined || project.modules[moduleName];
+  void kind;
+  return true;
 };
 
 @Injectable()
@@ -154,8 +271,245 @@ export class IntegrationsService {
     return Promise.all(
       (Object.keys(definitions) as IntegrationKind[])
         .filter(isAvailable)
-        .map((kind) => this.get(kind)),
+        .map((kind) => this.getResourceTypeSummary(kind)),
     );
+  }
+  private async getResourceTypeSummary(kind: IntegrationKind): Promise<IntegrationConfigSummary> {
+    const definition = definitions[kind];
+    const resource = await this.prisma.serviceResource.findFirst({
+      where: { kind, enabled: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    return {
+      kind,
+      ...definition,
+      enabled: Boolean(resource),
+      configured: Boolean(resource),
+      values: (resource?.values as Record<string, string> | undefined) ?? {},
+      configuredSecrets: resource ? Object.keys(this.decrypt(resource.encryptedSecrets)) : [],
+      updatedAt: resource?.updatedAt.toISOString() ?? null,
+    };
+  }
+  async listResources(kind?: IntegrationKind): Promise<ServiceResourceSummary[]> {
+    const rows = await this.prisma.serviceResource.findMany({
+      ...(kind ? { where: { kind } } : {}),
+      orderBy: [{ kind: 'asc' }, { name: 'asc' }],
+    });
+    return rows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      kind: row.kind as IntegrationKind,
+      provider: row.provider,
+      enabled: row.enabled,
+      values: row.values as Record<string, string>,
+      configuredSecrets: Object.keys(this.decrypt(row.encryptedSecrets)),
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    }));
+  }
+  async createResource(input: UpsertServiceResourceRequest): Promise<ServiceResourceSummary> {
+    this.validateResourceShape(input);
+    this.validateInput(input.kind, input, new Set());
+    this.validateConditionalSecrets(input.kind, input.values, input.secrets, new Set());
+    const row = await this.prisma.serviceResource.create({
+      data: {
+        name: input.name.trim(),
+        kind: input.kind,
+        provider: input.provider.trim() || input.kind,
+        enabled: input.enabled,
+        values: input.values,
+        encryptedSecrets: this.encrypt(input.secrets),
+      },
+    });
+    return (await this.listResources()).find((item) => item.id === row.id)!;
+  }
+  async updateResource(
+    id: string,
+    input: UpsertServiceResourceRequest,
+  ): Promise<ServiceResourceSummary> {
+    this.validateResourceShape(input);
+    const current = await this.prisma.serviceResource.findUnique({ where: { id } });
+    if (!current) throw new BadRequestException('SERVICE_RESOURCE_NOT_FOUND');
+    if (current.kind !== input.kind)
+      throw new BadRequestException('SERVICE_RESOURCE_KIND_IMMUTABLE');
+    const configuredSecrets = new Set(Object.keys(this.decrypt(current.encryptedSecrets)));
+    this.validateInput(input.kind, input, configuredSecrets);
+    this.validateConditionalSecrets(input.kind, input.values, input.secrets, configuredSecrets);
+    const secrets = {
+      ...this.decrypt(current.encryptedSecrets),
+      ...Object.fromEntries(Object.entries(input.secrets).filter(([, value]) => value)),
+    };
+    await this.prisma.serviceResource.update({
+      where: { id },
+      data: {
+        name: input.name.trim(),
+        provider: input.provider,
+        enabled: input.enabled,
+        values: input.values,
+        encryptedSecrets: this.encrypt(secrets),
+      },
+    });
+    return (await this.listResources()).find((item) => item.id === id)!;
+  }
+  async deleteResource(
+    id: string,
+    context: IntegrationAuditContext,
+  ): Promise<DeleteServiceResourceResponse> {
+    const resource = await this.prisma.serviceResource.findUnique({ where: { id } });
+    if (!resource) throw new BadRequestException('SERVICE_RESOURCE_NOT_FOUND');
+    const [featureBindingCount, deploymentCount] = await Promise.all([
+      this.prisma.serviceFeatureBinding.count({ where: { resourceId: id } }),
+      this.prisma.deployEnvironment.count({
+        where: {
+          OR: [
+            { serverResourceId: id },
+            { gitResourceId: id },
+            { sqlResourceId: id },
+            { redisResourceId: id },
+          ],
+        },
+      }),
+    ]);
+    if (featureBindingCount > 0) throw new BadRequestException('SERVICE_RESOURCE_BOUND_TO_FEATURE');
+    if (deploymentCount > 0) throw new BadRequestException('SERVICE_RESOURCE_BOUND_TO_DEPLOYMENT');
+    await this.prisma.serviceResource.delete({ where: { id } });
+    await this.audit.record({
+      action: 'integration.resource.delete',
+      resource: 'integration',
+      resourceId: id,
+      result: 'success',
+      metadata: { kind: resource.kind, name: resource.name },
+      ...context,
+    });
+    return { id };
+  }
+  async getCustomerAuthSettings(): Promise<CustomerAuthSettings> {
+    const setting = await this.prisma.customerAuthSetting.findUnique({ where: { id: 1 } });
+    const mode = (setting?.mode ?? 'phone') as CustomerAuthMode;
+    return {
+      mode,
+      availableChannels: [mode === 'phone' ? 'sms' : 'email'],
+      verificationTtlSeconds: setting?.verificationTtlSeconds ?? 300,
+      verificationRetrySeconds: setting?.verificationRetrySeconds ?? 60,
+      updatedAt: setting?.updatedAt.toISOString() ?? null,
+    };
+  }
+  async assertCustomerAuthChannel(channel: 'sms' | 'email'): Promise<void> {
+    const settings = await this.getCustomerAuthSettings();
+    if (!settings.availableChannels.includes(channel))
+      throw new BadRequestException('CUSTOMER_AUTH_CHANNEL_DISABLED');
+  }
+  async updateCustomerAuthSettings(
+    input: UpdateCustomerAuthSettingsRequest,
+  ): Promise<CustomerAuthSettings> {
+    const { mode, verificationTtlSeconds, verificationRetrySeconds } = input;
+    if (!['phone', 'email'].includes(mode))
+      throw new BadRequestException('CUSTOMER_AUTH_MODE_INVALID');
+    const channels = [mode === 'phone' ? 'sms' : 'email'];
+    const requiredCodes = channels.flatMap((channel) => [
+      `customer.${channel}_login`,
+      `customer.${channel}_password_reset`,
+    ]);
+    const configured = await this.prisma.serviceFeatureBinding.count({
+      where: {
+        code: { in: requiredCodes },
+        resource: { enabled: true },
+        template: { enabled: true },
+      },
+    });
+    if (configured !== requiredCodes.length)
+      throw new BadRequestException('CUSTOMER_AUTH_FEATURE_BINDINGS_INCOMPLETE');
+    await this.prisma.customerAuthSetting.upsert({
+      where: { id: 1 },
+      create: { id: 1, mode, verificationTtlSeconds, verificationRetrySeconds },
+      update: { mode, verificationTtlSeconds, verificationRetrySeconds },
+    });
+    return this.getCustomerAuthSettings();
+  }
+  async listFeatureBindings(): Promise<ServiceFeatureBindingSummary[]> {
+    const bindings = await this.prisma.serviceFeatureBinding.findMany({
+      include: { resource: true, template: true },
+    });
+    const byCode = new Map(bindings.map((binding) => [binding.code, binding]));
+    return (Object.keys(featureDefinitions) as ServiceFeatureCode[]).map((code) => {
+      const definition = featureDefinitions[code];
+      const binding = byCode.get(code);
+      return {
+        code,
+        ...definition,
+        resourceId: binding?.resourceId ?? null,
+        resourceName: binding?.resource.name ?? null,
+        templateId: binding?.templateId ?? null,
+        templateName: binding?.template?.name ?? null,
+        enabled: binding?.resource.enabled ?? false,
+        updatedAt: binding?.updatedAt.toISOString() ?? null,
+      };
+    });
+  }
+  async updateFeatureBinding(
+    code: ServiceFeatureCode,
+    resourceId: string | null,
+    templateId?: string | null,
+  ): Promise<ServiceFeatureBindingSummary> {
+    const definition = featureDefinitions[code];
+    if (!definition) throw new BadRequestException('SERVICE_FEATURE_INVALID');
+    if (!resourceId) await this.prisma.serviceFeatureBinding.deleteMany({ where: { code } });
+    else {
+      const resource = await this.prisma.serviceResource.findUnique({ where: { id: resourceId } });
+      if (!resource) throw new BadRequestException('SERVICE_RESOURCE_NOT_FOUND');
+      if (resource.kind !== definition.requiredKind)
+        throw new BadRequestException('SERVICE_FEATURE_RESOURCE_KIND_MISMATCH');
+      if (!resource.enabled) throw new BadRequestException('SERVICE_RESOURCE_DISABLED');
+      let resolvedTemplateId = templateId;
+      if (definition.requiredKind === 'email' || definition.requiredKind === 'sms') {
+        if (resolvedTemplateId === undefined) {
+          const current = await this.prisma.serviceFeatureBinding.findUnique({ where: { code } });
+          resolvedTemplateId = current?.templateId ?? null;
+        }
+        if (resolvedTemplateId) {
+          const template = await this.prisma.messageTemplate.findUnique({
+            where: { id: resolvedTemplateId },
+          });
+          if (!template || template.channel !== definition.requiredKind || !template.enabled)
+            throw new BadRequestException('MESSAGE_TEMPLATE_INVALID');
+        }
+      } else resolvedTemplateId = null;
+      await this.prisma.serviceFeatureBinding.upsert({
+        where: { code },
+        create: { code, resourceId, templateId: resolvedTemplateId ?? null },
+        update: { resourceId, templateId: resolvedTemplateId ?? null },
+      });
+    }
+    return (await this.listFeatureBindings()).find((item) => item.code === code)!;
+  }
+  async listMessageTemplates(): Promise<MessageTemplateSummary[]> {
+    const rows = await this.prisma.messageTemplate.findMany({
+      orderBy: [{ channel: 'asc' }, { name: 'asc' }],
+    });
+    return rows.map((row) => this.messageTemplateSummary(row));
+  }
+  async createMessageTemplate(
+    input: UpsertMessageTemplateRequest,
+  ): Promise<MessageTemplateSummary> {
+    this.validateMessageTemplate(input);
+    const row = await this.prisma.messageTemplate.create({ data: { ...input, system: false } });
+    return this.messageTemplateSummary(row);
+  }
+  async updateMessageTemplate(
+    id: string,
+    input: UpsertMessageTemplateRequest,
+  ): Promise<MessageTemplateSummary> {
+    this.validateMessageTemplate(input);
+    const current = await this.prisma.messageTemplate.findUnique({ where: { id } });
+    if (!current) throw new BadRequestException('MESSAGE_TEMPLATE_NOT_FOUND');
+    const row = await this.prisma.messageTemplate.update({ where: { id }, data: input });
+    return this.messageTemplateSummary(row);
+  }
+  async deleteMessageTemplate(id: string): Promise<{ id: string }> {
+    const count = await this.prisma.serviceFeatureBinding.count({ where: { templateId: id } });
+    if (count) throw new BadRequestException('MESSAGE_TEMPLATE_IN_USE');
+    await this.prisma.messageTemplate.delete({ where: { id } });
+    return { id };
   }
   async get(kind: IntegrationKind): Promise<IntegrationConfigSummary> {
     const definition = definitions[kind];
@@ -242,13 +596,46 @@ export class IntegrationsService {
       throw error;
     }
   }
-  async runtimeConfig(kind: IntegrationKind): Promise<{
+  async runtimeConfig(
+    kind: IntegrationKind,
+    featureCode?: ServiceFeatureCode,
+  ): Promise<{
     enabled: boolean;
     values: Record<string, string>;
     secrets: Record<string, string>;
+    template?: MessageTemplateSummary;
   }> {
     if (!isAvailable(kind)) return { enabled: false, values: {}, secrets: {} };
+    if (featureCode) {
+      const definition = featureDefinitions[featureCode];
+      if (!definition || definition.requiredKind !== kind)
+        throw new BadRequestException('SERVICE_FEATURE_RESOURCE_KIND_MISMATCH');
+      const binding = await this.prisma.serviceFeatureBinding.findUnique({
+        where: { code: featureCode },
+        include: { resource: true, template: true },
+      });
+      if (binding?.resource.enabled)
+        return {
+          enabled: true,
+          values: binding.resource.values as Record<string, string>,
+          secrets: this.decrypt(binding.resource.encryptedSecrets),
+          ...(binding.template ? { template: this.messageTemplateSummary(binding.template) } : {}),
+        };
+      return { enabled: false, values: {}, secrets: {} };
+    }
     const stored = await this.prisma.integrationConfig.findUnique({ where: { kind } });
+    if (!stored) {
+      const resource = await this.prisma.serviceResource.findFirst({
+        where: { kind, enabled: true },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (resource)
+        return {
+          enabled: true,
+          values: resource.values as Record<string, string>,
+          secrets: this.decrypt(resource.encryptedSecrets),
+        };
+    }
     return {
       enabled: stored?.enabled ?? false,
       values: (stored?.values as Record<string, string> | undefined) ?? {},
@@ -259,6 +646,68 @@ export class IntegrationsService {
     return createHash('sha256')
       .update(process.env.CONFIG_ENCRYPTION_KEY ?? 'development-config-key-change-me')
       .digest();
+  }
+  private messageTemplateSummary(row: {
+    id: string;
+    code: string;
+    name: string;
+    channel: string;
+    subject: string | null;
+    textBody: string | null;
+    htmlBody: string | null;
+    providerTemplateId: string | null;
+    parameterMapping: unknown;
+    enabled: boolean;
+    system: boolean;
+    createdAt: Date;
+    updatedAt: Date;
+  }): MessageTemplateSummary {
+    return {
+      ...row,
+      channel: row.channel as 'email' | 'sms',
+      parameterMapping: row.parameterMapping as Record<string, string>,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+  private validateMessageTemplate(input: UpsertMessageTemplateRequest): void {
+    const allowed = new Set(['code', 'minutes', 'projectName', 'purpose']);
+    const sources = [
+      input.subject,
+      input.textBody,
+      input.htmlBody,
+      ...Object.values(input.parameterMapping),
+    ].filter(Boolean) as string[];
+    for (const source of sources)
+      for (const match of source.matchAll(/\{\{([a-zA-Z0-9_]+)\}\}/g))
+        if (!allowed.has(match[1] ?? ''))
+          throw new BadRequestException('MESSAGE_TEMPLATE_VARIABLE_INVALID');
+    if (input.channel === 'email' && !input.subject?.trim())
+      throw new BadRequestException('MESSAGE_TEMPLATE_SUBJECT_REQUIRED');
+    if (
+      input.channel === 'email' &&
+      !input.textBody?.includes('{{code}}') &&
+      !input.htmlBody?.includes('{{code}}') &&
+      !input.providerTemplateId
+    )
+      throw new BadRequestException('MESSAGE_TEMPLATE_CODE_REQUIRED');
+    if (input.htmlBody && /<script\b|\son[a-z]+\s*=|javascript:/i.test(input.htmlBody))
+      throw new BadRequestException('MESSAGE_TEMPLATE_HTML_UNSAFE');
+  }
+  private validateResourceShape(input: UpsertServiceResourceRequest): void {
+    if (
+      !input ||
+      !definitions[input.kind] ||
+      typeof input.name !== 'string' ||
+      !input.name.trim() ||
+      typeof input.provider !== 'string' ||
+      typeof input.enabled !== 'boolean' ||
+      !input.values ||
+      typeof input.values !== 'object' ||
+      !input.secrets ||
+      typeof input.secrets !== 'object'
+    )
+      throw new BadRequestException('SERVICE_RESOURCE_INVALID');
   }
   private validateInput(
     kind: IntegrationKind,
@@ -281,7 +730,15 @@ export class IntegrationsService {
         throw new BadRequestException('INTEGRATION_SECRET_FIELD_INVALID');
     }
     if (!input.enabled) return;
-    for (const definition of fields.filter((item) => item.required)) {
+    if (kind === 'server') {
+      const deployRoot = input.values.deployRoot?.trim() ?? '';
+      if (!deployRoot.startsWith('/') || deployRoot.includes('..'))
+        throw new BadRequestException('SERVICE_DEPLOY_ROOT_INVALID');
+    }
+    const provider = input.values.provider ?? '';
+    for (const definition of fields.filter(
+      (item) => item.required && (!item.providers?.length || item.providers.includes(provider)),
+    )) {
       const present = definition.secret
         ? Boolean(input.secrets[definition.key]?.trim()) || configuredSecrets.has(definition.key)
         : Boolean(input.values[definition.key]?.trim());
@@ -293,6 +750,25 @@ export class IntegrationsService {
     const cipher = createCipheriv('aes-256-gcm', this.encryptionKey(), iv);
     const body = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()]);
     return Buffer.concat([iv, cipher.getAuthTag(), body]).toString('base64');
+  }
+  private validateConditionalSecrets(
+    kind: IntegrationKind,
+    values: Record<string, string>,
+    secrets: Record<string, string>,
+    configuredSecrets: Set<string>,
+  ): void {
+    if (kind !== 'server' && kind !== 'git') return;
+    const authMode = values.authMode;
+    const key =
+      authMode === 'password'
+        ? 'password'
+        : authMode === 'token'
+          ? 'token'
+          : authMode === 'private_key' || authMode === 'ssh_key'
+            ? 'privateKey'
+            : undefined;
+    if (key && !secrets[key]?.trim() && !configuredSecrets.has(key))
+      throw new BadRequestException('INTEGRATION_AUTH_CREDENTIAL_REQUIRED');
   }
   private decrypt(value: string | null): Record<string, string> {
     if (!value) return {};

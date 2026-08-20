@@ -3,9 +3,11 @@ import type {
   DeploymentCheckResult,
   DeploymentEnvironmentSummary,
   DeploymentLogEntry,
+  DeploymentProjectSummary,
   DeploymentReleaseSummary,
   DeploymentRunSummary,
   UpsertDeploymentEnvironmentRequest,
+  UpsertDeploymentProjectRequest,
 } from '@template/contracts';
 import { getAccessToken } from '../auth/session';
 import { apiBaseUrl } from './base';
@@ -25,12 +27,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return response.json() as Promise<T>;
 }
+export const listDeploymentProjects = () =>
+  request<DeploymentProjectSummary[]>('/deployments/projects');
+export const getDeploymentProject = (id: string) =>
+  request<DeploymentProjectSummary>(`/deployments/projects/${id}`);
+export const createDeploymentProject = (input: UpsertDeploymentProjectRequest) =>
+  request<DeploymentProjectSummary>('/deployments/projects', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+export const updateDeploymentProject = (id: string, input: UpsertDeploymentProjectRequest) =>
+  request<DeploymentProjectSummary>(`/deployments/projects/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(input),
+  });
 export const listDeploymentEnvironments = () =>
   request<DeploymentEnvironmentSummary[]>('/deployments/environments');
 export const getDeploymentEnvironment = (id: string) =>
   request<DeploymentEnvironmentSummary>(`/deployments/environments/${id}`);
 export const getDeploymentEnvironmentSecrets = (id: string) =>
-  request<Record<string, string>>(`/deployments/environments/${id}/secrets`);
+  request<UpsertDeploymentEnvironmentRequest['secrets']>(`/deployments/environments/${id}/secrets`);
 export const createDeploymentEnvironment = (input: UpsertDeploymentEnvironmentRequest) =>
   request<DeploymentEnvironmentSummary>('/deployments/environments', {
     method: 'POST',

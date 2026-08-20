@@ -23,7 +23,7 @@ export class AvatarController {
     @UploadedFile() file: AvatarFile | undefined,
     @Req() request: Request & { user: AuthUser },
   ): Promise<AuthUser> {
-    const avatarUrl = await this.avatars.upload(request.user.id, file);
+    const avatarUrl = await this.avatars.upload(request.user.id, file, 'admin.avatar_upload');
     return this.auth.updateProfile(request.user.id, request.user.name, avatarUrl);
   }
 }

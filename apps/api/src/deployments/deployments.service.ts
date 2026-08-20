@@ -9,6 +9,7 @@ import {
   DeployEnvironmentStatus as PrismaEnvironmentStatus,
   DeployRunStatus as PrismaRunStatus,
   type DeployEnvironment,
+  type DeployProject,
   type DeployRun,
   type DeployStep,
   type Prisma,
@@ -20,6 +21,10 @@ import type {
   DeploymentLogEntry,
   DeploymentReleaseSummary,
   DeploymentRunSummary,
+  DeploymentProjectSummary,
+  DeploymentUnitDefinition,
+  DeploymentVariableDefinition,
+  UpsertDeploymentProjectRequest,
   UpsertDeploymentEnvironmentRequest,
 } from '@template/contracts';
 import { AuditService } from '../audit/audit.service.js';
@@ -67,12 +72,25 @@ const stepStatus = {
   FAILED: 'failed',
   SKIPPED: 'skipped',
 } as const;
-const secretKeys = ['gitToken', 'gitSshPrivateKey', 'sshPassword', 'sshPrivateKey', 'databaseUrl', 'jwtAccessSecret', 'jwtRefreshSecret', 'configEncryptionKey', 'customerJwtAccessSecret', 'customerJwtRefreshSecret'] as const;
+const secretKeys = [
+  'gitToken',
+  'gitSshPrivateKey',
+  'sshPassword',
+  'sshPrivateKey',
+  'databaseUrl',
+  'redisUrl',
+  'jwtAccessSecret',
+  'jwtRefreshSecret',
+  'configEncryptionKey',
+  'customerJwtAccessSecret',
+  'customerJwtRefreshSecret',
+] as const;
 const activeStatuses = [
   PrismaRunStatus.QUEUED,
   PrismaRunStatus.RUNNING,
   PrismaRunStatus.ROLLING_BACK,
 ];
+type EnvironmentWithProject = DeployEnvironment & { project: DeployProject };
 
 @Injectable()
 export class DeploymentsService {
@@ -82,8 +100,77 @@ export class DeploymentsService {
     private readonly audit: AuditService,
   ) {}
 
+  async listProjects(): Promise<DeploymentProjectSummary[]> {
+    const rows = await this.prisma.deployProject.findMany({
+      include: { _count: { select: { environments: true } } },
+      orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+    });
+    return rows.map((row) => this.projectSummary(row, row._count.environments));
+  }
+  async getProject(id: string): Promise<DeploymentProjectSummary> {
+    const row = await this.prisma.deployProject.findUnique({
+      where: { id },
+      include: { _count: { select: { environments: true } } },
+    });
+    if (!row) throw new NotFoundException('DEPLOYMENT_PROJECT_NOT_FOUND');
+    return this.projectSummary(row, row._count.environments);
+  }
+  async createProject(
+    input: UpsertDeploymentProjectRequest,
+    context: AuditContext,
+  ): Promise<DeploymentProjectSummary> {
+    this.validateProject(input);
+    try {
+      const row = await this.prisma.deployProject.create({
+        data: this.projectData(input),
+      });
+      await this.audit.record({
+        ...context,
+        action: 'deployment.project.create',
+        resource: 'deploy_project',
+        resourceId: row.id,
+        result: 'success',
+        metadata: { code: row.code, units: input.units.map((unit) => unit.key) },
+      });
+      return this.projectSummary(row, 0);
+    } catch (error) {
+      if (this.isUniqueError(error)) throw new ConflictException('DEPLOYMENT_PROJECT_EXISTS');
+      throw error;
+    }
+  }
+  async updateProject(
+    id: string,
+    input: UpsertDeploymentProjectRequest,
+    context: AuditContext,
+  ): Promise<DeploymentProjectSummary> {
+    this.validateProject(input);
+    await this.requireProject(id);
+    try {
+      const row = await this.prisma.deployProject.update({
+        where: { id },
+        data: { ...this.projectData(input), version: { increment: 1 } },
+      });
+      await this.audit.record({
+        ...context,
+        action: 'deployment.project.update',
+        resource: 'deploy_project',
+        resourceId: id,
+        result: 'success',
+        metadata: { code: row.code, units: input.units.map((unit) => unit.key) },
+      });
+      const environmentCount = await this.prisma.deployEnvironment.count({
+        where: { projectId: id },
+      });
+      return this.projectSummary(row, environmentCount);
+    } catch (error) {
+      if (this.isUniqueError(error)) throw new ConflictException('DEPLOYMENT_PROJECT_EXISTS');
+      throw error;
+    }
+  }
+
   async listEnvironments(): Promise<DeploymentEnvironmentSummary[]> {
     const rows = await this.prisma.deployEnvironment.findMany({
+      include: { project: true },
       orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
     });
     return rows.map((row) => this.environmentSummary(row));
@@ -94,19 +181,20 @@ export class DeploymentsService {
   }
   async getEnvironmentSecrets(id: string): Promise<DeploymentSecrets> {
     const row = await this.requireEnvironment(id);
-    const secrets = decryptDeploymentSecrets(row.encryptedSecrets);
-    return Object.fromEntries(secretKeys.map((key) => [key, secrets[key]]).filter(([, value]) => value)) as DeploymentSecrets;
+    return decryptDeploymentSecrets(row.encryptedSecrets);
   }
   async createEnvironment(
     input: UpsertDeploymentEnvironmentRequest,
     context: AuditContext,
   ): Promise<DeploymentEnvironmentSummary> {
-    this.validateEnvironment(input);
+    input = await this.normalizeEnvironmentProject(await this.applyResourceBindings(input));
+    await this.validateEnvironment(input);
     const secrets = this.cleanSecrets(input.secrets);
-    this.validateSecrets(input, secrets);
+    await this.validateSecrets(input, secrets);
     try {
       const row = await this.prisma.deployEnvironment.create({
         data: this.environmentData(input, encryptDeploymentSecrets(secrets)),
+        include: { project: true },
       });
       await this.audit.record({
         ...context,
@@ -114,7 +202,11 @@ export class DeploymentsService {
         resource: 'deploy_environment',
         resourceId: row.id,
         result: 'success',
-        metadata: { kind: input.kind, applications: input.applications },
+        metadata: {
+          kind: input.kind,
+          projectId: input.projectId,
+          applications: input.applications,
+        },
       });
       return this.environmentSummary(row);
     } catch (error) {
@@ -128,13 +220,14 @@ export class DeploymentsService {
     input: UpsertDeploymentEnvironmentRequest,
     context: AuditContext,
   ): Promise<DeploymentEnvironmentSummary> {
-    this.validateEnvironment(input);
+    input = await this.normalizeEnvironmentProject(await this.applyResourceBindings(input));
+    await this.validateEnvironment(input);
     const current = await this.requireEnvironment(id);
     const secrets = {
       ...decryptDeploymentSecrets(current.encryptedSecrets),
       ...this.cleanSecrets(input.secrets),
     };
-    this.validateSecrets(input, secrets);
+    await this.validateSecrets(input, secrets);
     try {
       const row = await this.prisma.deployEnvironment.update({
         where: { id },
@@ -145,6 +238,7 @@ export class DeploymentsService {
           serverVerifiedAt: null,
           lastVerifiedAt: null,
         },
+        include: { project: true },
       });
       await this.audit.record({
         ...context,
@@ -152,7 +246,11 @@ export class DeploymentsService {
         resource: 'deploy_environment',
         resourceId: id,
         result: 'success',
-        metadata: { kind: input.kind, applications: input.applications },
+        metadata: {
+          kind: input.kind,
+          projectId: input.projectId,
+          applications: input.applications,
+        },
       });
       return this.environmentSummary(row);
     } catch (error) {
@@ -255,11 +353,12 @@ export class DeploymentsService {
     const environment = await this.requireEnvironment(environmentId);
     if (environment.status !== PrismaEnvironmentStatus.VERIFIED)
       throw new BadRequestException('DEPLOYMENT_ENVIRONMENT_NOT_VERIFIED');
-    const applications = [...new Set(input.applications)];
-    if (
-      !applications.length ||
-      applications.some((item) => !environment.applications.includes(item))
-    )
+    const project = await this.requireProject(environment.projectId);
+    const availableUnits = this.projectUnits(project).map((unit) => unit.key);
+    const applications = [
+      ...new Set(input.applications?.length ? input.applications : availableUnits),
+    ];
+    if (!applications.length || applications.some((item) => !availableUnits.includes(item)))
       throw new BadRequestException('DEPLOYMENT_APPLICATION_NOT_ALLOWED');
     const active = await this.prisma.deployRun.findFirst({
       where: { environmentId, status: { in: activeStatuses } },
@@ -269,7 +368,11 @@ export class DeploymentsService {
       ['prepare', '准备任务'],
       ['checkout', '获取代码'],
       ['build', '构建应用'],
-      ...(applications.includes('api') ? ([['migrate', '数据库迁移']] as const) : []),
+      ...(this.projectUnits(project).some(
+        (unit) => applications.includes(unit.key) && unit.migrationCommand,
+      )
+        ? ([['migrate', '数据库迁移']] as const)
+        : []),
       ['upload', '上传服务器'],
       ['start', '启动新版本'],
       ['health', '健康检查'],
@@ -281,6 +384,7 @@ export class DeploymentsService {
         actorId: context.actorId,
         gitRef: input.gitRef?.trim() || environment.gitRef,
         applications,
+        executionSnapshot: this.executionSnapshot(project, environment, applications),
         steps: { create: labels.map(([key, label], position) => ({ key, label, position })) },
         logs: { create: { sequence: 1, level: 'info', message: '部署任务已进入队列' } },
       },
@@ -387,12 +491,15 @@ export class DeploymentsService {
     });
     return this.getRun(runId);
   }
-  private async requireEnvironment(id: string): Promise<DeployEnvironment> {
-    const row = await this.prisma.deployEnvironment.findUnique({ where: { id } });
+  private async requireEnvironment(id: string): Promise<EnvironmentWithProject> {
+    const row = await this.prisma.deployEnvironment.findUnique({
+      where: { id },
+      include: { project: true },
+    });
     if (!row) throw new NotFoundException('DEPLOYMENT_ENVIRONMENT_NOT_FOUND');
     return row;
   }
-  private validateEnvironment(input: UpsertDeploymentEnvironmentRequest): void {
+  private async validateEnvironment(input: UpsertDeploymentEnvironmentRequest): Promise<void> {
     if (
       !input.name.trim() ||
       !input.repositoryUrl.trim() ||
@@ -402,8 +509,20 @@ export class DeploymentsService {
       !input.deployPath.startsWith('/')
     )
       throw new BadRequestException('DEPLOYMENT_CONFIGURATION_INVALID');
-    if (!input.applications.length)
+    if (!input.applications?.length)
       throw new BadRequestException('DEPLOYMENT_APPLICATION_REQUIRED');
+    if (!input.serverResourceId || !input.gitResourceId)
+      throw new BadRequestException('DEPLOYMENT_RESOURCE_BINDING_REQUIRED');
+    const project = await this.requireProject(input.projectId);
+    const requiredKinds = new Set(
+      this.projectVariables(project)
+        .map((variable) => variable.resourceKind)
+        .filter((kind): kind is 'sql' | 'redis' => kind === 'sql' || kind === 'redis'),
+    );
+    if (requiredKinds.has('sql') && !input.sqlResourceId)
+      throw new BadRequestException('DEPLOYMENT_SQL_RESOURCE_REQUIRED');
+    if (requiredKinds.has('redis') && !input.redisResourceId)
+      throw new BadRequestException('DEPLOYMENT_REDIS_RESOURCE_REQUIRED');
     try {
       new URL(input.repositoryUrl);
     } catch {
@@ -411,10 +530,84 @@ export class DeploymentsService {
         throw new BadRequestException('DEPLOYMENT_REPOSITORY_URL_INVALID');
     }
   }
-  private validateSecrets(
+  private async applyResourceBindings(
+    input: UpsertDeploymentEnvironmentRequest,
+  ): Promise<UpsertDeploymentEnvironmentRequest> {
+    const next = structuredClone(input);
+    const load = async (id: string | undefined, kind: string) => {
+      if (!id) return null;
+      const resource = await this.prisma.serviceResource.findUnique({ where: { id } });
+      if (!resource || resource.kind !== kind || !resource.enabled)
+        throw new BadRequestException('DEPLOYMENT_RESOURCE_BINDING_INVALID');
+      return resource;
+    };
+    const [server, git, sql, redis] = await Promise.all([
+      load(input.serverResourceId, 'server'),
+      load(input.gitResourceId, 'git'),
+      load(input.sqlResourceId, 'sql'),
+      load(input.redisResourceId, 'redis'),
+    ]);
+    if (server) {
+      const values = server.values as Record<string, string>,
+        secrets = decryptDeploymentSecrets(server.encryptedSecrets) as unknown as Record<
+          string,
+          string
+        >;
+      next.host = values.host ?? next.host;
+      next.sshPort = Number(values.port || next.sshPort);
+      next.sshUser = values.username ?? next.sshUser;
+      next.sshAuthMode = (values.authMode as typeof next.sshAuthMode) ?? next.sshAuthMode;
+      // 服务器资源中的路径是模板默认值；环境可以覆盖为实际部署路径。
+      next.deployPath = next.deployPath || values.deployRoot || next.deployPath;
+      next.secrets = { ...next.secrets };
+      if (secrets.password) next.secrets.sshPassword = secrets.password;
+      if (secrets.privateKey) next.secrets.sshPrivateKey = secrets.privateKey;
+    }
+    if (git) {
+      const values = git.values as Record<string, string>,
+        secrets = decryptDeploymentSecrets(git.encryptedSecrets) as unknown as Record<
+          string,
+          string
+        >;
+      next.repositoryUrl = values.repositoryUrl ?? next.repositoryUrl;
+      next.gitRef = values.defaultRef ?? next.gitRef;
+      next.gitAuthMode = (values.authMode as typeof next.gitAuthMode) ?? next.gitAuthMode;
+      next.secrets = { ...next.secrets };
+      if (secrets.token) next.secrets.gitToken = secrets.token;
+      if (secrets.privateKey) next.secrets.gitSshPrivateKey = secrets.privateKey;
+    }
+    if (sql) {
+      const values = sql.values as Record<string, string>,
+        secrets = decryptDeploymentSecrets(sql.encryptedSecrets) as unknown as Record<
+          string,
+          string
+        >;
+      const databaseUrl =
+        values.url ||
+        `postgresql://${encodeURIComponent(values.username ?? '')}:${encodeURIComponent(secrets.password ?? '')}@${values.host}:${values.port}/${encodeURIComponent(values.database ?? '')}?schema=${encodeURIComponent(values.schema || 'public')}`;
+      next.secrets = { ...next.secrets, databaseUrl };
+    }
+    if (redis) {
+      const values = redis.values as Record<string, string>;
+      const secrets = decryptDeploymentSecrets(redis.encryptedSecrets) as unknown as Record<
+        string,
+        string
+      >;
+      let target: URL;
+      try {
+        target = new URL(values.url ?? '');
+      } catch {
+        throw new BadRequestException('DEPLOYMENT_REDIS_URL_INVALID');
+      }
+      if (secrets.password) target.password = secrets.password;
+      next.secrets = { ...next.secrets, redisUrl: target.toString() };
+    }
+    return next;
+  }
+  private async validateSecrets(
     input: UpsertDeploymentEnvironmentRequest,
     secrets: DeploymentSecrets,
-  ): void {
+  ): Promise<void> {
     if (input.gitAuthMode === 'token' && !secrets.gitToken)
       throw new BadRequestException('DEPLOYMENT_GIT_TOKEN_REQUIRED');
     if (input.gitAuthMode === 'ssh_key' && !secrets.gitSshPrivateKey)
@@ -423,14 +616,27 @@ export class DeploymentsService {
       throw new BadRequestException('DEPLOYMENT_SSH_PASSWORD_REQUIRED');
     if (input.sshAuthMode === 'private_key' && !secrets.sshPrivateKey)
       throw new BadRequestException('DEPLOYMENT_SSH_KEY_REQUIRED');
-    if (input.applications.includes('api')) {
-      for (const [key, code] of [['databaseUrl', 'DEPLOYMENT_DATABASE_URL_REQUIRED'], ['jwtAccessSecret', 'DEPLOYMENT_JWT_ACCESS_SECRET_REQUIRED'], ['jwtRefreshSecret', 'DEPLOYMENT_JWT_REFRESH_SECRET_REQUIRED'], ['configEncryptionKey', 'DEPLOYMENT_CONFIG_KEY_REQUIRED']] as const)
-        if (!secrets[key]) throw new BadRequestException(code);
-    }
-    if (input.applications.includes('web')) {
-      if (!secrets.customerJwtAccessSecret) throw new BadRequestException('DEPLOYMENT_CUSTOMER_JWT_ACCESS_SECRET_REQUIRED');
-      if (!secrets.customerJwtRefreshSecret) throw new BadRequestException('DEPLOYMENT_CUSTOMER_JWT_REFRESH_SECRET_REQUIRED');
-    }
+    const project = await this.requireProject(input.projectId);
+    const compatibilityValues: Record<string, string | undefined> = {
+      DATABASE_URL: secrets.databaseUrl,
+      REDIS_URL: secrets.redisUrl,
+      JWT_ACCESS_SECRET: secrets.jwtAccessSecret,
+      JWT_REFRESH_SECRET: secrets.jwtRefreshSecret,
+      CONFIG_ENCRYPTION_KEY: secrets.configEncryptionKey,
+      CUSTOMER_JWT_ACCESS_SECRET: secrets.customerJwtAccessSecret,
+      CUSTOMER_JWT_REFRESH_SECRET: secrets.customerJwtRefreshSecret,
+      PUBLIC_API_BASE_URL: input.apiUrl,
+    };
+    const missing = this.projectVariables(project)
+      .filter((variable) => variable.required)
+      .filter((variable) =>
+        variable.secret
+          ? !(secrets.variables?.[variable.key] || compatibilityValues[variable.key])
+          : !(input.values?.[variable.key] || compatibilityValues[variable.key]),
+      )
+      .map((variable) => variable.key);
+    if (missing.length)
+      throw new BadRequestException(`DEPLOYMENT_REQUIRED_VARIABLE_MISSING:${missing.join(',')}`);
   }
   private cleanSecrets(input: DeploymentSecrets): DeploymentSecrets {
     const result: DeploymentSecrets = {};
@@ -438,6 +644,12 @@ export class DeploymentsService {
       const value = input[key]?.trim();
       if (value) result[key] = value;
     }
+    const variables = Object.fromEntries(
+      Object.entries(input.variables ?? {})
+        .map(([key, value]) => [key, value.trim()])
+        .filter(([, value]) => value),
+    );
+    if (Object.keys(variables).length) result.variables = variables;
     return result;
   }
   private environmentData(
@@ -447,7 +659,9 @@ export class DeploymentsService {
     return {
       name: input.name.trim(),
       kind: kindToPrisma[input.kind],
-      applications: [...new Set(input.applications)],
+      projectId: input.projectId,
+      applications: [...new Set(input.applications ?? [])],
+      environmentValues: input.values ?? {},
       gitProvider: input.gitProvider,
       repositoryUrl: input.repositoryUrl.trim(),
       gitRef: input.gitRef.trim(),
@@ -462,14 +676,20 @@ export class DeploymentsService {
       webUrl: input.webUrl?.trim() || null,
       healthCheckUrl: input.healthCheckUrl?.trim() || null,
       retainReleases: input.retainReleases,
+      serverResourceId: input.serverResourceId || null,
+      gitResourceId: input.gitResourceId || null,
+      sqlResourceId: input.sqlResourceId || null,
+      redisResourceId: input.redisResourceId || null,
       encryptedSecrets,
     };
   }
-  private environmentSummary(row: DeployEnvironment): DeploymentEnvironmentSummary {
+  private environmentSummary(row: EnvironmentWithProject): DeploymentEnvironmentSummary {
     return {
       id: row.id,
       name: row.name,
       kind: kindFromPrisma[row.kind],
+      projectId: row.projectId,
+      projectName: row.project.name,
       applications: row.applications as DeploymentEnvironmentSummary['applications'],
       gitProvider: row.gitProvider as DeploymentEnvironmentSummary['gitProvider'],
       repositoryUrl: row.repositoryUrl,
@@ -485,6 +705,11 @@ export class DeploymentsService {
       webUrl: row.webUrl,
       healthCheckUrl: row.healthCheckUrl,
       retainReleases: row.retainReleases,
+      serverResourceId: row.serverResourceId,
+      gitResourceId: row.gitResourceId,
+      sqlResourceId: row.sqlResourceId,
+      redisResourceId: row.redisResourceId,
+      values: row.environmentValues as Record<string, string>,
       configuredSecrets: secretKeys.filter((key) =>
         Boolean(decryptDeploymentSecrets(row.encryptedSecrets)[key]),
       ),
@@ -526,5 +751,96 @@ export class DeploymentsService {
   }
   private isUniqueError(error: unknown): boolean {
     return typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002';
+  }
+
+  private async requireProject(id: string): Promise<DeployProject> {
+    const project = await this.prisma.deployProject.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('DEPLOYMENT_PROJECT_NOT_FOUND');
+    return project;
+  }
+  private async normalizeEnvironmentProject(
+    input: UpsertDeploymentEnvironmentRequest,
+  ): Promise<UpsertDeploymentEnvironmentRequest> {
+    const project = await this.requireProject(input.projectId);
+    const applications = this.projectUnits(project).map((unit) => unit.key);
+    if (!applications.length) throw new BadRequestException('DEPLOYMENT_PROJECT_UNIT_REQUIRED');
+    return { ...input, applications };
+  }
+  private validateProject(input: UpsertDeploymentProjectRequest): void {
+    if (!input.name.trim() || !input.units.length || input.composeFile.includes('..'))
+      throw new BadRequestException('DEPLOYMENT_PROJECT_INVALID');
+    const unitKeys = input.units.map((unit) => unit.key);
+    if (new Set(unitKeys).size !== unitKeys.length)
+      throw new BadRequestException('DEPLOYMENT_PROJECT_UNIT_DUPLICATED');
+    const variableKeys = input.variables.map((variable) => variable.key);
+    if (new Set(variableKeys).size !== variableKeys.length)
+      throw new BadRequestException('DEPLOYMENT_PROJECT_VARIABLE_DUPLICATED');
+    if (input.units.some((unit) => /[\r\n\0]/.test(unit.migrationCommand ?? '')))
+      throw new BadRequestException('DEPLOYMENT_PROJECT_COMMAND_INVALID');
+  }
+  private projectData(input: UpsertDeploymentProjectRequest): Prisma.DeployProjectCreateInput {
+    return {
+      name: input.name.trim(),
+      code: input.code.trim(),
+      description: input.description?.trim() || null,
+      type: input.type,
+      composeFile: input.composeFile.trim(),
+      units: input.units as unknown as Prisma.InputJsonValue,
+      variables: input.variables as unknown as Prisma.InputJsonValue,
+    };
+  }
+  private projectUnits(project: DeployProject): DeploymentUnitDefinition[] {
+    return project.units as unknown as DeploymentUnitDefinition[];
+  }
+  private projectVariables(project: DeployProject): DeploymentVariableDefinition[] {
+    return project.variables as unknown as DeploymentVariableDefinition[];
+  }
+  private projectSummary(
+    project: DeployProject,
+    environmentCount: number,
+  ): DeploymentProjectSummary {
+    return {
+      id: project.id,
+      name: project.name,
+      code: project.code,
+      description: project.description,
+      type: project.type as DeploymentProjectSummary['type'],
+      composeFile: project.composeFile,
+      units: this.projectUnits(project),
+      variables: this.projectVariables(project),
+      system: project.system,
+      version: project.version,
+      environmentCount,
+      createdAt: project.createdAt.toISOString(),
+      updatedAt: project.updatedAt.toISOString(),
+    };
+  }
+  private executionSnapshot(
+    project: DeployProject,
+    environment: DeployEnvironment,
+    applications: string[],
+  ): Prisma.InputJsonValue {
+    return {
+      schemaVersion: 1,
+      project: {
+        id: project.id,
+        code: project.code,
+        version: project.version,
+        type: project.type,
+        composeFile: project.composeFile,
+        units: this.projectUnits(project).filter((unit) => applications.includes(unit.key)),
+        variables: this.projectVariables(project),
+      },
+      environment: {
+        id: environment.id,
+        values: environment.environmentValues,
+        resourceBindings: {
+          sql: environment.sqlResourceId,
+          redis: environment.redisResourceId,
+        },
+      },
+      applications,
+      createdAt: new Date().toISOString(),
+    } as unknown as Prisma.InputJsonValue;
   }
 }

@@ -156,17 +156,15 @@ describe('Admin API HTTP workflow', () => {
     expect(payload).not.toContain('must-not-appear');
   });
 
-  it('registers an isolated customer, accesses profile and rotates the customer session', async () => {
-    const verificationCode = await issueCode('sms', firstCustomerPhone, 'register');
-    const register = await fetch(`${baseUrl}/customer-auth/register`, {
+  it('creates an isolated customer on first code login, accesses profile and rotates the session', async () => {
+    const verificationCode = await issueCode('sms', firstCustomerPhone, 'login');
+    const register = await fetch(`${baseUrl}/customer-auth/login/code`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        phone: firstCustomerPhone,
-        password: 'Customer@123',
-        name: '体验用户',
-        email: firstCustomerEmail,
-        verificationCode,
+        channel: 'sms',
+        identifier: firstCustomerPhone,
+        code: verificationCode,
       }),
     });
     expect(register.status).toBe(201);
@@ -216,15 +214,14 @@ describe('Admin API HTTP workflow', () => {
 
   it('supports the complete customer account and device lifecycle', async () => {
     const phone = secondCustomerPhone;
-    const registerCode = await issueCode('sms', phone, 'register');
-    const register = await fetch(`${baseUrl}/customer-auth/register`, {
+    const registerCode = await issueCode('sms', phone, 'login');
+    const register = await fetch(`${baseUrl}/customer-auth/login/code`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'user-agent': 'e2e-primary-device' },
       body: JSON.stringify({
-        phone,
-        password: 'Customer@123',
-        name: '稳定版用户',
-        verificationCode: registerCode,
+        channel: 'sms',
+        identifier: phone,
+        code: registerCode,
       }),
     });
     expect(register.status).toBe(201);
@@ -232,6 +229,18 @@ describe('Admin API HTTP workflow', () => {
       accessToken: string;
       customer: { name: string; email: string | null };
     };
+    const initialPasswordCode = await issueCode('sms', phone, 'reset_password');
+    const initialPassword = await fetch(`${baseUrl}/customer-auth/password/reset`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        channel: 'sms',
+        identifier: phone,
+        code: initialPasswordCode,
+        newPassword: 'Customer@123',
+      }),
+    });
+    expect(initialPassword.status).toBe(204);
 
     const avatarBody = new FormData();
     avatarBody.append('file', new Blob(['avatar'], { type: 'image/png' }), 'avatar.png');
@@ -271,7 +280,7 @@ describe('Admin API HTTP workflow', () => {
     const secondaryLogin = await fetch(`${baseUrl}/customer-auth/login/code`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'user-agent': 'e2e-secondary-device' },
-      body: JSON.stringify({ phone, code: loginCode }),
+      body: JSON.stringify({ channel: 'sms', identifier: phone, code: loginCode }),
     });
     expect(secondaryLogin.status).toBe(201);
     const secondary = (await secondaryLogin.json()) as { accessToken: string };
@@ -311,13 +320,18 @@ describe('Admin API HTTP workflow', () => {
     const reset = await fetch(`${baseUrl}/customer-auth/password/reset`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ phone, code: resetCode, newPassword: 'Customer@789' }),
+      body: JSON.stringify({
+        channel: 'sms',
+        identifier: phone,
+        code: resetCode,
+        newPassword: 'Customer@789',
+      }),
     });
     expect(reset.status).toBe(204);
     const passwordLogin = await fetch(`${baseUrl}/customer-auth/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ phone, password: 'Customer@789' }),
+      body: JSON.stringify({ channel: 'sms', identifier: phone, password: 'Customer@789' }),
     });
     expect(passwordLogin.status).toBe(201);
 

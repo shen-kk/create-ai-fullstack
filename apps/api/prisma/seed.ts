@@ -76,6 +76,25 @@ async function seedIntegrationConfigs(): Promise<void> {
         encryptedSecrets: encryptSecrets(secrets),
       },
     });
+    if (item.kind === 'sql') {
+      await prisma.serviceResource.upsert({
+        where: { kind_name: { kind: 'sql', name: '开发数据库' } },
+        create: {
+          name: '开发数据库',
+          kind: 'sql',
+          provider: item.values.engine || 'postgresql',
+          enabled: true,
+          values: item.values,
+          encryptedSecrets: encryptSecrets(secrets),
+        },
+        update: {
+          provider: item.values.engine || 'postgresql',
+          enabled: true,
+          values: item.values,
+          encryptedSecrets: encryptSecrets(secrets),
+        },
+      });
+    }
   }
 }
 
@@ -96,12 +115,50 @@ async function seedDeploymentEnvironment(): Promise<void> {
     webUrl: item.webUrl ?? null,
     healthCheckUrl: item.healthCheckUrl ?? null,
   };
+  const project = await prisma.deployProject.upsert({
+    where: { code: 'aiforge-fullstack' },
+    update: {},
+    create: {
+      name: 'AIForge 全栈项目',
+      code: 'aiforge-fullstack',
+      description: '由模板初始化生成的 Admin、API 与 Web Docker Compose 部署预设。',
+      composeFile: 'docker-compose.production.yml',
+      units: [
+        {
+          key: 'admin',
+          name: '后台管理',
+          service: 'admin',
+          migrationCommand: null,
+          healthCheckUrl: null,
+        },
+        {
+          key: 'api',
+          name: 'API 服务',
+          service: 'api',
+          migrationCommand:
+            './node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma',
+          healthCheckUrl: '/api/health/ready',
+        },
+        {
+          key: 'web',
+          name: '用户端',
+          service: 'web',
+          migrationCommand: null,
+          healthCheckUrl: null,
+        },
+      ],
+      variables: [],
+      system: true,
+    },
+  });
   await prisma.deployEnvironment.upsert({
     where: { name: item.name },
     create: {
       name: item.name,
       kind: item.kind as DeployEnvironmentKind,
+      projectId: project.id,
       applications: item.applications,
+      environmentValues: {},
       gitProvider: item.gitProvider,
       repositoryUrl: item.repositoryUrl,
       gitRef: item.gitRef ?? 'main',

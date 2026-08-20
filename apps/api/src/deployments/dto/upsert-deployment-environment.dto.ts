@@ -1,14 +1,26 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsIn, IsInt, IsObject, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+  IsArray,
+  IsIn,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 import type { UpsertDeploymentEnvironmentRequest } from '@template/contracts';
 
 export class UpsertDeploymentEnvironmentDto implements UpsertDeploymentEnvironmentRequest {
   @IsString() name!: string;
   @IsIn(['development', 'test', 'staging', 'production', 'custom'])
   kind!: UpsertDeploymentEnvironmentRequest['kind'];
+  @IsString() projectId!: string;
+  @IsOptional()
   @IsArray()
-  @IsIn(['admin', 'api', 'web'], { each: true })
-  applications!: UpsertDeploymentEnvironmentRequest['applications'];
+  @Matches(/^[a-z][a-z0-9_-]{0,63}$/, { each: true })
+  applications!: NonNullable<UpsertDeploymentEnvironmentRequest['applications']>;
   @IsIn(['github', 'gitlab', 'cnb', 'gitee', 'generic'])
   gitProvider!: UpsertDeploymentEnvironmentRequest['gitProvider'];
   @IsString() repositoryUrl!: string;
@@ -26,5 +38,10 @@ export class UpsertDeploymentEnvironmentDto implements UpsertDeploymentEnvironme
   @IsOptional() @IsString() webUrl?: string;
   @IsOptional() @IsString() healthCheckUrl?: string;
   @Type(() => Number) @IsInt() @Min(1) @Max(20) retainReleases!: number;
+  @IsString() serverResourceId!: string;
+  @IsString() gitResourceId!: string;
+  @IsOptional() @IsString() sqlResourceId?: string;
+  @IsOptional() @IsString() redisResourceId?: string;
+  @IsOptional() @IsObject() values?: Record<string, string>;
   @IsObject() secrets!: UpsertDeploymentEnvironmentRequest['secrets'];
 }

@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, ServiceUnavailableException } from '@nestjs/common';
 import COS from 'cos-nodejs-sdk-v5';
 import { randomUUID } from 'node:crypto';
+import type { ServiceFeatureCode } from '@template/contracts';
 import { IntegrationsService } from './integrations.service.js';
 export interface AvatarFile {
   buffer: Buffer;
@@ -10,12 +11,19 @@ export interface AvatarFile {
 @Injectable()
 export class AvatarStorageService {
   constructor(private readonly integrations: IntegrationsService) {}
-  async upload(userId: string, file: AvatarFile | undefined): Promise<string> {
+  async upload(
+    userId: string,
+    file: AvatarFile | undefined,
+    featureCode: Extract<
+      ServiceFeatureCode,
+      'admin.avatar_upload' | 'customer.avatar_upload'
+    > = 'admin.avatar_upload',
+  ): Promise<string> {
     if (!file) throw new BadRequestException('AVATAR_FILE_REQUIRED');
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype))
       throw new BadRequestException('AVATAR_FILE_TYPE_INVALID');
     if (file.size > 2 * 1024 * 1024) throw new BadRequestException('AVATAR_FILE_TOO_LARGE');
-    const config = await this.integrations.runtimeConfig('object_storage');
+    const config = await this.integrations.runtimeConfig('object_storage', featureCode);
     if (!config.enabled) throw new ServiceUnavailableException('OBJECT_STORAGE_NOT_CONFIGURED');
     if (config.values.provider !== 'tencent_cos')
       throw new ServiceUnavailableException('OBJECT_STORAGE_ADAPTER_UNAVAILABLE');

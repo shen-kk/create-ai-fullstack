@@ -1,16 +1,22 @@
 <script setup lang="ts">
-import type { DeployApplication, UpsertDeploymentEnvironmentRequest } from '@template/contracts';
-import { computed, onMounted, ref } from 'vue';
+import type {
+  DeploymentProjectSummary,
+  DeploymentVariableDefinition,
+  ServiceResourceSummary,
+  UpsertDeploymentEnvironmentRequest,
+} from '@template/contracts';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   createDeploymentEnvironment,
   getDeploymentEnvironment,
   getDeploymentEnvironmentSecrets,
+  listDeploymentProjects,
   updateDeploymentEnvironment,
 } from '../api/deployments';
-import AppCheckbox from '../components/AppCheckbox.vue';
 import AppPasswordInput from '../components/AppPasswordInput.vue';
 import AppSelect from '../components/AppSelect.vue';
+import { getServiceResources } from '../api/integrations';
 
 const route = useRoute(),
   router = useRouter();
@@ -20,10 +26,32 @@ const saving = ref(false),
   error = ref(''),
   revealingSecrets = ref(false),
   secretsRevealed = ref(false);
+const resources = ref<ServiceResourceSummary[]>([]);
+const projects = ref<DeploymentProjectSummary[]>([]);
+const selectedProject = computed(() =>
+  projects.value.find((project) => project.id === form.value.projectId),
+);
+const projectOptions = computed(() =>
+  projects.value.map((project) => ({ value: project.id, label: project.name })),
+);
+const projectVariables = computed(() => selectedProject.value?.variables ?? []);
+const resourceOptions = (kind: ServiceResourceSummary['kind']) => [
+  ...resources.value
+    .filter((item) => item.kind === kind && item.enabled)
+    .map((item) => ({
+      value: item.id,
+      label:
+        kind === 'server' && item.values.deployRoot
+          ? `${item.name} · ${item.values.deployRoot}`
+          : item.name,
+    })),
+];
 const form = ref<UpsertDeploymentEnvironmentRequest>({
   name: '',
   kind: 'test',
-  applications: ['admin'],
+  projectId: '',
+  serverResourceId: '',
+  gitResourceId: '',
   gitProvider: 'github',
   repositoryUrl: '',
   gitRef: 'main',
@@ -32,8 +60,9 @@ const form = ref<UpsertDeploymentEnvironmentRequest>({
   sshPort: 22,
   sshUser: 'deploy',
   sshAuthMode: 'private_key',
-  deployPath: '/opt/apps/aiforge',
+  deployPath: '',
   retainReleases: 5,
+  values: {},
   secrets: {},
 });
 const kindOptions = [
@@ -43,26 +72,44 @@ const kindOptions = [
   { value: 'production', label: '正式环境' },
   { value: 'custom', label: '自定义环境' },
 ];
-const providerOptions = [
-  { value: 'github', label: 'GitHub' },
-  { value: 'gitlab', label: 'GitLab' },
-  { value: 'cnb', label: 'CNB' },
-  { value: 'gitee', label: 'Gitee' },
-  { value: 'generic', label: '通用 Git' },
-];
-const gitAuthOptions = [
-  { value: 'none', label: '公开仓库，无需认证' },
-  { value: 'token', label: 'HTTPS 访问令牌' },
-  { value: 'ssh_key', label: 'SSH 私钥' },
-];
-const sshAuthOptions = [
-  { value: 'private_key', label: 'SSH 私钥（推荐）' },
-  { value: 'password', label: 'SSH 密码' },
-];
-function toggleApplication(value: DeployApplication, checked: boolean): void {
-  const selected = new Set(form.value.applications);
-  checked ? selected.add(value) : selected.delete(value);
-  form.value.applications = [...selected];
+const deploymentErrorMessages: Record<string, string> = {
+  DEPLOYMENT_RESOURCE_BINDING_REQUIRED: '请先绑定部署服务器和 Git 仓库资源。',
+  DEPLOYMENT_SQL_RESOURCE_REQUIRED: '当前项目需要 SQL 数据库，请先绑定 SQL 资源。',
+  DEPLOYMENT_REDIS_RESOURCE_REQUIRED: '当前项目需要 Redis，请先绑定 Redis 资源。',
+  DEPLOYMENT_RESOURCE_BINDING_INVALID: '绑定的服务资源不存在、类型不匹配或未启用。',
+  DEPLOYMENT_CONFIGURATION_INVALID: '部署配置不完整，请检查实际部署路径和必填字段。',
+};
+function deploymentError(cause: unknown, fallback: string): string {
+  const code = cause instanceof Error ? cause.message : '';
+  return deploymentErrorMessages[code] ?? (code || fallback);
+}
+watch(
+  () => form.value.serverResourceId,
+  (serverResourceId) => {
+    if (id.value || form.value.deployPath || !serverResourceId) return;
+    const server = resources.value.find((item) => item.id === serverResourceId);
+    const deployRoot = server?.values.deployRoot;
+    if (deployRoot) form.value.deployPath = deployRoot;
+  },
+);
+function variableValue(variable: DeploymentVariableDefinition): string {
+  return variable.secret
+    ? (form.value.secrets.variables?.[variable.key] ?? '')
+    : (form.value.values?.[variable.key] ?? '');
+}
+function updateVariable(variable: DeploymentVariableDefinition, value: string): void {
+  if (variable.secret) {
+    form.value.secrets.variables = { ...form.value.secrets.variables, [variable.key]: value };
+  } else {
+    form.value.values = { ...form.value.values, [variable.key]: value };
+  }
+}
+function projectResourceKind(
+  variable: DeploymentVariableDefinition,
+): ServiceResourceSummary['kind'] | null {
+  if (variable.resourceKind === 'sql' || variable.resourceKind === 'redis')
+    return variable.resourceKind;
+  return null;
 }
 async function load(): Promise<void> {
   if (!id.value) return;
@@ -71,7 +118,7 @@ async function load(): Promise<void> {
     form.value = {
       name: item.name,
       kind: item.kind,
-      applications: item.applications,
+      projectId: item.projectId,
       gitProvider: item.gitProvider,
       repositoryUrl: item.repositoryUrl,
       gitRef: item.gitRef,
@@ -86,6 +133,11 @@ async function load(): Promise<void> {
       webUrl: item.webUrl ?? '',
       healthCheckUrl: item.healthCheckUrl ?? '',
       retainReleases: item.retainReleases,
+      serverResourceId: item.serverResourceId ?? '',
+      gitResourceId: item.gitResourceId ?? '',
+      sqlResourceId: item.sqlResourceId ?? '',
+      redisResourceId: item.redisResourceId ?? '',
+      values: item.values,
       secrets: {},
     };
   } catch (cause) {
@@ -95,8 +147,16 @@ async function load(): Promise<void> {
   }
 }
 async function save(): Promise<void> {
-  if (!form.value.applications.length) {
-    error.value = '请至少选择一个部署应用';
+  if (!form.value.projectId) {
+    error.value = '请选择部署项目';
+    return;
+  }
+  if (!form.value.serverResourceId || !form.value.gitResourceId) {
+    error.value = '请先绑定部署服务器和 Git 仓库资源。';
+    return;
+  }
+  if (!form.value.deployPath.trim()) {
+    error.value = '请填写当前环境的实际部署路径。';
     return;
   }
   saving.value = true;
@@ -104,9 +164,9 @@ async function save(): Promise<void> {
   try {
     if (id.value) await updateDeploymentEnvironment(id.value, form.value);
     else await createDeploymentEnvironment(form.value);
-    await router.push('/deployments');
+    await router.push(`/deployments/projects/${form.value.projectId}`);
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '保存失败，请检查必填字段';
+    error.value = deploymentError(cause, '保存失败，请检查必填字段');
   } finally {
     saving.value = false;
   }
@@ -124,7 +184,17 @@ async function revealSecrets(): Promise<void> {
     revealingSecrets.value = false;
   }
 }
-onMounted(load);
+onMounted(async () => {
+  [resources.value, projects.value] = await Promise.all([
+    getServiceResources().catch(() => []),
+    listDeploymentProjects().catch(() => []),
+  ]);
+  const queryProjectId = typeof route.query.projectId === 'string' ? route.query.projectId : '';
+  if (!id.value && queryProjectId && projects.value.some((item) => item.id === queryProjectId)) {
+    form.value.projectId = queryProjectId;
+  }
+  await load();
+});
 </script>
 
 <template>
@@ -135,7 +205,12 @@ onMounted(load);
         <h1>{{ id ? '编辑环境' : '新增环境' }}</h1>
         <p>配置保存后需要分别检查 Git 和服务器，全部通过才允许部署。</p>
       </div>
-      <button class="secondary-button" @click="router.push('/deployments')">返回列表</button>
+      <button
+        class="secondary-button"
+        @click="router.push(`/deployments/projects/${form.projectId}`)"
+      >
+        返回列表
+      </button>
     </section>
     <div v-if="loading" class="panel table-state"><span class="loading-ring" />正在加载…</div>
     <form v-else class="panel deployment-form" @submit.prevent="save">
@@ -143,130 +218,151 @@ onMounted(load);
       <fieldset>
         <legend>基本信息</legend>
         <div class="form-grid">
+          <label class="wide"
+            ><span>部署项目 <b class="required-mark">*</b></span
+            ><AppSelect
+              v-model="form.projectId"
+              :options="projectOptions"
+              aria-label="部署项目"
+              placeholder="请选择已定义的部署项目"
+          /></label>
           <label
             ><span>环境名称</span
             ><input v-model.trim="form.name" required placeholder="例如：正式环境" /></label
           ><label
-            ><span>环境类型</span
+            ><span>环境类型 <b class="required-mark">*</b></span
             ><AppSelect v-model="form.kind" :options="kindOptions" aria-label="环境类型"
           /></label>
         </div>
-        <label
-          ><span>部署应用</span>
-          <div class="application-options">
-            <AppCheckbox
-              v-for="item in [
-                ['admin', '后台管理'],
-                ['api', 'API 服务'],
-                ['web', '用户端'],
-              ] as const"
-              :key="item[0]"
-              class="application-option"
-              :model-value="form.applications.includes(item[0])"
-              :label="item[1]"
-              @update:model-value="toggleApplication(item[0], $event)"
-            />
-          </div></label
-        >
-      </fieldset>
-      <fieldset>
-        <legend>Git 仓库</legend>
-        <div class="form-grid">
-          <label
-            ><span>Git 平台</span
-            ><AppSelect
-              v-model="form.gitProvider"
-              :options="providerOptions"
-              aria-label="Git 平台" /></label
-          ><label
-            ><span>认证方式</span
-            ><AppSelect
-              v-model="form.gitAuthMode"
-              :options="gitAuthOptions"
-              aria-label="Git 认证方式" /></label
-          ><label class="wide"
-            ><span>仓库地址</span
-            ><input
-              v-model.trim="form.repositoryUrl"
-              required
-              placeholder="https://github.com/org/repo.git" /></label
-          ><label><span>分支或 Tag</span><input v-model.trim="form.gitRef" required /></label
-          ><label v-if="form.gitAuthMode === 'token'"
-            ><span>Git 访问令牌</span
-            ><AppPasswordInput
-              v-model="form.secrets.gitToken"
-              autocomplete="new-password"
-              placeholder="留空保留原令牌" /></label
-          ><label v-if="form.gitAuthMode === 'ssh_key'" class="wide"
-            ><span>Git SSH 私钥</span
-            ><textarea
-              v-model="form.secrets.gitSshPrivateKey"
-              rows="4"
-              placeholder="留空保留原私钥"
-            />
-          </label>
+        <div v-if="selectedProject" class="project-summary">
+          <div>
+            <strong>{{ selectedProject.name }}</strong
+            ><small>{{ selectedProject.description || '该环境将使用项目保存的构建规则。' }}</small>
+          </div>
+          <div class="unit-tags">
+            <span v-for="unit in selectedProject.units" :key="unit.key">{{ unit.name }}</span>
+          </div>
+          <p>
+            部署时默认执行以上全部单元；需要拆分部署时，应建立独立部署项目，而不是在环境中临时改变构建规则。
+          </p>
         </div>
       </fieldset>
       <fieldset>
-        <legend>Linux 服务器</legend>
+        <legend>服务资源绑定</legend>
         <div class="form-grid">
           <label
-            ><span>服务器 IP 或域名</span
-            ><input v-model.trim="form.host" required placeholder="server.example.com" /></label
-          ><label
-            ><span>SSH 端口</span
-            ><input
-              v-model.number="form.sshPort"
-              type="number"
-              min="1"
-              max="65535"
-              required /></label
-          ><label><span>SSH 用户</span><input v-model.trim="form.sshUser" required /></label
-          ><label
-            ><span>SSH 认证方式</span
+            ><span>部署服务器 <b class="required-mark">*</b></span
             ><AppSelect
-              v-model="form.sshAuthMode"
-              :options="sshAuthOptions"
-              aria-label="SSH 认证方式" /></label
-          ><label class="wide"
-            ><span>部署根目录</span
+              :model-value="form.serverResourceId ?? ''"
+              @update:model-value="form.serverResourceId = $event"
+              :options="resourceOptions('server')"
+              aria-label="部署服务器"
+          /></label>
+          <label
+            ><span>Git 仓库资源 <b class="required-mark">*</b></span
+            ><AppSelect
+              :model-value="form.gitResourceId ?? ''"
+              @update:model-value="form.gitResourceId = $event"
+              :options="resourceOptions('git')"
+              aria-label="Git 仓库资源"
+          /></label>
+          <label class="wide"
+            ><span>实际部署路径 <b class="required-mark">*</b></span
             ><input
               v-model.trim="form.deployPath"
               required
-              placeholder="/opt/apps/aiforge" /></label
-          ><label v-if="form.sshAuthMode === 'password'" class="wide"
-            ><span>SSH 密码</span
-            ><AppPasswordInput
-              v-model="form.secrets.sshPassword"
-              autocomplete="new-password"
-              placeholder="留空保留原密码" /></label
-          ><label v-else class="wide"
-            ><span>SSH 私钥</span
-            ><textarea v-model="form.secrets.sshPrivateKey" rows="5" placeholder="留空保留原私钥" />
+              placeholder="例如：/www/wwwroot/my-app"
+          /></label>
+          <label v-if="projectVariables.some((item) => item.resourceKind === 'sql')"
+            ><span>SQL 数据库 <b class="required-mark">*</b></span
+            ><AppSelect
+              :model-value="form.sqlResourceId ?? ''"
+              @update:model-value="form.sqlResourceId = $event"
+              :options="resourceOptions('sql')"
+              aria-label="SQL 数据库"
+          /></label>
+          <label v-if="projectVariables.some((item) => item.resourceKind === 'redis')"
+            ><span>Redis <b class="required-mark">*</b></span
+            ><AppSelect
+              :model-value="form.redisResourceId ?? ''"
+              @update:model-value="form.redisResourceId = $event"
+              :options="resourceOptions('redis')"
+              aria-label="Redis"
+          /></label>
+        </div>
+        <p class="permission-help">
+          所有部署资源必须先在“服务配置”中创建并校验，再绑定到当前环境。服务器资源中的默认路径仅作为模板建议，实际部署使用此环境填写的路径。
+        </p>
+        <p
+          v-if="!resourceOptions('server').length || !resourceOptions('git').length"
+          class="operation-notice"
+          role="status"
+        >
+          当前缺少必需的服务器或 Git 资源，请先到“服务配置”创建并校验资源后再保存环境。
+        </p>
+      </fieldset>
+      <fieldset v-if="projectVariables.length">
+        <legend>项目运行变量</legend>
+        <p class="permission-help">字段来自部署项目定义。敏感值加密保存，编辑时留空会保留原值。</p>
+        <div class="form-grid">
+          <label
+            class="variable-field"
+            v-for="variable in projectVariables.filter((item) => !projectResourceKind(item))"
+            :key="variable.key"
+          >
+            <span class="field-label-text">
+              {{ variable.label }}<b v-if="variable.required"> *</b>
+              <small>{{ variable.key }}</small>
+            </span>
+            <AppPasswordInput
+              v-if="variable.secret"
+              :model-value="variableValue(variable)"
+              @update:model-value="updateVariable(variable, $event)"
+              :required="variable.required && !id"
+              placeholder="留空保留原值"
+            />
+            <input
+              v-else
+              :value="variableValue(variable)"
+              @input="updateVariable(variable, ($event.target as HTMLInputElement).value)"
+              :required="variable.required"
+              :placeholder="variable.key"
+            />
           </label>
         </div>
       </fieldset>
       <fieldset>
         <legend>访问与发布</legend>
         <div v-if="id" class="secret-actions">
-          <button type="button" class="secondary-button" :disabled="revealingSecrets" @click="revealSecrets">
-            {{ revealingSecrets ? '读取中…' : secretsRevealed ? '已显示已保存密钥' : '显示已保存密钥（管理员）' }}
+          <button
+            type="button"
+            class="secondary-button"
+            :disabled="revealingSecrets"
+            @click="revealSecrets"
+          >
+            {{
+              revealingSecrets
+                ? '读取中…'
+                : secretsRevealed
+                  ? '已显示已保存密钥'
+                  : '显示已保存密钥（管理员）'
+            }}
           </button>
         </div>
         <div class="form-grid">
-          <label v-if="form.applications.includes('admin')"
+          <label v-if="selectedProject?.units.some((unit) => unit.key === 'admin')"
             ><span>后台地址</span
             ><input
               v-model.trim="form.adminUrl"
               type="url"
               placeholder="https://admin.example.com" /></label
-          ><label v-if="form.applications.includes('api')"
+          ><label v-if="selectedProject?.units.some((unit) => unit.key === 'api')"
             ><span>API 地址</span
             ><input
               v-model.trim="form.apiUrl"
               type="url"
               placeholder="https://api.example.com" /></label
-          ><label v-if="form.applications.includes('web')"
+          ><label v-if="selectedProject?.units.some((unit) => unit.key === 'web')"
             ><span>用户端地址</span
             ><input
               v-model.trim="form.webUrl"
@@ -281,25 +377,7 @@ onMounted(load);
           ><label
             ><span>保留历史版本</span
             ><input v-model.number="form.retainReleases" type="number" min="1" max="20"
-          /></label
-          ><label v-if="form.applications.includes('api')" class="wide"
-            ><span>数据库连接 DATABASE_URL</span
-            ><AppPasswordInput v-model="form.secrets.databaseUrl" required placeholder="postgresql://…" /></label
-          ><label v-if="form.applications.includes('api')"
-            ><span>后台 JWT Access 密钥</span
-            ><AppPasswordInput v-model="form.secrets.jwtAccessSecret" required placeholder="留空保留原密钥" /></label
-          ><label v-if="form.applications.includes('api')"
-            ><span>后台 JWT Refresh 密钥</span
-            ><AppPasswordInput v-model="form.secrets.jwtRefreshSecret" required placeholder="留空保留原密钥" /></label
-          ><label v-if="form.applications.includes('api')"
-            ><span>配置加密密钥</span
-            ><AppPasswordInput v-model="form.secrets.configEncryptionKey" required placeholder="留空保留原密钥" /></label
-          ><label v-if="form.applications.includes('web')"
-            ><span>用户端 JWT Access 密钥</span
-            ><AppPasswordInput v-model="form.secrets.customerJwtAccessSecret" required placeholder="留空保留原密钥" /></label
-          ><label v-if="form.applications.includes('web')"
-            ><span>用户端 JWT Refresh 密钥</span
-            ><AppPasswordInput v-model="form.secrets.customerJwtRefreshSecret" required placeholder="留空保留原密钥" /></label>
+          /></label>
         </div>
       </fieldset>
       <p class="security-note">
@@ -307,7 +385,11 @@ onMounted(load);
         加密保存，默认不显示明文；只有拥有部署管理权限的管理员可以主动显示。编辑时凭据留空表示保留原值。
       </p>
       <footer>
-        <button type="button" class="secondary-button" @click="router.push('/deployments')">
+        <button
+          type="button"
+          class="secondary-button"
+          @click="router.push(`/deployments/projects/${form.projectId}`)"
+        >
           取消</button
         ><button class="primary-button" :disabled="saving">
           {{ saving ? '保存中…' : '保存环境' }}
@@ -359,23 +441,54 @@ onMounted(load);
 .deployment-form textarea {
   resize: vertical;
 }
-.application-options {
-  display: flex;
+.project-summary {
+  display: grid;
   gap: 12px;
+  padding: 18px;
+  border: 1px solid #dfe6f1;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+.project-summary > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+.project-summary small,
+.project-summary p {
+  color: #64748b;
+}
+.project-summary p {
+  margin: 0;
+  font-size: 13px;
+}
+.unit-tags {
+  display: flex;
+  gap: 8px;
   flex-wrap: wrap;
 }
-.application-option {
-  min-width: 150px;
-  padding: 16px;
-  border: 1px solid #dfe6f1;
-  border-radius: 13px;
-  background: #f8fafc;
-  color: #334155;
+.unit-tags span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #e9edff;
+  color: #3f51cf;
+  font-size: 13px;
+  font-weight: 650;
 }
-.application-option.checked {
-  border-color: #5267f5;
-  background: #eef1ff;
-  color: #3046c8;
+.form-grid label > span small {
+  display: block;
+  margin-top: 3px;
+  color: #94a3b8;
+  font:
+    500 11px/1.2 ui-monospace,
+    monospace;
+}
+.field-label-text b {
+  color: #d14343;
+  font-weight: 700;
+}
+.required-mark {
+  color: #d14343;
+  font-weight: 700;
 }
 .security-note {
   padding: 14px 16px;

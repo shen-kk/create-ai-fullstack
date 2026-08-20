@@ -11,7 +11,6 @@ import {
   renderRuntimeProject,
   validateProjectConfig,
 } from './lib/template-config.mjs';
-import { checkRedisConnection } from './lib/infrastructure-checks.mjs';
 
 const root = new URL('../', import.meta.url);
 const args = new Set(process.argv.slice(2));
@@ -42,7 +41,6 @@ const yes = async (label, fallback = true) =>
   ['y', 'yes', '是'].includes(
     (await ask(`${label} [${fallback ? 'Y/n' : 'y/N'}]`, fallback ? 'y' : 'n')).toLowerCase(),
   );
-const optional = async (label) => (await ask(label, '')).trim();
 const askRequired = (label, fallback = '') =>
   ask(label, fallback, (value) => value.trim().length > 0);
 const portValidator = (value) => Number(value) >= 1024 && Number(value) <= 65535;
@@ -62,146 +60,20 @@ const choose = async (label, options, fallbackIndex = 0) => {
 };
 const secret = () => randomBytes(32).toString('base64url');
 const integration = (kind, enabled, values, secrets = {}) => ({ kind, enabled, values, secrets });
-const collectIntegrationBootstrap = async (modules, objectStorageProvider, database) => {
-  const items = [];
-  if (database.mode === 'prisma')
-    items.push(
-      integration(
-        'sql',
-        true,
-        {
-          engine: 'postgresql',
-          host: database.host,
-          port: String(database.port),
-          database: database.name,
-          username: database.username,
-        },
-        { password: database.password },
-      ),
-    );
-  if (modules.redis && (await yes('现在填写并校验 Redis 配置', false))) {
-    while (true) {
-      const provider = await choose('Redis 部署平台', [
-        { value: 'self_hosted', label: '自建 Redis' },
-        { value: 'tencent_redis', label: '腾讯云 Redis' },
-        { value: 'aliyun_redis', label: '阿里云 Redis' },
-      ]);
-      const redisTarget = new URL(await ask('Redis URL', 'redis://127.0.0.1:6379'));
-      const urlPassword = decodeURIComponent(redisTarget.password);
-      redisTarget.password = '';
-      const redis = integration(
-        'redis',
-        true,
-        { provider, url: redisTarget.toString() },
-        { password: (await optional('Redis 密码（无密码直接回车）')) || urlPassword },
-      );
-      try {
-        console.log('[CHECK] 正在校验 Redis 连接与鉴权。');
-        await checkRedisConnection(redis);
-        console.log('[PASS] Redis 连接与鉴权通过。');
-        items.push(redis);
-        break;
-      } catch (error) {
-        console.log(
-          `[RETRY] Redis 配置无效：${error instanceof Error ? error.message : '连接失败'}`,
-        );
-        if (!(await yes('重新填写 Redis 配置', true))) break;
-      }
-    }
-  }
-  if (modules.objectStorage && (await yes('现在填写对象存储配置', false)))
-    items.push(
-      integration(
-        'object_storage',
-        true,
-        {
-          provider: objectStorageProvider,
-          endpoint: await optional('对象存储 Endpoint（腾讯云 COS 可留空）'),
-          bucket: await ask('Bucket', 'example-1250000000'),
-          region: await ask('区域', 'ap-guangzhou'),
-          accessKeyId: await askRequired('Access Key ID / SecretId'),
-        },
-        { secretAccessKey: await askRequired('Access Key Secret / SecretKey') },
-      ),
-    );
-  if (modules.sms && (await yes('现在填写短信服务配置', false))) {
-    const provider = await choose('短信服务商', [
-      { value: 'tencent_sms', label: '腾讯云短信' },
-      { value: 'aliyun_sms', label: '阿里云短信' },
-    ]);
-    items.push(
-      integration(
-        'sms',
-        true,
-        {
-          provider,
-          region: await ask('区域', 'ap-guangzhou'),
-          accessKeyId: await askRequired('Access Key ID / SecretId'),
-          signName: await askRequired('短信签名'),
-          appId: await askRequired('短信应用 SDK AppID'),
-          templateId: await askRequired('验证码模板 ID'),
-        },
-        { accessKeySecret: await askRequired('Access Key Secret / SecretKey') },
-      ),
-    );
-  }
-  if (modules.email && (await yes('现在填写 SMTP 邮件配置', false)))
-    items.push(
-      integration(
-        'email',
-        true,
-        {
-          provider: 'smtp',
-          host: await ask('SMTP 主机', 'smtp.example.com'),
-          port: await ask('SMTP 端口', '465'),
-          username: await askRequired('SMTP 用户名'),
-          from: await askRequired('发件地址'),
-          secure: (await yes('使用 SSL/TLS', true)) ? 'true' : 'false',
-        },
-        { password: await askRequired('SMTP 密码/授权码') },
-      ),
-    );
-  if (modules.payment && (await yes('现在填写支付配置', false))) {
-    const provider = await choose('支付渠道', [
-      { value: 'wechat_pay', label: '微信支付' },
-      { value: 'alipay', label: '支付宝' },
-      { value: 'stripe', label: 'Stripe' },
-    ]);
-    items.push(
-      integration(
-        'payment',
-        true,
-        { provider, merchantId: await askRequired('商户号') },
-        {
-          apiKey: await askRequired('API Key'),
-          privateKey: await askRequired('私钥'),
-          webhookSecret: await askRequired('回调密钥'),
-        },
-      ),
-    );
-  }
-  const required = {
-    sql: ['engine', 'host', 'port', 'database', 'username', 'password'],
-    redis: ['provider', 'url'],
-    object_storage: ['provider', 'bucket', 'region', 'accessKeyId', 'secretAccessKey'],
-    sms: [
-      'provider',
-      'region',
-      'accessKeyId',
-      'accessKeySecret',
-      'signName',
-      'appId',
-      'templateId',
-    ],
-    email: ['provider', 'host', 'port', 'username', 'password', 'from'],
-    payment: ['provider', 'merchantId', 'apiKey', 'privateKey', 'webhookSecret'],
-  };
-  for (const item of items)
-    for (const key of required[item.kind] ?? [])
-      if (!(item.values[key] ?? item.secrets[key] ?? '').trim())
-        throw new Error(`${item.kind}.${key} 为必填配置，请重新运行初始化向导`);
-  return items;
-};
+const collectIntegrationBootstrap = async (database) => [
+  integration(
+    'sql',
+    true,
+    {
+      engine: 'postgresql',
+      host: database.host,
+      port: String(database.port),
+      database: database.name,
+      username: database.username,
+    },
+    { password: database.password },
+  ),
+];
 const formatWorkspaceIfAvailable = async () => {
   const prettierUrl = new URL('node_modules/prettier/bin/prettier.cjs', root);
   try {
@@ -299,28 +171,14 @@ try {
   );
   const adminName = await ask('初始管理员名称', '系统管理员');
   const adminPassword = `Adm!${randomBytes(18).toString('base64url')}`;
-  const objectStorage = preset === 'custom' ? await yes('启用对象存储配置能力', true) : true;
   const userWeb =
     userWebMode || (await yes('启用用户端（注册、登录、个人中心和后台用户管理）', false));
-  const objectStorageProvider = objectStorage
-    ? await choose('默认对象存储平台', [
-        { value: 'tencent_cos', label: '腾讯云 COS' },
-        { value: 'aliyun_oss', label: '阿里云 OSS' },
-        { value: 'aws_s3', label: 'AWS S3' },
-        { value: 's3_compatible', label: 'S3 兼容存储' },
-      ])
-    : 'none';
   const modules =
     preset === 'custom'
       ? {
           ...presetModules('quick'),
           userWeb,
           customerAuthentication: userWeb,
-          objectStorage,
-          redis: await yes('启用 Redis 配置能力', false),
-          sms: await yes('启用短信配置能力', false),
-          email: await yes('启用邮件配置能力', false),
-          payment: await yes('启用支付配置能力', false),
           deploymentCenter: deploymentCenterMode || (await yes('启用部署中心', false)),
         }
       : {
@@ -359,15 +217,11 @@ try {
       },
     },
     modules,
-    providers: { objectStorage: objectStorageProvider },
+    providers: { objectStorage: modules.objectStorage ? 'resource_library' : 'none' },
   };
   const configErrors = validateProjectConfig(config);
   if (configErrors.length) throw new Error(`项目配置无效：${configErrors.join('；')}`);
-  const bootstrapIntegrations = await collectIntegrationBootstrap(
-    modules,
-    objectStorageProvider,
-    database,
-  );
+  const bootstrapIntegrations = await collectIntegrationBootstrap(database);
   const provisionNow =
     databaseMode === 'prisma' && !defaultsMode
       ? await yes('配置完成后立即校验连接、初始化数据库并创建管理员', true)

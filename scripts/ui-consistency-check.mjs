@@ -25,6 +25,13 @@ async function inspect(file) {
     if (pattern.test(source)) violations.push(`${path}: ${message}`);
   }
 
+  // 必填标识只允许有一个来源：原生控件由统一 CSS 生成，自定义选择器才显式写 *。
+  // 这条规则主要拦截“label 已写 *，同时又绑定 required 原生控件”的重复星号。
+  const duplicateRequiredMark = /<label[\s\S]{0,420}?<span[^>]*>[^<]*\*[\s\S]{0,420}?:required[\s\S]{0,120}?<\/(?:input|textarea)>/i;
+  if (duplicateRequiredMark.test(source)) {
+    violations.push(`${path}: 原生 required 控件不应在 label 文案中重复书写 *；请交给统一必填标识规则。`);
+  }
+
   const approvedSelectImplementations = new Set([
     'apps/admin/src/components/AppSelect.vue',
     'apps/web/app/components/ui/select/Select.vue',

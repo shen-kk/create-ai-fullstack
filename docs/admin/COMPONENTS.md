@@ -4,17 +4,18 @@
 
 页面只组合公共组件，不自行实现基础控件。现阶段组件状态：
 
-| 能力             | 默认入口                       | 状态                           |
-| ---------------- | ------------------------------ | ------------------------------ |
-| Select           | `src/components/AppSelect.vue` | 已建立，唯一选择器入口         |
-| Icon             | `src/components/AppIcon.vue`   | 已建立，统一线性图标           |
-| Button           | `AppButton`                    | 待收口，新增前优先完成公共组件 |
-| Dialog           | `AppDialog`                    | 待收口，不复制历史弹窗结构     |
-| Input/FormField  | `AppInput` / `AppFormField`    | 待收口                         |
-| Toast/Confirm    | `AppToast` / `AppConfirm`      | 待收口                         |
-| Checkbox         | `src/components/AppCheckbox.vue` | 已建立，唯一基础复选框入口   |
-| Pagination       | `src/components/AppPagination.vue` | 已建立，默认每页 10 条      |
-| Table            | `AppTable`                       | 待收口                         |
+| 能力             | 默认入口                               | 状态                           |
+| ---------------- | -------------------------------------- | ------------------------------ |
+| Select           | `src/components/AppSelect.vue`         | 已建立，唯一选择器入口         |
+| Icon             | `src/components/AppIcon.vue`           | 已建立，统一线性图标           |
+| Button           | `AppButton`                            | 待收口，新增前优先完成公共组件 |
+| Dialog           | `AppDialog`                            | 待收口，不复制历史弹窗结构     |
+| Input/FormField  | `AppInput` / `AppFormField`            | 待收口                         |
+| Toast/Confirm    | `AppToast` / `AppConfirm`              | 待收口                         |
+| Checkbox         | `src/components/AppCheckbox.vue`       | 已建立，唯一基础复选框入口     |
+| Pagination       | `src/components/AppPagination.vue`     | 已建立，默认每页 10 条         |
+| Table            | `AppTable`                             | 待收口                         |
+| Rich text editor | `src/components/AppRichTextEditor.vue` | 已建立，Tiptap 唯一富文本入口  |
 
 现有组件不能满足需求时，优先新增有语义的 variant；如果底层方案确实不合适，按 ADR 流程替换，不长期保留两个默认入口。
 
@@ -28,10 +29,16 @@
 
 ## 标准表单
 
+- 验证码策略属于“服务配置 → 功能绑定 → 用户端认证”的系统设置。有效时间和再次发送间隔使用带单位的数字输入框，保存后由 API 统一控制发送、校验、模板变量和用户端倒计时。
+
 - 字段标签、必填标记、帮助信息和错误信息位置一致。
-- 必填字段必须在标签文字后显示红色 `*`；通过控件的 `required` 属性触发，业务页面不得手写不一致的星号。可选字段不显示星号。
+- 必填字段必须在标签文字后显示红色 `*`；原生 `input`、`textarea` 和密码控件通过 `required` 属性由全局 CSS 自动生成。`AppSelect` 等无法透传原生 `required` 的自定义控件必须在标签文字中显式声明一次 `*`，不得同时使用两种方式。可选字段不显示星号。
+- 修改表单后运行 `pnpm ui:check`；该检查会拦截原生 `required` 控件与手写星号并存的重复标识。
 - 提交期间禁用重复操作并显示 loading；服务端错误使用稳定中文映射。
 - Select、Checkbox、上传和密码控件不得退化为浏览器默认样式。
+- 邮件 HTML 等富文本字段统一使用 `AppRichTextEditor`；业务页面不得直接引入另一套编辑器或手写 `contenteditable`。
+- 一个业务项包含多个 Select/Input 时，每个控件必须有可见字段标签，不得只依赖选中值猜测用途；复合配置项使用“说明区 + 字段区”的稳定布局。
+- 面向特定适配器的技术字段应放入有用途说明的高级设置区，并按渠道或平台动态显示；不得让 SMTP 用户默认理解 SES、短信模板 ID 或参数 JSON。
 - Checkbox 的选中标记必须在固定方框中水平、垂直居中；业务页面只组合 `AppCheckbox`，不得用文字字符模拟对勾。
 - 角色分配、部署应用等多选场景统一使用 `AppCheckbox`，不得混用原生 checkbox；复杂说明通过组件插槽组合。
 - 多选项列表必须为选项之间、选项内容与边框以及列表与操作区保留稳定间距；不得让复选框、说明文字或最后一项贴边。
