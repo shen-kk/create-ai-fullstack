@@ -107,12 +107,12 @@ async function seedDeploymentEnvironment(): Promise<void> {
     update: {
       description: '基于不可变版本目录、current 软链接与 PM2 进程管理的 AIForge 发布预设。',
       type: 'release-directory',
-      installCommand: 'corepack pnpm install --frozen-lockfile',
+      installCommand: 'pnpm install --frozen-lockfile',
       units: [
         {
           key: 'admin',
           name: '后台管理',
-          buildCommand: 'corepack pnpm --filter @template/admin build',
+          buildCommand: 'pnpm --filter @template/admin build',
           migrationCommand: null,
           restartCommand: 'true',
           healthCheckUrl: null,
@@ -120,15 +120,15 @@ async function seedDeploymentEnvironment(): Promise<void> {
         {
           key: 'api',
           name: 'API 服务',
-          buildCommand: 'corepack pnpm --filter @template/api build',
-          migrationCommand: 'corepack pnpm --filter @template/api exec prisma migrate deploy',
+          buildCommand: 'pnpm --filter @template/api build',
+          migrationCommand: 'pnpm --filter @template/api exec prisma migrate deploy',
           restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-api --update-env',
           healthCheckUrl: null,
         },
         {
           key: 'web',
           name: '用户端',
-          buildCommand: 'corepack pnpm --filter @template/web build',
+          buildCommand: 'pnpm --filter @template/web build',
           migrationCommand: null,
           restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-web --update-env',
           healthCheckUrl: null,
@@ -142,12 +142,12 @@ async function seedDeploymentEnvironment(): Promise<void> {
       code: 'aiforge-fullstack',
       description: '基于不可变版本目录、current 软链接与 PM2 进程管理的 AIForge 发布预设。',
       type: 'release-directory',
-      installCommand: 'corepack pnpm install --frozen-lockfile',
+      installCommand: 'pnpm install --frozen-lockfile',
       units: [
         {
           key: 'admin',
           name: '后台管理',
-          buildCommand: 'corepack pnpm --filter @template/admin build',
+          buildCommand: 'pnpm --filter @template/admin build',
           migrationCommand: null,
           restartCommand: 'true',
           healthCheckUrl: null,
@@ -155,15 +155,15 @@ async function seedDeploymentEnvironment(): Promise<void> {
         {
           key: 'api',
           name: 'API 服务',
-          buildCommand: 'corepack pnpm --filter @template/api build',
-          migrationCommand: 'corepack pnpm --filter @template/api exec prisma migrate deploy',
+          buildCommand: 'pnpm --filter @template/api build',
+          migrationCommand: 'pnpm --filter @template/api exec prisma migrate deploy',
           restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-api --update-env',
           healthCheckUrl: null,
         },
         {
           key: 'web',
           name: '用户端',
-          buildCommand: 'corepack pnpm --filter @template/web build',
+          buildCommand: 'pnpm --filter @template/web build',
           migrationCommand: null,
           restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-web --update-env',
           healthCheckUrl: null,

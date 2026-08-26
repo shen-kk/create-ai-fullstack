@@ -129,7 +129,7 @@ export class DeploymentCheckService {
         });
         const output = await this.remote(
           client,
-          `command -v git && git --version; command -v curl && curl --version | head -1; command -v node && node --version; command -v corepack && corepack pnpm --version; command -v pm2 && pm2 --version; df -Pk / | tail -1; mkdir -p '${input.deployPath.replaceAll("'", "'\\''")}/releases' && test -w '${input.deployPath.replaceAll("'", "'\\''")}'`,
+          `command -v git && git --version; command -v curl && curl --version | head -1; command -v node && node --version; command -v pnpm && pnpm --version; command -v pm2 && pm2 --version; df -Pk / | tail -1; mkdir -p '${input.deployPath.replaceAll("'", "'\\''")}/releases' && test -w '${input.deployPath.replaceAll("'", "'\\''")}'`,
         );
         checks.push({
           key: 'runtime',
@@ -148,7 +148,7 @@ export class DeploymentCheckService {
           key: 'ssh',
           label: 'SSH 与运行环境',
           status: 'failed',
-          message: '身份认证失败，或服务器缺少 Git、curl、Node.js、Corepack、PM2、可写部署目录',
+          message: '身份认证失败，或服务器缺少 Git、curl、Node.js、pnpm、PM2、可写部署目录',
         });
       } finally {
         client.end();

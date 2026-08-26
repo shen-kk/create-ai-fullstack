@@ -25,7 +25,7 @@ const form = ref<UpsertDeploymentProjectRequest>({
   code: '',
   description: '',
   type: 'release-directory',
-  installCommand: 'corepack pnpm install --frozen-lockfile',
+  installCommand: 'pnpm install --frozen-lockfile',
   units: [],
   variables: [],
 });
@@ -140,7 +140,7 @@ onMounted(load);
             ><input
               v-model.trim="form.installCommand"
               required
-              placeholder="corepack pnpm install --frozen-lockfile"
+              placeholder="pnpm install --frozen-lockfile"
           /></label>
           <label class="wide"
             ><span>项目说明</span
@@ -168,7 +168,7 @@ onMounted(load);
                 ><input
                   v-model.trim="unit.buildCommand"
                   required
-                  placeholder="corepack pnpm --filter @scope/api build"
+                  placeholder="pnpm --filter @scope/api build"
               /></label>
               <label
                 ><span>健康检查地址</span

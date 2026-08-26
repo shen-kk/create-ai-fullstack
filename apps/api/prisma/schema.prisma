@@ -158,20 +158,20 @@ model AuditLog {
 }
 
 model Customer {
-  id              String                   @id @default(cuid())
-  phone           String?                  @unique
-  email           String?                  @unique
-  name            String
-  avatarUrl       String?
-  passwordHash    String
+  id                   String                   @id @default(cuid())
+  phone                String?                  @unique
+  email                String?                  @unique
+  name                 String
+  avatarUrl            String?
+  passwordHash         String
   passwordConfiguredAt DateTime?
-  status          UserStatus               @default(ACTIVE)
-  lastActiveAt    DateTime?
-  createdAt       DateTime                 @default(now())
-  updatedAt       DateTime                 @updatedAt
-  phoneVerifiedAt DateTime?
-  emailVerifiedAt DateTime?
-  sessions        CustomerRefreshSession[]
+  status               UserStatus               @default(ACTIVE)
+  lastActiveAt         DateTime?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
+  phoneVerifiedAt      DateTime?
+  emailVerifiedAt      DateTime?
+  sessions             CustomerRefreshSession[]
 
   @@index([status, createdAt])
 }
@@ -218,59 +218,59 @@ model CustomerRefreshSession {
 }
 
 model DeployProject {
-  id          String              @id @default(cuid())
-  name        String              @unique
-  code        String              @unique
-  description String?
-  type        String              @default("release-directory")
-  installCommand String           @default("corepack pnpm install --frozen-lockfile")
-  units       Json
-  variables   Json
-  system      Boolean             @default(false)
-  version     Int                 @default(1)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  environments DeployEnvironment[]
+  id             String              @id @default(cuid())
+  name           String              @unique
+  code           String              @unique
+  description    String?
+  type           String              @default("release-directory")
+  installCommand String              @default("pnpm install --frozen-lockfile")
+  units          Json
+  variables      Json
+  system         Boolean             @default(false)
+  version        Int                 @default(1)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  environments   DeployEnvironment[]
 
   @@index([updatedAt])
 }
 
 model DeployEnvironment {
-  id               String                  @id @default(cuid())
-  name             String                  @unique
-  kind             DeployEnvironmentKind
-  projectId        String
-  applications     String[]
-  environmentValues Json                   @default("{}")
-  gitProvider      String
-  repositoryUrl    String
-  gitRef           String                  @default("main")
-  gitAuthMode      String
-  host             String
-  sshPort          Int                     @default(22)
-  sshUser          String
-  sshAuthMode      String
-  deployPath       String
-  adminUrl         String?
-  apiUrl           String?
-  webUrl           String?
-  healthCheckUrl   String?
-  retainReleases   Int                     @default(5)
-  serverResourceId String?
-  gitResourceId    String?
-  sqlResourceId    String?
-  redisResourceId  String?
-  encryptedSecrets String?
-  status           DeployEnvironmentStatus @default(DRAFT)
-  gitVerifiedAt    DateTime?
-  serverVerifiedAt DateTime?
-  lastVerifiedAt   DateTime?
-  currentReleaseId String?
-  createdAt        DateTime                @default(now())
-  updatedAt        DateTime                @updatedAt
-  project          DeployProject           @relation(fields: [projectId], references: [id], onDelete: Restrict)
-  runs             DeployRun[]
-  releases         DeployRelease[]
+  id                String                  @id @default(cuid())
+  name              String                  @unique
+  kind              DeployEnvironmentKind
+  projectId         String
+  applications      String[]
+  environmentValues Json                    @default("{}")
+  gitProvider       String
+  repositoryUrl     String
+  gitRef            String                  @default("main")
+  gitAuthMode       String
+  host              String
+  sshPort           Int                     @default(22)
+  sshUser           String
+  sshAuthMode       String
+  deployPath        String
+  adminUrl          String?
+  apiUrl            String?
+  webUrl            String?
+  healthCheckUrl    String?
+  retainReleases    Int                     @default(5)
+  serverResourceId  String?
+  gitResourceId     String?
+  sqlResourceId     String?
+  redisResourceId   String?
+  encryptedSecrets  String?
+  status            DeployEnvironmentStatus @default(DRAFT)
+  gitVerifiedAt     DateTime?
+  serverVerifiedAt  DateTime?
+  lastVerifiedAt    DateTime?
+  currentReleaseId  String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  project           DeployProject           @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  runs              DeployRun[]
+  releases          DeployRelease[]
 
   @@index([projectId, kind, updatedAt])
 }
@@ -324,26 +324,26 @@ model MessageTemplate {
 }
 
 model DeployRun {
-  id            String            @id @default(cuid())
-  environmentId String
-  actorId       String?
-  gitRef        String
-  commitSha     String?
-  applications  String[]
+  id                String            @id @default(cuid())
+  environmentId     String
+  actorId           String?
+  gitRef            String
+  commitSha         String?
+  applications      String[]
   executionSnapshot Json?
-  status        DeployRunStatus   @default(QUEUED)
-  progress      Int               @default(0)
-  currentStep   String?
-  errorCode     String?
-  errorMessage  String?
-  releaseId     String?
-  createdAt     DateTime          @default(now())
-  startedAt     DateTime?
-  completedAt   DateTime?
-  environment   DeployEnvironment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
-  actor         User?             @relation("DeployActor", fields: [actorId], references: [id], onDelete: SetNull)
-  steps         DeployStep[]
-  logs          DeployLog[]
+  status            DeployRunStatus   @default(QUEUED)
+  progress          Int               @default(0)
+  currentStep       String?
+  errorCode         String?
+  errorMessage      String?
+  releaseId         String?
+  createdAt         DateTime          @default(now())
+  startedAt         DateTime?
+  completedAt       DateTime?
+  environment       DeployEnvironment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  actor             User?             @relation("DeployActor", fields: [actorId], references: [id], onDelete: SetNull)
+  steps             DeployStep[]
+  logs              DeployLog[]
 
   @@index([environmentId, createdAt])
   @@index([status, createdAt])

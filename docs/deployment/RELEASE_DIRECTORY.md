@@ -6,16 +6,14 @@
 
 ## 1. 安装运行环境
 
-服务器需要 Git、curl、Node.js 22+、Corepack 和 PM2。Node.js 建议通过服务器发行版或可信的版本管理方案安装。确认版本后执行：
+服务器需要 Git、curl、Node.js 22+、pnpm 和 PM2。Node.js 建议通过服务器发行版或可信的版本管理方案安装。确认版本后执行：
 
 ```bash
 sudo mkdir -p /srv/aiforge/releases
 sudo chown -R deploy:deploy /srv/aiforge
-sudo -u deploy corepack enable
-sudo npm install --global pm2
 sudo -u deploy git --version
 sudo -u deploy node --version
-sudo -u deploy corepack pnpm --version
+sudo -u deploy pnpm --version
 sudo -u deploy pm2 --version
 ```
 
@@ -69,12 +67,12 @@ pm2 describe aiforge-api
 
 ## 5. 部署中心默认配置
 
-- 安装命令：`corepack pnpm install --frozen-lockfile`
-- Admin 构建：`corepack pnpm --filter @template/admin build`，重启命令为 `true`
-- API 构建：`corepack pnpm --filter @template/api build`
-- API 迁移：`corepack pnpm --filter @template/api exec prisma migrate deploy`
+- 安装命令：`pnpm install --frozen-lockfile`
+- Admin 构建：`pnpm --filter @template/admin build`，重启命令为 `true`
+- API 构建：`pnpm --filter @template/api build`
+- API 迁移：`pnpm --filter @template/api exec prisma migrate deploy`
 - API 重载：`pm2 startOrReload ecosystem.config.cjs --only aiforge-api --update-env`
-- Web 构建：`corepack pnpm --filter @template/web build`
+- Web 构建：`pnpm --filter @template/web build`
 - Web 重载：`pm2 startOrReload ecosystem.config.cjs --only aiforge-web --update-env`
 
 健康检查建议填写 API 的完整 ready 地址，例如 `https://example.com/api/health/ready`。没有健康检查只能确认目录已切换，不能证明应用可用。

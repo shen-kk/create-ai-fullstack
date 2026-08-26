@@ -8,12 +8,12 @@ const validProject = {
   name: '商城服务',
   code: 'mall-platform',
   type: 'release-directory',
-  installCommand: 'corepack pnpm install --frozen-lockfile',
+  installCommand: 'pnpm install --frozen-lockfile',
   units: [
     {
       key: 'order-service',
       name: '订单服务',
-      buildCommand: 'corepack pnpm --filter @mall/orders build',
+      buildCommand: 'pnpm --filter @mall/orders build',
       migrationCommand: null,
       restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only mall-orders --update-env',
       healthCheckUrl: null,
