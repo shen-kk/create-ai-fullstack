@@ -445,7 +445,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     writeLog = true,
   ): Promise<string> {
     return new Promise((resolve, reject) =>
-      client.exec(command, (error, stream) => {
+      client.exec(`bash -lc ${shell(command)}`, (error, stream) => {
         if (error) {
           reject(error);
           return;

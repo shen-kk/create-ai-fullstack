@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { Client, type ConnectConfig } from 'ssh2';
 import type { DeploymentSecrets } from './deployment-secrets.js';
+import { shellQuote } from './deployment-release-commands.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -129,7 +130,7 @@ export class DeploymentCheckService {
         });
         const output = await this.remote(
           client,
-          `command -v git && git --version; command -v curl && curl --version | head -1; command -v node && node --version; command -v pnpm && pnpm --version; command -v pm2 && pm2 --version; df -Pk / | tail -1; mkdir -p '${input.deployPath.replaceAll("'", "'\\''")}/releases' && test -w '${input.deployPath.replaceAll("'", "'\\''")}'`,
+          `set -e; command -v git; git --version; command -v curl; curl --version | head -1; command -v node; node --version; command -v pnpm; pnpm --version; command -v pm2; pm2 --version; df -Pk / | tail -1; mkdir -p '${input.deployPath.replaceAll("'", "'\\''")}/releases'; test -w '${input.deployPath.replaceAll("'", "'\\''")}'`,
         );
         checks.push({
           key: 'runtime',
@@ -163,7 +164,7 @@ export class DeploymentCheckService {
 
   private remote(client: Client, command: string): Promise<string> {
     return new Promise((resolve, reject) =>
-      client.exec(command, (error, stream) => {
+      client.exec(`bash -lc ${shellQuote(command)}`, (error, stream) => {
         if (error) {
           reject(error);
           return;
