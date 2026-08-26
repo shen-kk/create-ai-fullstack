@@ -107,7 +107,7 @@ async function seedDeploymentEnvironment(): Promise<void> {
     update: {
       description: '基于不可变版本目录、current 软链接与 PM2 进程管理的 AIForge 发布预设。',
       type: 'release-directory',
-      installCommand: 'pnpm install --frozen-lockfile',
+      installCommand: 'pnpm install --frozen-lockfile --child-concurrency=1',
       units: [
         {
           key: 'admin',
@@ -142,7 +142,7 @@ async function seedDeploymentEnvironment(): Promise<void> {
       code: 'aiforge-fullstack',
       description: '基于不可变版本目录、current 软链接与 PM2 进程管理的 AIForge 发布预设。',
       type: 'release-directory',
-      installCommand: 'pnpm install --frozen-lockfile',
+      installCommand: 'pnpm install --frozen-lockfile --child-concurrency=1',
       units: [
         {
           key: 'admin',

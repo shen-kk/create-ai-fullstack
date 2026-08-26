@@ -223,7 +223,7 @@ model DeployProject {
   code           String              @unique
   description    String?
   type           String              @default("release-directory")
-  installCommand String              @default("pnpm install --frozen-lockfile")
+  installCommand String              @default("pnpm install --frozen-lockfile --child-concurrency=1")
   units          Json
   variables      Json
   system         Boolean             @default(false)

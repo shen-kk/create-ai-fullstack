@@ -447,7 +447,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
   ): Promise<string> {
     return new Promise((resolve, reject) =>
       client.exec(
-        `bash -lc ${shell('export PATH="$(npm prefix -g)/bin:$PATH"; ' + command)}`,
+        `bash -lc ${shell(`export PATH="$(npm prefix -g)/bin:$PATH"; nice -n 15 bash -c ${shell(command)}`)}`,
         (error, stream) => {
           if (error) {
             reject(error);

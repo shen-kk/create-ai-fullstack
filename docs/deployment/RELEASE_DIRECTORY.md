@@ -67,7 +67,7 @@ pm2 describe aiforge-api
 
 ## 5. 部署中心默认配置
 
-- 安装命令：`pnpm install --frozen-lockfile`
+- 安装命令：`pnpm install --frozen-lockfile --child-concurrency=1`
 - Admin 构建：`pnpm --filter @template/admin build`，重启命令为 `true`
 - API 构建：`pnpm --filter @template/api build`
 - API 迁移：`pnpm --filter @template/api exec prisma migrate deploy`

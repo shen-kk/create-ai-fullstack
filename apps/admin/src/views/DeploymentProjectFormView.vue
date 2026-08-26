@@ -25,7 +25,7 @@ const form = ref<UpsertDeploymentProjectRequest>({
   code: '',
   description: '',
   type: 'release-directory',
-  installCommand: 'pnpm install --frozen-lockfile',
+  installCommand: 'pnpm install --frozen-lockfile --child-concurrency=1',
   units: [],
   variables: [],
 });
@@ -140,7 +140,7 @@ onMounted(load);
             ><input
               v-model.trim="form.installCommand"
               required
-              placeholder="pnpm install --frozen-lockfile"
+              placeholder="pnpm install --frozen-lockfile --child-concurrency=1"
           /></label>
           <label class="wide"
             ><span>项目说明</span
