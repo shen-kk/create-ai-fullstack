@@ -78,6 +78,8 @@ const deploymentErrorMessages: Record<string, string> = {
   DEPLOYMENT_REDIS_RESOURCE_REQUIRED: '当前项目需要 Redis，请先绑定 Redis 资源。',
   DEPLOYMENT_RESOURCE_BINDING_INVALID: '绑定的服务资源不存在、类型不匹配或未启用。',
   DEPLOYMENT_CONFIGURATION_INVALID: '部署配置不完整，请检查实际部署路径和必填字段。',
+  DEPLOYMENT_SECRETS_REENTRY_REQUIRED: '敏感配置无法解密，请重新填写并保存相关密钥。',
+  DEPLOYMENT_WORKER_INTERRUPTED: '部署执行器中断，任务已自动失败，请重新部署。',
 };
 function deploymentError(cause: unknown, fallback: string): string {
   const code = cause instanceof Error ? cause.message : '';

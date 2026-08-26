@@ -124,13 +124,20 @@ export class CustomerRepository {
 
   async changePassword(
     id: string,
-    currentPassword: string,
+    currentPassword: string | undefined,
     passwordHash: string,
   ): Promise<boolean> {
     const record = await this.prisma.customer.findUnique({ where: { id } });
-    if (!record || !(await verifyScryptPassword(currentPassword, record.passwordHash)))
+    if (!record) return false;
+    if (
+      record.passwordConfiguredAt &&
+      (!currentPassword || !(await verifyScryptPassword(currentPassword, record.passwordHash)))
+    )
       return false;
-    await this.prisma.customer.update({ where: { id }, data: { passwordHash } });
+    await this.prisma.customer.update({
+      where: { id },
+      data: { passwordHash, passwordConfiguredAt: new Date() },
+    });
     return true;
   }
 
@@ -191,6 +198,7 @@ export class CustomerRepository {
     createdAt: Date;
     phoneVerifiedAt: Date | null;
     emailVerifiedAt: Date | null;
+    passwordConfiguredAt: Date | null;
   }): CustomerProfile {
     return {
       id: record.id,
@@ -202,6 +210,7 @@ export class CustomerRepository {
       createdAt: record.createdAt.toISOString(),
       phoneVerifiedAt: record.phoneVerifiedAt?.toISOString() ?? null,
       emailVerifiedAt: record.emailVerifiedAt?.toISOString() ?? null,
+      passwordConfigured: Boolean(record.passwordConfiguredAt),
     };
   }
 }

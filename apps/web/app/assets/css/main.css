@@ -51,7 +51,7 @@ button {
 }
 .app-shell {
   min-height: 100vh;
-  overflow: hidden;
+  overflow-x: clip;
 }
 .section-wrap,
 .header-inner,
@@ -1118,7 +1118,7 @@ button {
 
 .profile-page {
   min-height: calc(100vh - 64px);
-  padding: 64px 0 120px;
+  padding: 42px 0 80px;
   background: radial-gradient(circle at 50% 0, #fff 0, #fafafa 38%, #f7f7f8 100%);
 }
 .profile-container {
@@ -1134,7 +1134,7 @@ button {
 }
 .profile-heading h1 {
   margin: 15px 0 9px;
-  font-size: clamp(38px, 4vw, 48px);
+  font-size: clamp(32px, 3.5vw, 42px);
   line-height: 1.05;
   letter-spacing: -0.05em;
   font-weight: 620;
@@ -1181,7 +1181,7 @@ button {
 }
 .profile-layout {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -1337,8 +1337,8 @@ button {
   min-width: 0;
 }
 .settings-card {
-  min-height: 560px;
-  padding: 38px 40px;
+  min-height: 0;
+  padding: 28px 32px;
   border: 1px solid var(--line);
   border-radius: 18px;
   background: rgb(255 255 255 / 0.95);
@@ -2050,6 +2050,8 @@ button {
     justify-self: stretch;
     width: 100%;
   }
+}
+@media (max-width: 760px) {
   .profile-layout {
     grid-template-columns: 1fr;
   }
@@ -2061,10 +2063,10 @@ button {
     display: none;
   }
   .profile-menu {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .profile-menu button {
-    grid-template-columns: 28px 1fr;
+    grid-template-columns: 28px minmax(0, 1fr);
     min-height: 54px;
   }
   .profile-menu-icon {

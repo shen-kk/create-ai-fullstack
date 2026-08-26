@@ -46,6 +46,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
   onApplicationBootstrap(): void {
     if (process.env.DEPLOY_WORKER_ENABLED === 'false') return;
     this.timer = setInterval(() => void this.tick(), 1500);
+    void this.recoverStaleRuns();
     void this.tick();
   }
   onApplicationShutdown(): void {
@@ -75,6 +76,52 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     } finally {
       this.busy = false;
     }
+  }
+
+  /**
+   * A worker process can be terminated while an SSH command is running. In
+   * that case the database row remains RUNNING forever and prevents future
+   * deployments for the environment. Recover only runs older than the
+   * configured safety window; normal long-running builds remain untouched.
+   */
+  private async recoverStaleRuns(): Promise<void> {
+    const configured = Number(process.env.DEPLOY_WORKER_STALE_TIMEOUT_MS);
+    const timeout = Number.isFinite(configured) && configured > 0 ? configured : 2 * 60 * 60 * 1000;
+    const before = new Date(Date.now() - timeout);
+    const stale = await this.prisma.deployRun.findMany({
+      where: {
+        status: { in: [DeployRunStatus.RUNNING, DeployRunStatus.ROLLING_BACK] },
+        startedAt: { lt: before },
+      },
+      select: { id: true, currentStep: true },
+      take: 100,
+    });
+    for (const run of stale) {
+      const result = await this.prisma.deployRun.updateMany({
+        where: {
+          id: run.id,
+          status: { in: [DeployRunStatus.RUNNING, DeployRunStatus.ROLLING_BACK] },
+        },
+        data: {
+          status: DeployRunStatus.FAILED,
+          errorCode: 'DEPLOYMENT_WORKER_INTERRUPTED',
+          errorMessage: '部署执行器长时间未上报进度，任务已标记失败，可重新部署。',
+          completedAt: new Date(),
+          currentStep: null,
+        },
+      });
+      if (result.count && run.currentStep) {
+        await this.prisma.deployStep.updateMany({
+          where: { runId: run.id, key: run.currentStep },
+          data: {
+            status: DeployStepStatus.FAILED,
+            message: '执行器中断，任务已自动终止',
+            completedAt: new Date(),
+          },
+        });
+      }
+    }
+    if (stale.length) this.logger.warn(`已恢复 ${stale.length} 个中断的部署任务`);
   }
 
   private async execute(run: DeployRun, environment: DeployEnvironment): Promise<void> {

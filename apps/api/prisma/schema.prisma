@@ -57,6 +57,7 @@ model User {
   name            String
   avatarUrl       String?
   passwordHash    String
+  passwordConfiguredAt DateTime?
   status          UserStatus       @default(PENDING)
   emailVerifiedAt DateTime?
   lastActiveAt    DateTime?

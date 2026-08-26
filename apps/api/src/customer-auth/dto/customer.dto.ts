@@ -41,6 +41,6 @@ export class UpdateCustomerProfileDto {
   @IsOptional() @IsString() @MaxLength(2048) avatarUrl?: string | null;
 }
 export class ChangeCustomerPasswordDto {
-  @IsString() @MinLength(8) @MaxLength(72) currentPassword!: string;
+  @IsOptional() @IsString() @MinLength(8) @MaxLength(72) currentPassword?: string;
   @IsString() @MinLength(8) @MaxLength(72) newPassword!: string;
 }

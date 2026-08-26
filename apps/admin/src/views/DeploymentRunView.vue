@@ -31,6 +31,10 @@ const statusText = {
 const active = computed(
   () => run.value && ['queued', 'running', 'rolling_back'].includes(run.value.status),
 );
+const currentStepLabel = computed(() => {
+  if (!run.value?.currentStep) return '等待执行器领取任务';
+  return run.value.steps.find((step) => step.key === run.value?.currentStep)?.label ?? run.value.currentStep;
+});
 function append(next: DeploymentLogEntry[]): void {
   const known = new Set(logs.value.map((item) => item.id));
   logs.value.push(...next.filter((item) => !known.has(item.id)));
@@ -101,7 +105,7 @@ onBeforeUnmount(() => controller.abort());
           ><strong>{{ run.progress }}%</strong>
         </div>
         <div class="progress-track"><i :style="{ width: `${run.progress}%` }" /></div>
-        <p>{{ run.currentStep ? `当前步骤：${run.currentStep}` : '等待执行器领取任务' }}</p>
+        <p>当前步骤：{{ currentStepLabel }}</p>
         <div v-if="run.errorCode" class="run-error">
           <strong>{{ run.errorCode }}</strong
           ><span>{{ run.errorMessage }}</span>

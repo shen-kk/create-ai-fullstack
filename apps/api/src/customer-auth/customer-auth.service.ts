@@ -154,8 +154,13 @@ export class CustomerAuthService {
     if (!result) throw new NotFoundException('CUSTOMER_NOT_FOUND');
     return result;
   }
-  async changePassword(id: string, currentPassword: string, newPassword: string): Promise<void> {
-    if (currentPassword === newPassword) throw new ConflictException('PASSWORD_UNCHANGED');
+  async changePassword(
+    id: string,
+    currentPassword: string | undefined,
+    newPassword: string,
+  ): Promise<void> {
+    if (currentPassword && currentPassword === newPassword)
+      throw new ConflictException('PASSWORD_UNCHANGED');
     if (
       !(await this.customers.changePassword(
         id,

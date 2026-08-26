@@ -246,6 +246,7 @@ export interface CustomerProfile {
   createdAt: string;
   phoneVerifiedAt: string | null;
   emailVerifiedAt: string | null;
+  passwordConfigured: boolean;
 }
 export interface CustomerSummary extends CustomerProfile {
   lastActiveAt: string | null;
@@ -343,7 +344,7 @@ export interface UpdateCustomerProfileRequest {
   avatarUrl?: string | null;
 }
 export interface ChangeCustomerPasswordRequest {
-  currentPassword: string;
+  currentPassword?: string;
   newPassword: string;
 }
 export type IntegrationKind =
