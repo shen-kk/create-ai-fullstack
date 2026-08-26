@@ -130,7 +130,7 @@ export class DeploymentCheckService {
         });
         const output = await this.remote(
           client,
-          `set -e; command -v git; git --version; command -v curl; curl --version | head -1; command -v node; node --version; command -v pnpm; pnpm --version; command -v pm2; pm2 --version; df -Pk / | tail -1; mkdir -p '${input.deployPath.replaceAll("'", "'\\''")}/releases'; test -w '${input.deployPath.replaceAll("'", "'\\''")}'`,
+          `export PATH="$(npm prefix -g)/bin:$PATH"; set -e; command -v git; git --version; command -v curl; curl --version | head -1; command -v node; node --version; command -v pnpm; pnpm --version; command -v pm2; pm2 --version; df -Pk / | tail -1; mkdir -p '${input.deployPath.replaceAll("'", "'\\''")}/releases'; test -w '${input.deployPath.replaceAll("'", "'\\''")}'`,
         );
         checks.push({
           key: 'runtime',
@@ -164,23 +164,26 @@ export class DeploymentCheckService {
 
   private remote(client: Client, command: string): Promise<string> {
     return new Promise((resolve, reject) =>
-      client.exec(`bash -lc ${shellQuote(command)}`, (error, stream) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        let stdout = '',
-          stderr = '';
-        stream.on('data', (chunk: Buffer) => {
-          stdout += chunk.toString();
-        });
-        stream.stderr.on('data', (chunk: Buffer) => {
-          stderr += chunk.toString();
-        });
-        stream.once('close', (code: number | null) =>
-          code === 0 ? resolve(stdout) : reject(new Error(stderr)),
-        );
-      }),
+      client.exec(
+        `bash -lc ${shellQuote('export PATH="$(npm prefix -g)/bin:$PATH"; ' + command)}`,
+        (error, stream) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          let stdout = '',
+            stderr = '';
+          stream.on('data', (chunk: Buffer) => {
+            stdout += chunk.toString();
+          });
+          stream.stderr.on('data', (chunk: Buffer) => {
+            stderr += chunk.toString();
+          });
+          stream.once('close', (code: number | null) =>
+            code === 0 ? resolve(stdout) : reject(new Error(stderr)),
+          );
+        },
+      ),
     );
   }
 }

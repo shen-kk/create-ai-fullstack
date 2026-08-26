@@ -445,29 +445,32 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     writeLog = true,
   ): Promise<string> {
     return new Promise((resolve, reject) =>
-      client.exec(`bash -lc ${shell(command)}`, (error, stream) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        let stdout = '',
-          stderr = '';
-        stream.on('data', (chunk: Buffer) => {
-          const value = chunk.toString();
-          stdout += value;
-          if (writeLog) void this.log(runId, 'info', value);
-        });
-        stream.stderr.on('data', (chunk: Buffer) => {
-          const value = chunk.toString();
-          stderr += value;
-          if (writeLog) void this.log(runId, 'warn', value);
-        });
-        stream.once('close', (code: number | null) =>
-          code === 0
-            ? resolve(stdout)
-            : reject(new Error(stderr.trim() || `远程命令退出码 ${code ?? 'unknown'}`)),
-        );
-      }),
+      client.exec(
+        `bash -lc ${shell('export PATH="$(npm prefix -g)/bin:$PATH"; ' + command)}`,
+        (error, stream) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          let stdout = '',
+            stderr = '';
+          stream.on('data', (chunk: Buffer) => {
+            const value = chunk.toString();
+            stdout += value;
+            if (writeLog) void this.log(runId, 'info', value);
+          });
+          stream.stderr.on('data', (chunk: Buffer) => {
+            const value = chunk.toString();
+            stderr += value;
+            if (writeLog) void this.log(runId, 'warn', value);
+          });
+          stream.once('close', (code: number | null) =>
+            code === 0
+              ? resolve(stdout)
+              : reject(new Error(stderr.trim() || `远程命令退出码 ${code ?? 'unknown'}`)),
+          );
+        },
+      ),
     );
   }
   private uploadRuntimeEnvironment(
