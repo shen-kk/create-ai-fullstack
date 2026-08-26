@@ -188,6 +188,12 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       );
       await this.completeStep(run.id, 'install', 42, '依赖安装完成');
       await this.step(run.id, 'build', 46, '正在构建所选应用');
+      await this.command(
+        client,
+        run.id,
+        `cd ${shell(releasePath)} && pnpm --filter @template/contracts build`,
+      );
+      await this.log(run.id, 'info', '共享 contracts 构建完成');
       for (const unit of selectedUnits)
         await this.command(client, run.id, `cd ${shell(releasePath)} && ${unit.buildCommand}`);
       await this.completeStep(run.id, 'build', 64, '应用构建完成');
