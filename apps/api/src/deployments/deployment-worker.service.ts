@@ -465,11 +465,14 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
             stderr += value;
             if (writeLog) void this.log(runId, 'warn', value);
           });
-          stream.once('close', (code: number | null) =>
-            code === 0
-              ? resolve(stdout)
-              : reject(new Error(stderr.trim() || `远程命令退出码 ${code ?? 'unknown'}`)),
-          );
+          stream.once('close', (code: number | null) => {
+            if (code === 0) {
+              resolve(stdout);
+              return;
+            }
+            const detail = (stderr.trim() || stdout.trim()).slice(-8000);
+            reject(new Error(detail || `远程命令退出码 ${code ?? 'unknown'}`));
+          });
         },
       ),
     );
