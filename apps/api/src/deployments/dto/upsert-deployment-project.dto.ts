@@ -18,8 +18,13 @@ import type {
 class DeploymentUnitDefinitionDto implements DeploymentUnitDefinition {
   @Matches(/^[a-z][a-z0-9_-]{0,63}$/) key!: string;
   @IsString() @MaxLength(80) name!: string;
-  @Matches(/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,127}$/) service!: string;
-  @IsOptional() @IsString() @MaxLength(500) migrationCommand!: string | null;
+  @IsString() @MaxLength(500) @Matches(/^[^\r\n\0]+$/) buildCommand!: string;
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  @Matches(/^[^\r\n\0]+$/)
+  migrationCommand!: string | null;
+  @IsString() @MaxLength(500) @Matches(/^[^\r\n\0]+$/) restartCommand!: string;
   @IsOptional() @IsString() @MaxLength(500) healthCheckUrl!: string | null;
 }
 
@@ -37,8 +42,8 @@ export class UpsertDeploymentProjectDto implements UpsertDeploymentProjectReques
   @IsString() @MaxLength(80) name!: string;
   @Matches(/^[a-z][a-z0-9_-]{0,63}$/) code!: string;
   @IsOptional() @IsString() @MaxLength(300) description?: string;
-  @IsIn(['docker-compose']) type!: UpsertDeploymentProjectRequest['type'];
-  @Matches(/^[a-zA-Z0-9][a-zA-Z0-9_./-]{0,199}$/) composeFile!: string;
+  @IsIn(['release-directory']) type!: UpsertDeploymentProjectRequest['type'];
+  @IsString() @MaxLength(500) @Matches(/^[^\r\n\0]+$/) installCommand!: string;
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => DeploymentUnitDefinitionDto)

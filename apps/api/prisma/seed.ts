@@ -1,4 +1,5 @@
-import { DeployEnvironmentKind, PermissionType, PrismaClient, UserStatus } from '@prisma/client';
+import { PermissionType, PrismaClient, UserStatus } from '@prisma/client';
+import type { DeployEnvironmentKind } from '@prisma/client';
 import { permissionCatalog } from '@template/contracts';
 import { createCipheriv, createHash, randomBytes, scrypt } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -101,6 +102,77 @@ async function seedIntegrationConfigs(): Promise<void> {
 }
 
 async function seedDeploymentEnvironment(): Promise<void> {
+  const project = await prisma.deployProject.upsert({
+    where: { code: 'aiforge-fullstack' },
+    update: {
+      description: '基于不可变版本目录、current 软链接与 PM2 进程管理的 AIForge 发布预设。',
+      type: 'release-directory',
+      installCommand: 'corepack pnpm install --frozen-lockfile',
+      units: [
+        {
+          key: 'admin',
+          name: '后台管理',
+          buildCommand: 'corepack pnpm --filter @template/admin build',
+          migrationCommand: null,
+          restartCommand: 'true',
+          healthCheckUrl: null,
+        },
+        {
+          key: 'api',
+          name: 'API 服务',
+          buildCommand: 'corepack pnpm --filter @template/api build',
+          migrationCommand: 'corepack pnpm --filter @template/api exec prisma migrate deploy',
+          restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-api --update-env',
+          healthCheckUrl: null,
+        },
+        {
+          key: 'web',
+          name: '用户端',
+          buildCommand: 'corepack pnpm --filter @template/web build',
+          migrationCommand: null,
+          restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-web --update-env',
+          healthCheckUrl: null,
+        },
+      ],
+      variables: [],
+      system: true,
+    },
+    create: {
+      name: 'AIForge 全栈项目',
+      code: 'aiforge-fullstack',
+      description: '基于不可变版本目录、current 软链接与 PM2 进程管理的 AIForge 发布预设。',
+      type: 'release-directory',
+      installCommand: 'corepack pnpm install --frozen-lockfile',
+      units: [
+        {
+          key: 'admin',
+          name: '后台管理',
+          buildCommand: 'corepack pnpm --filter @template/admin build',
+          migrationCommand: null,
+          restartCommand: 'true',
+          healthCheckUrl: null,
+        },
+        {
+          key: 'api',
+          name: 'API 服务',
+          buildCommand: 'corepack pnpm --filter @template/api build',
+          migrationCommand: 'corepack pnpm --filter @template/api exec prisma migrate deploy',
+          restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-api --update-env',
+          healthCheckUrl: null,
+        },
+        {
+          key: 'web',
+          name: '用户端',
+          buildCommand: 'corepack pnpm --filter @template/web build',
+          migrationCommand: null,
+          restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-web --update-env',
+          healthCheckUrl: null,
+        },
+      ],
+      variables: [],
+      system: true,
+    },
+  });
   const path = process.env.TEMPLATE_BOOTSTRAP_FILE;
   if (!path) return;
   const source = JSON.parse(await readFile(path, 'utf8')) as {
@@ -117,42 +189,6 @@ async function seedDeploymentEnvironment(): Promise<void> {
     webUrl: item.webUrl ?? null,
     healthCheckUrl: item.healthCheckUrl ?? null,
   };
-  const project = await prisma.deployProject.upsert({
-    where: { code: 'aiforge-fullstack' },
-    update: {},
-    create: {
-      name: 'AIForge 全栈项目',
-      code: 'aiforge-fullstack',
-      description: '由模板初始化生成的 Admin、API 与 Web Docker Compose 部署预设。',
-      composeFile: 'docker-compose.production.yml',
-      units: [
-        {
-          key: 'admin',
-          name: '后台管理',
-          service: 'admin',
-          migrationCommand: null,
-          healthCheckUrl: null,
-        },
-        {
-          key: 'api',
-          name: 'API 服务',
-          service: 'api',
-          migrationCommand:
-            './node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma',
-          healthCheckUrl: '/api/health/ready',
-        },
-        {
-          key: 'web',
-          name: '用户端',
-          service: 'web',
-          migrationCommand: null,
-          healthCheckUrl: null,
-        },
-      ],
-      variables: [],
-      system: true,
-    },
-  });
   await prisma.deployEnvironment.upsert({
     where: { name: item.name },
     create: {

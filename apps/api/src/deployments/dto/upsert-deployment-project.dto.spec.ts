@@ -7,14 +7,15 @@ import { UpsertDeploymentProjectDto } from './upsert-deployment-project.dto.js';
 const validProject = {
   name: '商城服务',
   code: 'mall-platform',
-  type: 'docker-compose',
-  composeFile: 'deploy/compose.yml',
+  type: 'release-directory',
+  installCommand: 'corepack pnpm install --frozen-lockfile',
   units: [
     {
       key: 'order-service',
       name: '订单服务',
-      service: 'orders',
+      buildCommand: 'corepack pnpm --filter @mall/orders build',
       migrationCommand: null,
+      restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only mall-orders --update-env',
       healthCheckUrl: null,
     },
   ],
@@ -35,10 +36,10 @@ describe('UpsertDeploymentProjectDto', () => {
     expect(await validate(dto)).toHaveLength(0);
   });
 
-  it('拒绝可能注入命令的单元代码和 Compose 路径', async () => {
+  it('拒绝可能注入命令的单元代码和多行命令', async () => {
     const dto = plainToInstance(UpsertDeploymentProjectDto, {
       ...validProject,
-      composeFile: '../compose.yml',
+      installCommand: 'pnpm install\nrm -rf /tmp/example',
       units: [{ ...validProject.units[0], key: 'orders;rm' }],
     });
     expect((await validate(dto)).length).toBeGreaterThan(0);

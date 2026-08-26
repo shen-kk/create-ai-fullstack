@@ -116,6 +116,7 @@ export const featureCatalog = Object.freeze([
     requires: [],
     modules: { deploymentCenter: true },
     ownedPaths: [
+      'ecosystem.config.cjs',
       'apps/api/src/deployments',
       'apps/api/src/worker-main.ts',
       'apps/admin/src/api/deployments.ts',

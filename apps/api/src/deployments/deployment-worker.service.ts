@@ -8,11 +8,17 @@ import {
 import { Client, type ConnectConfig } from 'ssh2';
 import { PrismaService } from '../database/prisma.service.js';
 import { decryptDeploymentSecrets } from './deployment-secrets.js';
+import {
+  atomicReleaseSwitchCommand,
+  deploymentHealthCheckCommand,
+  shellQuote as shell,
+} from './deployment-release-commands.js';
 
 interface DeploymentExecutionUnit {
   key: string;
-  service: string;
+  buildCommand: string;
   migrationCommand: string | null;
+  restartCommand: string;
   healthCheckUrl: string | null;
 }
 interface DeploymentExecutionSnapshot {
@@ -22,13 +28,12 @@ interface DeploymentExecutionSnapshot {
     code: string;
     version: number;
     type: string;
-    composeFile: string;
+    installCommand: string;
     units: DeploymentExecutionUnit[];
     variables: Array<{ key: string; required: boolean; secret: boolean }>;
   };
 }
 
-const shell = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
 const terminalStatuses: DeployRunStatus[] = [
   DeployRunStatus.SUCCEEDED,
   DeployRunStatus.FAILED,
@@ -126,15 +131,18 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
 
   private async execute(run: DeployRun, environment: DeployEnvironment): Promise<void> {
     const client = new Client();
+    let previousTarget = '';
+    let switched = false;
+    let selectedUnits: DeploymentExecutionUnit[] = [];
     try {
       await this.step(run.id, 'prepare', 5, '正在连接服务器并检查运行环境');
       await this.connect(client, environment);
       await this.command(
         client,
         run.id,
-        'command -v git >/dev/null && command -v docker >/dev/null && docker compose version >/dev/null && df -Pk / | tail -1',
+        'command -v git >/dev/null && command -v curl >/dev/null && df -Pk / | tail -1',
       );
-      await this.completeStep(run.id, 'prepare', 12, '服务器具备 Git、Docker 和 Docker Compose');
+      await this.completeStep(run.id, 'prepare', 10, '服务器具备 Git、curl 和可用磁盘空间');
       if (run.releaseId) {
         await this.executeRollback(client, run, environment);
         return;
@@ -146,7 +154,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
         .slice(0, 14)}-${run.id.slice(-6)}`;
       const releasePath = `${environment.deployPath}/releases/${release}`;
       const secrets = decryptDeploymentSecrets(environment.encryptedSecrets);
-      await this.step(run.id, 'checkout', 18, `正在获取 ${run.gitRef}`);
+      await this.step(run.id, 'checkout', 14, `正在获取 ${run.gitRef}`);
       await this.command(
         client,
         run.id,
@@ -167,21 +175,21 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
         await this.command(client, run.id, `git -C ${shell(releasePath)} rev-parse HEAD`, false)
       ).trim();
       await this.prisma.deployRun.update({ where: { id: run.id }, data: { commitSha } });
-      await this.completeStep(run.id, 'checkout', 28, `已获取提交 ${commitSha.slice(0, 12)}`);
+      await this.completeStep(run.id, 'checkout', 24, `已获取提交 ${commitSha.slice(0, 12)}`);
 
-      await this.step(run.id, 'build', 35, '正在构建所选应用');
-      const selectedUnits = snapshot.project.units.filter((unit) =>
-        run.applications.includes(unit.key),
-      );
+      selectedUnits = snapshot.project.units.filter((unit) => run.applications.includes(unit.key));
       if (!selectedUnits.length) throw new Error('未选择可部署的应用单元');
-      const services = selectedUnits.map((unit) => shell(unit.service)).join(' ');
-      const compose = `docker compose -p ${shell(`aiforge-${environment.id}`)} -f ${shell(snapshot.project.composeFile)}`;
+      await this.step(run.id, 'install', 28, '正在安装锁定依赖');
       await this.command(
         client,
         run.id,
-        `cd ${shell(releasePath)} && ${compose} build ${services}`,
+        `cd ${shell(releasePath)} && ${snapshot.project.installCommand}`,
       );
-      await this.completeStep(run.id, 'build', 62, '容器镜像构建完成');
+      await this.completeStep(run.id, 'install', 42, '依赖安装完成');
+      await this.step(run.id, 'build', 46, '正在构建所选应用');
+      for (const unit of selectedUnits)
+        await this.command(client, run.id, `cd ${shell(releasePath)} && ${unit.buildCommand}`);
+      await this.completeStep(run.id, 'build', 64, '应用构建完成');
       const migrations = selectedUnits.filter((unit) => unit.migrationCommand);
       if (migrations.length) {
         await this.step(run.id, 'migrate', 64, '正在执行待应用的数据库迁移');
@@ -189,41 +197,49 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
           await this.command(
             client,
             run.id,
-            `cd ${shell(releasePath)} && ${compose} run --rm ${shell(unit.service)} sh -lc ${shell(unit.migrationCommand ?? '')}`,
+            `cd ${shell(releasePath)} && ${unit.migrationCommand}`,
           );
-        await this.completeStep(run.id, 'migrate', 67, '数据库迁移完成');
+        await this.completeStep(run.id, 'migrate', 70, '数据库迁移完成');
       }
-      await this.skipStep(run.id, 'upload', 68, '采用服务器端拉取与构建，无需上传制品');
-
-      await this.step(run.id, 'start', 72, '正在启动新版本');
+      await this.step(run.id, 'switch', 74, '正在原子切换当前版本');
+      previousTarget = (
+        await this.command(
+          client,
+          run.id,
+          `readlink -f ${shell(`${environment.deployPath}/current`)} 2>/dev/null || true`,
+          false,
+        )
+      ).trim();
       await this.command(
         client,
         run.id,
-        `cd ${shell(releasePath)} && ${compose} up -d ${services}`,
+        atomicReleaseSwitchCommand(environment.deployPath, releasePath),
       );
-      await this.completeStep(run.id, 'start', 82, '新版本容器已启动');
+      switched = true;
+      await this.completeStep(run.id, 'switch', 78, '当前目录已切换到新版本');
 
-      await this.step(run.id, 'health', 86, '正在执行健康检查');
-      if (environment.healthCheckUrl)
+      await this.step(run.id, 'restart', 80, '正在重启所选应用');
+      for (const unit of selectedUnits)
         await this.command(
           client,
           run.id,
-          `for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS --max-time 5 ${shell(environment.healthCheckUrl)} && exit 0; sleep 3; done; exit 1`,
+          `cd ${shell(`${environment.deployPath}/current`)} && ${unit.restartCommand}`,
         );
+      await this.completeStep(run.id, 'restart', 88, '应用重启完成');
+
+      await this.step(run.id, 'health', 90, '正在执行健康检查');
+      const healthUrls = [
+        environment.healthCheckUrl,
+        ...selectedUnits.map((unit) => unit.healthCheckUrl),
+      ].filter((value): value is string => Boolean(value));
+      if (healthUrls.length)
+        for (const url of [...new Set(healthUrls)])
+          await this.command(client, run.id, deploymentHealthCheckCommand(url));
       else
-        await this.command(
-          client,
-          run.id,
-          `cd ${shell(releasePath)} && ${compose} ps --status running`,
-        );
+        await this.command(client, run.id, `test -L ${shell(`${environment.deployPath}/current`)}`);
       await this.completeStep(run.id, 'health', 94, '健康检查通过');
 
-      await this.step(run.id, 'switch', 96, '正在记录并切换当前版本');
-      await this.command(
-        client,
-        run.id,
-        `ln -sfn ${shell(releasePath)} ${shell(`${environment.deployPath}/current`)}`,
-      );
+      await this.step(run.id, 'finalize', 96, '正在记录发布版本');
       await this.assertActive(run.id);
       const releaseRow = await this.prisma.deployRelease.create({
         data: {
@@ -249,7 +265,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
           },
         }),
         this.prisma.deployStep.update({
-          where: { runId_key: { runId: run.id, key: 'switch' } },
+          where: { runId_key: { runId: run.id, key: 'finalize' } },
           data: {
             status: DeployStepStatus.SUCCEEDED,
             progress: 100,
@@ -260,6 +276,32 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       ]);
       await this.log(run.id, 'info', `部署成功：${release} (${commitSha.slice(0, 12)})`);
     } catch (error) {
+      if (switched) {
+        try {
+          if (previousTarget) {
+            await this.command(
+              client,
+              run.id,
+              atomicReleaseSwitchCommand(environment.deployPath, previousTarget),
+            );
+            for (const unit of selectedUnits)
+              await this.command(
+                client,
+                run.id,
+                `cd ${shell(`${environment.deployPath}/current`)} && ${unit.restartCommand}`,
+              );
+            await this.log(run.id, 'warn', '新版本失败，已自动恢复上一运行版本');
+          } else {
+            await this.command(
+              client,
+              run.id,
+              `rm -f ${shell(`${environment.deployPath}/current`)}`,
+            );
+          }
+        } catch (rollbackError) {
+          await this.log(run.id, 'error', `自动恢复失败：${this.safeMessage(rollbackError)}`);
+        }
+      }
       const current = await this.prisma.deployRun.findUnique({ where: { id: run.id } });
       if (current && !terminalStatuses.includes(current.status)) {
         const message = this.safeMessage(error);
@@ -317,39 +359,58 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       where: { id: environment.projectId },
     });
     if (!project) throw new Error('部署项目不存在');
-    const units = project.units as unknown as DeploymentExecutionUnit[];
-    const services = units
-      .filter((unit) => release.applications.includes(unit.key))
-      .map((unit) => shell(unit.service))
-      .join(' ');
-    const compose = `docker compose -p ${shell(`aiforge-${environment.id}`)} -f ${shell(project.composeFile)}`;
-    await this.step(run.id, 'start', 40, `正在启动历史版本 ${release.version}`);
-    await this.command(
-      client,
-      run.id,
-      `test -f ${shell(`${releasePath}/${project.composeFile}`)} && cd ${shell(releasePath)} && ${compose} up -d ${services}`,
+    const units = (project.units as unknown as DeploymentExecutionUnit[]).filter((unit) =>
+      release.applications.includes(unit.key),
     );
-    await this.completeStep(run.id, 'start', 70, '历史版本容器已启动');
-    await this.step(run.id, 'health', 78, '正在检查回滚版本');
-    if (environment.healthCheckUrl)
+    const previousTarget = (
       await this.command(
         client,
         run.id,
-        `for i in 1 2 3 4 5 6 7 8 9 10; do curl -fsS --max-time 5 ${shell(environment.healthCheckUrl)} && exit 0; sleep 3; done; exit 1`,
-      );
-    else
-      await this.command(
-        client,
-        run.id,
-        `cd ${shell(releasePath)} && ${compose} ps --status running`,
-      );
-    await this.completeStep(run.id, 'health', 90, '回滚版本健康检查通过');
-    await this.step(run.id, 'switch', 95, '正在切换当前版本');
+        `readlink -f ${shell(`${environment.deployPath}/current`)} 2>/dev/null || true`,
+        false,
+      )
+    ).trim();
+    await this.step(run.id, 'switch', 40, `正在切换到历史版本 ${release.version}`);
+    await this.command(client, run.id, `test -d ${shell(releasePath)}`);
     await this.command(
       client,
       run.id,
-      `ln -sfn ${shell(releasePath)} ${shell(`${environment.deployPath}/current`)}`,
+      atomicReleaseSwitchCommand(environment.deployPath, releasePath),
     );
+    try {
+      await this.completeStep(run.id, 'switch', 55, '历史版本目录切换完成');
+      await this.step(run.id, 'restart', 60, '正在重启历史版本');
+      for (const unit of units)
+        await this.command(
+          client,
+          run.id,
+          `cd ${shell(`${environment.deployPath}/current`)} && ${unit.restartCommand}`,
+        );
+      await this.completeStep(run.id, 'restart', 75, '历史版本已重启');
+      await this.step(run.id, 'health', 80, '正在检查回滚版本');
+      const healthUrls = [
+        environment.healthCheckUrl,
+        ...units.map((unit) => unit.healthCheckUrl),
+      ].filter((value): value is string => Boolean(value));
+      for (const url of [...new Set(healthUrls)])
+        await this.command(client, run.id, deploymentHealthCheckCommand(url));
+      await this.completeStep(run.id, 'health', 90, '回滚版本健康检查通过');
+    } catch (error) {
+      if (previousTarget) {
+        await this.command(
+          client,
+          run.id,
+          atomicReleaseSwitchCommand(environment.deployPath, previousTarget),
+        );
+        for (const unit of units)
+          await this.command(
+            client,
+            run.id,
+            `cd ${shell(`${environment.deployPath}/current`)} && ${unit.restartCommand}`,
+          );
+      }
+      throw error;
+    }
     await this.assertActive(run.id);
     await this.prisma.$transaction([
       this.prisma.deployEnvironment.update({
@@ -366,7 +427,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
         },
       }),
       this.prisma.deployStep.update({
-        where: { runId_key: { runId: run.id, key: 'switch' } },
+        where: { runId_key: { runId: run.id, key: 'health' } },
         data: {
           status: DeployStepStatus.SUCCEEDED,
           progress: 100,
@@ -422,9 +483,12 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       try {
         const databaseUrl = new URL(secrets.databaseUrl);
         if (databaseUrl.protocol === 'postgresql:' || databaseUrl.protocol === 'postgres:') {
-          if (databaseUrl.username) databaseValues.POSTGRES_USER = decodeURIComponent(databaseUrl.username);
-          if (databaseUrl.password) databaseValues.POSTGRES_PASSWORD = decodeURIComponent(databaseUrl.password);
-          if (databaseUrl.pathname.slice(1)) databaseValues.POSTGRES_DB = decodeURIComponent(databaseUrl.pathname.slice(1));
+          if (databaseUrl.username)
+            databaseValues.POSTGRES_USER = decodeURIComponent(databaseUrl.username);
+          if (databaseUrl.password)
+            databaseValues.POSTGRES_PASSWORD = decodeURIComponent(databaseUrl.password);
+          if (databaseUrl.pathname.slice(1))
+            databaseValues.POSTGRES_DB = decodeURIComponent(databaseUrl.pathname.slice(1));
         }
       } catch {
         // DATABASE_URL 的格式校验由 API/迁移步骤负责，这里不阻断其他变量写入。
@@ -442,8 +506,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       CUSTOMER_JWT_REFRESH_SECRET: secrets.customerJwtRefreshSecret ?? '',
       ADMIN_ORIGIN:
         environment.adminUrl ?? process.env.ADMIN_ORIGIN ?? `http://${environment.host}:3000`,
-      WEB_ORIGIN:
-        environment.webUrl ?? process.env.WEB_ORIGIN ?? `http://${environment.host}:3002`,
+      WEB_ORIGIN: environment.webUrl ?? process.env.WEB_ORIGIN ?? `http://${environment.host}:3002`,
       PUBLIC_API_BASE_URL:
         (environment.environmentValues as Record<string, string>).PUBLIC_API_BASE_URL ??
         environment.apiUrl ??
@@ -476,30 +539,10 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     );
   }
   private snapshot(run: DeployRun): DeploymentExecutionSnapshot {
-    if (!run.executionSnapshot) {
-      return {
-        schemaVersion: 0,
-        project: {
-          id: 'legacy',
-          code: 'legacy-aiforge',
-          version: 0,
-          type: 'docker-compose',
-          composeFile: 'docker-compose.production.yml',
-          units: run.applications.map((key) => ({
-            key,
-            service: key,
-            migrationCommand:
-              key === 'api'
-                ? './node_modules/.bin/prisma migrate deploy --schema apps/api/prisma/schema.prisma'
-                : null,
-            healthCheckUrl: null,
-          })),
-          variables: [],
-        },
-      };
-    }
+    if (!run.executionSnapshot) throw new Error('部署任务缺少执行快照，请重新创建任务');
     return run.executionSnapshot as unknown as DeploymentExecutionSnapshot;
   }
+
   private gitCloneCommand(
     environment: DeployEnvironment,
     ref: string,
@@ -556,20 +599,6 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       }),
     ]);
     await this.log(runId, 'info', message);
-  }
-  private async skipStep(
-    runId: string,
-    key: string,
-    progress: number,
-    message: string,
-  ): Promise<void> {
-    await this.prisma.$transaction([
-      this.prisma.deployRun.update({ where: { id: runId }, data: { progress } }),
-      this.prisma.deployStep.update({
-        where: { runId_key: { runId, key } },
-        data: { status: DeployStepStatus.SKIPPED, progress: 100, message, completedAt: new Date() },
-      }),
-    ]);
   }
   private async log(runId: string, level: 'info' | 'warn' | 'error', raw: string): Promise<void> {
     const message = raw.replace(/[\r\n]+$/g, '').slice(0, 8000);

@@ -15,6 +15,7 @@ const session = (accessToken: string): CustomerSession => ({
     createdAt: '2026-08-03T00:00:00.000Z',
     phoneVerifiedAt: '2026-08-03T00:00:00.000Z',
     emailVerifiedAt: null,
+    passwordConfigured: false,
   },
 });
 
@@ -97,5 +98,20 @@ describe('customer session API client', () => {
     await expect(api.logout()).rejects.toThrow('网络连接失败，请稍后重试');
     expect(api.customer.value).toBeNull();
     expect(api.accessToken.value).toBe('');
+  });
+
+  it('marks the current customer password as configured after the first setup', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(session('access-token')))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetchMock);
+    const { useCustomerSession } = await import('../app/composables/useCustomerSession.js');
+    const api = useCustomerSession();
+
+    await api.login({ phone: '13800000000', password: 'Customer@123' });
+    expect(api.customer.value?.passwordConfigured).toBe(false);
+    await api.changePassword({ newPassword: 'Customer@456' });
+    expect(api.customer.value?.passwordConfigured).toBe(true);
   });
 });

@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
-import type { IntegrationConfig, Prisma } from '@prisma/client';
+import type { CustomerAuthSetting, IntegrationConfig, Prisma } from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 describe('Admin API HTTP workflow', () => {
@@ -17,6 +17,7 @@ describe('Admin API HTTP workflow', () => {
   let api: ChildProcess,
     accessToken = '';
   let previousSqlConfig: IntegrationConfig | null = null;
+  let previousCustomerAuthSetting: CustomerAuthSetting | null = null;
   const prisma = new PrismaClient();
   const issueCode = async (
     channel: 'sms' | 'email',
@@ -48,6 +49,14 @@ describe('Admin API HTTP workflow', () => {
       throw new Error(
         'E2E requires DEV_ADMIN_PHONE and DEV_ADMIN_PASSWORD from the private environment',
       );
+    previousCustomerAuthSetting = await prisma.customerAuthSetting.findUnique({
+      where: { id: 1 },
+    });
+    await prisma.customerAuthSetting.upsert({
+      where: { id: 1 },
+      create: { id: 1, mode: 'phone' },
+      update: { mode: 'phone' },
+    });
     api = spawn(process.execPath, ['dist/src/main.js'], {
       cwd: process.cwd(),
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -113,6 +122,15 @@ describe('Admin API HTTP workflow', () => {
           encryptedSecrets: previousSqlConfig.encryptedSecrets,
         },
       });
+    }
+    if (previousCustomerAuthSetting) {
+      await prisma.customerAuthSetting.upsert({
+        where: { id: 1 },
+        create: previousCustomerAuthSetting,
+        update: previousCustomerAuthSetting,
+      });
+    } else {
+      await prisma.customerAuthSetting.deleteMany({ where: { id: 1 } });
     }
     await prisma.$disconnect();
   });
@@ -227,20 +245,35 @@ describe('Admin API HTTP workflow', () => {
     expect(register.status).toBe(201);
     const primary = (await register.json()) as {
       accessToken: string;
-      customer: { name: string; email: string | null };
+      customer: { name: string; email: string | null; passwordConfigured: boolean };
     };
-    const initialPasswordCode = await issueCode('sms', phone, 'reset_password');
-    const initialPassword = await fetch(`${baseUrl}/customer-auth/password/reset`, {
+    expect(primary.customer.passwordConfigured).toBe(false);
+    const initialPassword = await fetch(`${baseUrl}/customer-auth/password`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: {
+        authorization: `Bearer ${primary.accessToken}`,
+        'content-type': 'application/json',
+      },
       body: JSON.stringify({
-        channel: 'sms',
-        identifier: phone,
-        code: initialPasswordCode,
         newPassword: 'Customer@123',
       }),
     });
     expect(initialPassword.status).toBe(204);
+    const configuredProfile = await fetch(`${baseUrl}/customer-auth/me`, {
+      headers: { authorization: `Bearer ${primary.accessToken}` },
+    });
+    expect(configuredProfile.status).toBe(200);
+    expect(await configuredProfile.json()).toMatchObject({ passwordConfigured: true });
+
+    const missingCurrentPassword = await fetch(`${baseUrl}/customer-auth/password`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${primary.accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ newPassword: 'Customer@456' }),
+    });
+    expect(missingCurrentPassword.status).toBe(401);
 
     const avatarBody = new FormData();
     avatarBody.append('file', new Blob(['avatar'], { type: 'image/png' }), 'avatar.png');

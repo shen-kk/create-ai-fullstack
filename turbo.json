@@ -28,7 +28,23 @@
     "lint": { "dependsOn": ["^build", "^lint"] },
     "typecheck": { "dependsOn": ["^build", "^typecheck"] },
     "test": { "dependsOn": ["^build"], "outputs": [] },
-    "test:e2e": { "dependsOn": ["build"], "cache": false },
+    "test:e2e": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "env": [
+        "DATABASE_URL",
+        "API_PORT",
+        "JWT_ACCESS_SECRET",
+        "JWT_REFRESH_SECRET",
+        "CUSTOMER_JWT_ACCESS_SECRET",
+        "CUSTOMER_JWT_REFRESH_SECRET",
+        "CONFIG_ENCRYPTION_KEY",
+        "DEV_ADMIN_EMAIL",
+        "DEV_ADMIN_PHONE",
+        "DEV_ADMIN_NAME",
+        "DEV_ADMIN_PASSWORD"
+      ]
+    },
     "db:generate": { "cache": false },
     "db:migrate": { "cache": false }
   }

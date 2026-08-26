@@ -24,12 +24,12 @@ const form = ref<UpsertDeploymentProjectRequest>({
   name: '',
   code: '',
   description: '',
-  type: 'docker-compose',
-  composeFile: 'docker-compose.production.yml',
+  type: 'release-directory',
+  installCommand: 'corepack pnpm install --frozen-lockfile',
   units: [],
   variables: [],
 });
-const typeOptions = [{ value: 'docker-compose', label: 'Docker Compose' }];
+const typeOptions = [{ value: 'release-directory', label: '版本目录 + PM2' }];
 const resourceOptions = [
   { value: '', label: '普通变量，不绑定资源' },
   { value: 'sql', label: 'SQL 数据库' },
@@ -42,8 +42,9 @@ function addUnit(): void {
   form.value.units.push({
     key: '',
     name: '',
-    service: '',
+    buildCommand: '',
     migrationCommand: null,
+    restartCommand: '',
     healthCheckUrl: null,
   });
 }
@@ -71,7 +72,7 @@ async function load(): Promise<void> {
       code: project.code,
       description: project.description ?? '',
       type: project.type,
-      composeFile: project.composeFile,
+      installCommand: project.installCommand,
       units: structuredClone(project.units),
       variables: structuredClone(project.variables),
     };
@@ -135,11 +136,11 @@ onMounted(load);
             ><AppSelect v-model="form.type" :options="typeOptions" aria-label="部署方式"
           /></label>
           <label
-            ><span>Compose 文件</span
+            ><span>安装依赖命令</span
             ><input
-              v-model.trim="form.composeFile"
+              v-model.trim="form.installCommand"
               required
-              placeholder="docker-compose.production.yml"
+              placeholder="corepack pnpm install --frozen-lockfile"
           /></label>
           <label class="wide"
             ><span>项目说明</span
@@ -149,7 +150,9 @@ onMounted(load);
       </fieldset>
       <fieldset>
         <div class="fieldset-heading">
-          <div><strong>部署单元</strong><small>对应 Compose 中可独立构建和启动的服务。</small></div>
+          <div>
+            <strong>部署单元</strong><small>每个单元配置构建、迁移、重启和健康检查命令。</small>
+          </div>
           <button class="secondary-button" type="button" @click="addUnit">添加单元</button>
         </div>
         <div class="definition-list">
@@ -161,7 +164,11 @@ onMounted(load);
               /></label>
               <label><span>显示名称</span><input v-model.trim="unit.name" required /></label>
               <label
-                ><span>Compose 服务名</span><input v-model.trim="unit.service" required
+                ><span>构建命令</span
+                ><input
+                  v-model.trim="unit.buildCommand"
+                  required
+                  placeholder="corepack pnpm --filter @scope/api build"
               /></label>
               <label
                 ><span>健康检查地址</span
@@ -169,7 +176,14 @@ onMounted(load);
               /></label>
               <label class="wide"
                 ><span>启动前迁移命令</span
-                ><input v-model.trim="unit.migrationCommand" placeholder="可选；在该服务容器中执行"
+                ><input v-model.trim="unit.migrationCommand" placeholder="可选；在新版本目录中执行"
+              /></label>
+              <label class="wide"
+                ><span>重启命令</span
+                ><input
+                  v-model.trim="unit.restartCommand"
+                  required
+                  placeholder="pm2 startOrReload ecosystem.config.cjs --only my-api --update-env"
               /></label>
             </div>
             <button class="danger-link" type="button" @click="removeUnit(index)">移除此单元</button>
@@ -230,7 +244,7 @@ onMounted(load);
         </div>
       </fieldset>
       <p class="security-note">
-        Git、服务器与服务密钥在部署环境中绑定；部署项目只保存可审查的构建定义。
+        Git、服务器与服务密钥在部署环境中绑定。Node.js 服务由 PM2 托管，配置文件随项目代码发布。
       </p>
       <footer>
         <button

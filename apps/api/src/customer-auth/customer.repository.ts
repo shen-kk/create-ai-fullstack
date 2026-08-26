@@ -81,7 +81,7 @@ export class CustomerRepository {
         ...(channel === 'sms' ? { phone: identifier } : { email: identifier }),
         status: UserStatus.ACTIVE,
       },
-      data: { passwordHash },
+      data: { passwordHash, passwordConfiguredAt: new Date() },
     });
     return result.count > 0;
   }
@@ -129,16 +129,20 @@ export class CustomerRepository {
   ): Promise<boolean> {
     const record = await this.prisma.customer.findUnique({ where: { id } });
     if (!record) return false;
-    if (
-      record.passwordConfiguredAt &&
-      (!currentPassword || !(await verifyScryptPassword(currentPassword, record.passwordHash)))
-    )
+    if (!record.passwordConfiguredAt) {
+      const initialized = await this.prisma.customer.updateMany({
+        where: { id, passwordConfiguredAt: null },
+        data: { passwordHash, passwordConfiguredAt: new Date() },
+      });
+      return initialized.count === 1;
+    }
+    if (!currentPassword || !(await verifyScryptPassword(currentPassword, record.passwordHash)))
       return false;
-    await this.prisma.customer.update({
-      where: { id },
+    const changed = await this.prisma.customer.updateMany({
+      where: { id, passwordHash: record.passwordHash },
       data: { passwordHash, passwordConfiguredAt: new Date() },
     });
-    return true;
+    return changed.count === 1;
   }
 
   async list(query: CustomerListQuery): Promise<CustomerListResponse> {

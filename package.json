@@ -33,8 +33,8 @@
     "db:generate": "pnpm --filter @template/api db:generate",
     "db:migrate": "pnpm --filter @template/api db:migrate",
     "db:seed": "pnpm --filter @template/api db:seed",
-    "format": "prettier --write package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps packages scripts docs .github --ignore-unknown",
-    "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json eslint.config.mjs project.config.schema.json README.md AGENTS.md apps packages scripts docs .github --ignore-unknown"
+    "format": "prettier --write package.json pnpm-workspace.yaml turbo.json eslint.config.mjs ecosystem.config.cjs project.config.schema.json README.md AGENTS.md apps packages scripts docs .github --ignore-unknown",
+    "format:check": "prettier --check package.json pnpm-workspace.yaml turbo.json eslint.config.mjs ecosystem.config.cjs project.config.schema.json README.md AGENTS.md apps packages scripts docs .github --ignore-unknown"
   },
   "devDependencies": {
     "@clack/prompts": "1.7.0",

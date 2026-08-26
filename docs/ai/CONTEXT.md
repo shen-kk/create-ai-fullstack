@@ -6,7 +6,7 @@
 
 ## 当前事实
 
-- 部署中心不再要求仓库提交 `aiforge.deploy.yml`，也不再把部署单元固定为 Admin/API/Web。后台一级菜单为“项目管理”，进入项目后查看环境；“部署项目”保存 Compose 文件、动态服务单元、迁移命令、健康检查和变量要求。环境必须绑定 Git、服务器及项目声明所需的 SQL/Redis 资源，发起任务时生成不可变执行快照；不再提供未绑定资源时的备用输入。服务器资源保存默认部署根目录，环境绑定后必须确认实际部署路径，任务使用环境路径。AIForge 三端只是系统预设，其他 Docker Compose 项目可新增独立项目定义。决策见 ADR-0011、ADR-0012。
+- 部署中心不要求仓库提交部署清单，也不把部署单元固定为 Admin/API/Web。部署项目保存依赖安装和各单元的构建、迁移、重启、健康检查命令；Worker 在不可变 release 目录构建，原子切换 `current`，由 PM2 托管 Node.js 进程，失败时恢复旧目录并重载。环境必须绑定 Git、服务器及项目声明所需的 SQL/Redis 资源。决策见 ADR-0011、ADR-0012、ADR-0015。
 - 部署命令不在 API HTTP 进程内执行。独立 Deploy Worker 通过 `pnpm dev:worker` 或构建后的 `start:worker` 领取数据库任务；Worker 不得加入它管理的业务部署项目，避免 AIForge 自部署时中断当前任务。生产 Worker 至少需要与 API 相同的 `DATABASE_URL`、`CONFIG_ENCRYPTION_KEY` 和出站 SSH/Git 网络权限。
 
 - 用户端验证码有效时间与再次发送间隔由后台“服务配置 → 功能绑定 → 用户端认证”配置；验证码按钮使用服务端返回值倒计时。全局 Toast 由成功/异常分支显式指定语义，禁止按中文文案猜测状态。
@@ -28,6 +28,7 @@
 - 新组合器已覆盖“仅核心”和“用户端 + 头像”的干净临时目录结构验收；用户端账号将验证码、消息模板和邮件/短信适配作为共享依赖自动保留，不再向用户提供容易误裁剪的验证码独立开关。发布 0.2 前仍需完成锁定依赖安装、`pnpm setup`、Doctor、Prisma Client、格式/Lint/类型/测试及生产构建的完整组合矩阵。
 - 用户端 `/profile` 使用左侧分组设置导航，分为个人资料、联系方式、安全设置和登录设备；顶部账号区通过鼠标移入、键盘聚焦或点击展开个人中心/退出菜单。用户头像只能通过 `POST /api/customer-auth/avatar` 上传 JPG、PNG 或 WebP（最大 2 MB）到已配置的对象存储；不接受手工 URL 且不提供本地文件兜底，未配置时返回稳定错误码并显示中文提示。
 - 用户端现有账户 API 已全部收口到 `useCustomerSession`：注册、密码/验证码登录、找回密码、会话恢复与退出、资料编辑、邮箱绑定、修改密码和设备会话管理均使用共享契约的类型化方法。请求默认 12 秒超时，稳定错误码映射为中文；Access Token 过期时仅发起一次并发刷新并重试原请求。撤销设备会话后，API 对后续 Access Token 请求同步校验会话有效性。
+- 验证码首次登录创建的用户端账号没有可用密码；个人中心首次设置密码不要求当前密码，设置或找回成功后记录 `passwordConfiguredAt`，后续修改必须验证当前密码。
 - 用户端以 shadcn-vue 作为业务组件基础，VueUse Motion 处理常规过渡，GSAP 只处理首页等高价值动画编排；自定义 Design System 采用 Apple 的克制与空间感、Linear 的交互密度和 Vercel 的黑白层级。`components/ui` 不依赖动效，`components/motion` 不承载业务状态，并尊重 SSR 与减少动态效果偏好。
 - 用户端跨页面反馈统一使用右上角 `AppToast`，认证表单不再用撑开布局的行内服务端提示；页面使用统一轻量过渡，不允许只给同级内容中的个别卡片添加入场动画。所有按钮必须明确设计 hover、focus 和 disabled 对比度。
 
@@ -81,7 +82,7 @@
 - 模板唯一主仓库为 `https://github.com/shen-kk/create-ai-fullstack`。
 - 已增加 PostgreSQL CI 服务、迁移/种子/Prisma E2E、Admin Nginx 镜像、API Node 生产镜像、生产 Compose 及部署备份文档；当前机器没有 Docker，镜像实际构建需由 CI 或有 Docker 的环境最终确认。
 
-- 部署中心是 `deploymentCenter` 可选模块，使用通用 Git、Linux SSH、Docker Compose、PostgreSQL 持久化任务和 SSE 日志；不依赖 CNB。Git 与服务器检查均成功后环境才可部署；是否迁移由项目中对应部署单元的迁移命令决定，应用回滚不自动回滚数据库。详细边界见 `docs/domain/DEPLOYMENTS.md` 与 ADR-0010、ADR-0011。
+- 部署中心是 `deploymentCenter` 可选模块，使用通用 Git、Linux SSH、版本目录、PM2 重载命令、PostgreSQL 持久化任务和 SSE 日志；不依赖 CNB。Git 与服务器检查均成功后环境才可部署；应用回滚不自动回滚数据库。详细边界见 `docs/domain/DEPLOYMENTS.md` 与 ADR-0010、ADR-0011、ADR-0015。
 
 ## 按任务读取
 

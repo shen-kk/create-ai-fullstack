@@ -54,12 +54,12 @@ onMounted(load);
         <dl>
           <div>
             <dt>部署方式</dt>
-            <dd>Docker Compose</dd>
+            <dd>版本目录 + PM2</dd>
           </div>
           <div>
-            <dt>Compose</dt>
+            <dt>安装命令</dt>
             <dd>
-              <code>{{ project.composeFile }}</code>
+              <code>{{ project.installCommand }}</code>
             </dd>
           </div>
           <div>

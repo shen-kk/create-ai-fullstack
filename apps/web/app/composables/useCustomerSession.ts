@@ -229,6 +229,7 @@ export function useCustomerSession() {
   }
   async function changePassword(input: ChangeCustomerPasswordRequest): Promise<void> {
     await authenticated('/password', { method: 'POST', body: JSON.stringify(input) });
+    if (customer.value) customer.value = { ...customer.value, passwordConfigured: true };
   }
   async function bindContact(input: BindCustomerContactRequest): Promise<CustomerProfile> {
     const updated = await authenticated<CustomerProfile>('/contact/bind', {

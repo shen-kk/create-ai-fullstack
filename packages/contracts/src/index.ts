@@ -453,12 +453,13 @@ export interface UpsertMessageTemplateRequest {
 export type DeployUnitKey = string;
 /** @deprecated 使用 DeployUnitKey；保留别名以兼容已有消费者。 */
 export type DeployApplication = DeployUnitKey;
-export type DeployProjectType = 'docker-compose';
+export type DeployProjectType = 'release-directory';
 export interface DeploymentUnitDefinition {
   key: DeployUnitKey;
   name: string;
-  service: string;
+  buildCommand: string;
   migrationCommand: string | null;
+  restartCommand: string;
   healthCheckUrl: string | null;
 }
 export type DeployResourceKind = 'sql' | 'redis' | 'object_storage' | 'custom';
@@ -475,7 +476,7 @@ export interface DeploymentProjectSummary {
   code: string;
   description: string | null;
   type: DeployProjectType;
-  composeFile: string;
+  installCommand: string;
   units: DeploymentUnitDefinition[];
   variables: DeploymentVariableDefinition[];
   system: boolean;
@@ -489,7 +490,7 @@ export interface UpsertDeploymentProjectRequest {
   code: string;
   description?: string;
   type: DeployProjectType;
-  composeFile: string;
+  installCommand: string;
   units: DeploymentUnitDefinition[];
   variables: DeploymentVariableDefinition[];
 }

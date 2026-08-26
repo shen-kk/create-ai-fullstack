@@ -160,7 +160,7 @@ async function changePassword(): Promise<void> {
   }
   try {
     await changeCustomerPassword({
-      currentPassword: passwords.currentPassword,
+      ...(customer.value?.passwordConfigured ? { currentPassword: passwords.currentPassword } : {}),
       newPassword: passwords.newPassword,
     });
     Object.assign(passwords, { currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -369,8 +369,9 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
             <div class="settings-title">
               <div>
                 <span class="settings-kicker">SECURITY</span>
-                <h2>修改密码</h2>
-                <p>定期更新密码，避免在多个站点使用相同密码。</p>
+                <h2>{{ customer.passwordConfigured ? '修改密码' : '设置密码' }}</h2>
+                <p v-if="customer.passwordConfigured">定期更新密码，避免在多个站点使用相同密码。</p>
+                <p v-else>设置密码后，你也可以使用账号和密码登录。</p>
               </div>
               <div class="security-shield">
                 <svg viewBox="0 0 24 24">
@@ -379,7 +380,7 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
               </div>
             </div>
             <form class="form-grid" @submit.prevent="changePassword">
-              <label class="full"
+              <label v-if="customer.passwordConfigured" class="full"
                 >当前密码<input
                   v-model="passwords.currentPassword"
                   required
@@ -408,8 +409,16 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
               /></label>
               <div class="password-advice full"><i />建议包含大小写字母、数字和特殊符号。</div>
               <div class="form-actions full settings-footer">
-                <p>更新后请使用新密码登录。</p>
-                <button class="button" type="submit">更新密码</button>
+                <p>
+                  {{
+                    customer.passwordConfigured
+                      ? '更新后请使用新密码登录。'
+                      : '密码设置后立即生效。'
+                  }}
+                </p>
+                <button class="button" type="submit">
+                  {{ customer.passwordConfigured ? '更新密码' : '设置密码' }}
+                </button>
               </div>
             </form>
           </section>

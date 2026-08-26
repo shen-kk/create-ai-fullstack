@@ -184,10 +184,24 @@ export class DeploymentsService {
     const row = await this.requireEnvironment(id);
     try {
       const secrets = this.requiredDeploymentSecrets(row.encryptedSecrets);
-      await this.audit.record({ ...context, action: 'deployment.secret.read', resource: 'deploy_environment', resourceId: id, result: 'success', metadata: { secretFields: Object.keys(secrets) } });
+      await this.audit.record({
+        ...context,
+        action: 'deployment.secret.read',
+        resource: 'deploy_environment',
+        resourceId: id,
+        result: 'success',
+        metadata: { secretFields: Object.keys(secrets) },
+      });
       return secrets;
     } catch (error) {
-      await this.audit.record({ ...context, action: 'deployment.secret.read', resource: 'deploy_environment', resourceId: id, result: 'failure', metadata: {} });
+      await this.audit.record({
+        ...context,
+        action: 'deployment.secret.read',
+        resource: 'deploy_environment',
+        resourceId: id,
+        result: 'failure',
+        metadata: {},
+      });
       throw error;
     }
   }
@@ -363,11 +377,14 @@ export class DeploymentsService {
       throw new BadRequestException('DEPLOYMENT_ENVIRONMENT_NOT_VERIFIED');
     const project = await this.requireProject(environment.projectId);
     const availableUnits = this.projectUnits(project).map((unit) => unit.key);
-    const applications = [
+    const requested = [
       ...new Set(input.applications?.length ? input.applications : availableUnits),
     ];
-    if (!applications.length || applications.some((item) => !availableUnits.includes(item)))
+    if (!requested.length || requested.some((item) => !availableUnits.includes(item)))
       throw new BadRequestException('DEPLOYMENT_APPLICATION_NOT_ALLOWED');
+    if (requested.length !== availableUnits.length)
+      throw new BadRequestException('DEPLOYMENT_PARTIAL_RELEASE_UNSUPPORTED');
+    const applications = availableUnits;
     const active = await this.prisma.deployRun.findFirst({
       where: { environmentId, status: { in: activeStatuses } },
     });
@@ -375,16 +392,17 @@ export class DeploymentsService {
     const labels = [
       ['prepare', '准备任务'],
       ['checkout', '获取代码'],
+      ['install', '安装依赖'],
       ['build', '构建应用'],
       ...(this.projectUnits(project).some(
         (unit) => applications.includes(unit.key) && unit.migrationCommand,
       )
         ? ([['migrate', '数据库迁移']] as const)
         : []),
-      ['upload', '上传服务器'],
-      ['start', '启动新版本'],
-      ['health', '健康检查'],
       ['switch', '切换版本'],
+      ['restart', '重启应用'],
+      ['health', '健康检查'],
+      ['finalize', '记录版本'],
     ] as const;
     const row = await this.prisma.deployRun.create({
       data: {
@@ -443,9 +461,9 @@ export class DeploymentsService {
     if (active) throw new ConflictException('DEPLOYMENT_ALREADY_RUNNING');
     const labels = [
       ['prepare', '准备回滚'],
-      ['start', '启动历史版本'],
-      ['health', '健康检查'],
       ['switch', '切换版本'],
+      ['restart', '重启历史版本'],
+      ['health', '健康检查'],
     ] as const;
     const row = await this.prisma.deployRun.create({
       data: {
@@ -775,7 +793,7 @@ export class DeploymentsService {
     return { ...input, applications };
   }
   private validateProject(input: UpsertDeploymentProjectRequest): void {
-    if (!input.name.trim() || !input.units.length || input.composeFile.includes('..'))
+    if (!input.name.trim() || !input.units.length || !input.installCommand.trim())
       throw new BadRequestException('DEPLOYMENT_PROJECT_INVALID');
     const unitKeys = input.units.map((unit) => unit.key);
     if (new Set(unitKeys).size !== unitKeys.length)
@@ -783,7 +801,18 @@ export class DeploymentsService {
     const variableKeys = input.variables.map((variable) => variable.key);
     if (new Set(variableKeys).size !== variableKeys.length)
       throw new BadRequestException('DEPLOYMENT_PROJECT_VARIABLE_DUPLICATED');
-    if (input.units.some((unit) => /[\r\n\0]/.test(unit.migrationCommand ?? '')))
+    const requiredCommands = [
+      input.installCommand,
+      ...input.units.flatMap((unit) => [unit.buildCommand, unit.restartCommand]),
+    ];
+    const commands = [
+      ...requiredCommands,
+      ...input.units.map((unit) => unit.migrationCommand ?? ''),
+    ];
+    if (
+      requiredCommands.some((command) => !command.trim()) ||
+      commands.some((command) => /[\r\n\0]/.test(command))
+    )
       throw new BadRequestException('DEPLOYMENT_PROJECT_COMMAND_INVALID');
   }
   private projectData(input: UpsertDeploymentProjectRequest): Prisma.DeployProjectCreateInput {
@@ -792,7 +821,7 @@ export class DeploymentsService {
       code: input.code.trim(),
       description: input.description?.trim() || null,
       type: input.type,
-      composeFile: input.composeFile.trim(),
+      installCommand: input.installCommand.trim(),
       units: input.units as unknown as Prisma.InputJsonValue,
       variables: input.variables as unknown as Prisma.InputJsonValue,
     };
@@ -813,7 +842,7 @@ export class DeploymentsService {
       code: project.code,
       description: project.description,
       type: project.type as DeploymentProjectSummary['type'],
-      composeFile: project.composeFile,
+      installCommand: project.installCommand,
       units: this.projectUnits(project),
       variables: this.projectVariables(project),
       system: project.system,
@@ -829,13 +858,13 @@ export class DeploymentsService {
     applications: string[],
   ): Prisma.InputJsonValue {
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       project: {
         id: project.id,
         code: project.code,
         version: project.version,
         type: project.type,
-        composeFile: project.composeFile,
+        installCommand: project.installCommand,
         units: this.projectUnits(project).filter((unit) => applications.includes(unit.key)),
         variables: this.projectVariables(project),
       },
