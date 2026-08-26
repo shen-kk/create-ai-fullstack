@@ -286,7 +286,10 @@ export class IntegrationsService {
       enabled: Boolean(resource),
       configured: Boolean(resource),
       values: (resource?.values as Record<string, string> | undefined) ?? {},
-      configuredSecrets: resource ? Object.keys(this.decrypt(resource.encryptedSecrets)) : [],
+      // Listing configuration must remain available even when an old database
+      // was bootstrapped with a different encryption key. Secrets are omitted
+      // until the administrator re-enters them with the current key.
+      configuredSecrets: resource ? Object.keys(this.safeDecrypt(resource.encryptedSecrets)) : [],
       updatedAt: resource?.updatedAt.toISOString() ?? null,
     };
   }
@@ -302,7 +305,7 @@ export class IntegrationsService {
       provider: row.provider,
       enabled: row.enabled,
       values: row.values as Record<string, string>,
-      configuredSecrets: Object.keys(this.decrypt(row.encryptedSecrets)),
+      configuredSecrets: Object.keys(this.safeDecrypt(row.encryptedSecrets)),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     }));
@@ -332,11 +335,12 @@ export class IntegrationsService {
     if (!current) throw new BadRequestException('SERVICE_RESOURCE_NOT_FOUND');
     if (current.kind !== input.kind)
       throw new BadRequestException('SERVICE_RESOURCE_KIND_IMMUTABLE');
-    const configuredSecrets = new Set(Object.keys(this.decrypt(current.encryptedSecrets)));
+    const readableSecrets = this.safeDecrypt(current.encryptedSecrets);
+    const configuredSecrets = new Set(Object.keys(readableSecrets));
     this.validateInput(input.kind, input, configuredSecrets);
     this.validateConditionalSecrets(input.kind, input.values, input.secrets, configuredSecrets);
     const secrets = {
-      ...this.decrypt(current.encryptedSecrets),
+      ...readableSecrets,
       ...Object.fromEntries(Object.entries(input.secrets).filter(([, value]) => value)),
     };
     await this.prisma.serviceResource.update({
@@ -350,6 +354,35 @@ export class IntegrationsService {
       },
     });
     return (await this.listResources()).find((item) => item.id === id)!;
+  }
+  async getResourceSecrets(
+    id: string,
+    context: IntegrationAuditContext,
+  ): Promise<Record<string, string>> {
+    const resource = await this.prisma.serviceResource.findUnique({ where: { id } });
+    if (!resource) throw new BadRequestException('SERVICE_RESOURCE_NOT_FOUND');
+    try {
+      const secrets = this.requiredDecrypt(resource.encryptedSecrets);
+      await this.audit.record({
+        ...context,
+        action: 'integration.secret.read',
+        resource: 'integration',
+        resourceId: id,
+        result: 'success',
+        metadata: { kind: resource.kind, secretFields: Object.keys(secrets) },
+      });
+      return secrets;
+    } catch (error) {
+      await this.audit.record({
+        ...context,
+        action: 'integration.secret.read',
+        resource: 'integration',
+        resourceId: id,
+        result: 'failure',
+        metadata: { kind: resource.kind },
+      });
+      throw error;
+    }
   }
   async deleteResource(
     id: string,
@@ -520,7 +553,7 @@ export class IntegrationsService {
       ? {
           enabled: row.enabled,
           values: row.values as Record<string, string>,
-          secrets: this.decrypt(row.encryptedSecrets),
+          secrets: this.safeDecrypt(row.encryptedSecrets),
           updatedAt: row.updatedAt.toISOString(),
         }
       : undefined;
@@ -548,7 +581,10 @@ export class IntegrationsService {
         Object.entries(input.secrets).filter(([, value]) => value),
       );
       const old = await this.prisma.integrationConfig.findUnique({ where: { kind } });
-      const secrets = { ...this.decrypt(old?.encryptedSecrets ?? null), ...cleanSecrets };
+      // An existing resource may have been encrypted with a previous project
+      // key. Keep only values that can be decrypted; newly supplied secrets
+      // are re-encrypted with the current key on save.
+      const secrets = { ...this.safeDecrypt(old?.encryptedSecrets ?? null), ...cleanSecrets };
       await this.prisma.integrationConfig.upsert({
         where: { kind },
         create: {
@@ -618,7 +654,7 @@ export class IntegrationsService {
         return {
           enabled: true,
           values: binding.resource.values as Record<string, string>,
-          secrets: this.decrypt(binding.resource.encryptedSecrets),
+          secrets: this.requiredDecrypt(binding.resource.encryptedSecrets),
           ...(binding.template ? { template: this.messageTemplateSummary(binding.template) } : {}),
         };
       return { enabled: false, values: {}, secrets: {} };
@@ -633,13 +669,13 @@ export class IntegrationsService {
         return {
           enabled: true,
           values: resource.values as Record<string, string>,
-          secrets: this.decrypt(resource.encryptedSecrets),
+          secrets: this.requiredDecrypt(resource.encryptedSecrets),
         };
     }
     return {
       enabled: stored?.enabled ?? false,
       values: (stored?.values as Record<string, string> | undefined) ?? {},
-      secrets: this.decrypt(stored?.encryptedSecrets ?? null),
+      secrets: this.requiredDecrypt(stored?.encryptedSecrets ?? null),
     };
   }
   private encryptionKey(): Buffer {
@@ -778,5 +814,19 @@ export class IntegrationsService {
     return JSON.parse(
       Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString('utf8'),
     ) as Record<string, string>;
+  }
+  private safeDecrypt(value: string | null): Record<string, string> {
+    try {
+      return this.decrypt(value);
+    } catch {
+      return {};
+    }
+  }
+  private requiredDecrypt(value: string | null): Record<string, string> {
+    try {
+      return this.decrypt(value);
+    } catch {
+      throw new BadRequestException('INTEGRATION_SECRETS_REENTRY_REQUIRED');
+    }
   }
 }

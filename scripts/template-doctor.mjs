@@ -3,6 +3,8 @@ import { access, readFile, readdir } from 'node:fs/promises';
 import process from 'node:process';
 import {
   parseEnv,
+  renderAdminFeatureRoutes,
+  renderApiFeatureModules,
   renderProjectContext,
   renderRuntimeProject,
   validateProjectConfig,
@@ -45,11 +47,12 @@ if (config) {
   }
 
   const expected = renderRuntimeProject(config);
-  for (const path of [
+  const runtimePaths = [
     'apps/admin/src/generated/project.ts',
     'apps/api/src/generated/project.ts',
-    'apps/web/app/generated/project.ts',
-  ]) {
+    ...(config.features?.includes('customerWeb') ? ['apps/web/app/generated/project.ts'] : []),
+  ];
+  for (const path of runtimePaths) {
     try {
       const actual = await readFile(new URL(path, root), 'utf8');
       add(
@@ -59,6 +62,21 @@ if (config) {
       );
     } catch {
       add('FAIL', `运行时能力 ${path}`, '文件缺失');
+    }
+  }
+  for (const [path, expectedContent] of [
+    ['apps/admin/src/generated/feature-routes.ts', renderAdminFeatureRoutes(config)],
+    ['apps/api/src/generated/feature-modules.ts', renderApiFeatureModules(config)],
+  ]) {
+    try {
+      const actual = await readFile(new URL(path, root), 'utf8');
+      add(
+        actual === expectedContent ? 'PASS' : 'FAIL',
+        `功能入口 ${path}`,
+        actual === expectedContent ? '已同步' : '请运行 pnpm template:sync',
+      );
+    } catch {
+      add('FAIL', `功能入口 ${path}`, '文件缺失');
     }
   }
 }
@@ -115,7 +133,7 @@ try {
     '必须至少 12 个字符',
   );
 } catch {
-  add('FAIL', '本地环境变量', '缺少 .env，请先运行 pnpm template:init');
+  add('FAIL', '本地环境变量', '缺少 .env，请先运行 pnpm setup');
 }
 
 if (await exists('.template-bootstrap.json'))

@@ -26,8 +26,10 @@ const actionLabels: Record<string, string> = {
   'role.create': '创建角色',
   'role.update': '修改角色权限',
   'integration.update': '修改服务配置',
+  'integration.secret.read': '查看服务敏感配置',
   'deployment.environment.create': '创建部署环境',
   'deployment.environment.update': '修改部署环境',
+  'deployment.secret.read': '查看部署敏感配置',
   'deployment.run.create': '创建部署任务',
   'deployment.rollback': '回滚部署版本',
 };
@@ -130,7 +132,7 @@ onMounted(load);
         <span class="template-badge">只读 · 不可删除</span>
       </header>
       <div v-if="loading" class="table-state"><span class="loading-ring" />正在加载…</div>
-      <div v-else-if="error" class="table-state error-state">
+      <div v-else-if="error" class="operation-notice" role="alert">
         <strong>加载失败</strong>
         <p>{{ error }}</p>
       </div>

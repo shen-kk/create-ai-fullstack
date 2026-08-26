@@ -33,6 +33,7 @@ import { DeploymentCheckService } from './deployment-check.service.js';
 import {
   decryptDeploymentSecrets,
   encryptDeploymentSecrets,
+  safeDecryptDeploymentSecrets,
   type DeploymentSecrets,
 } from './deployment-secrets.js';
 
@@ -179,9 +180,16 @@ export class DeploymentsService {
     const row = await this.requireEnvironment(id);
     return this.environmentSummary(row);
   }
-  async getEnvironmentSecrets(id: string): Promise<DeploymentSecrets> {
+  async getEnvironmentSecrets(id: string, context: AuditContext): Promise<DeploymentSecrets> {
     const row = await this.requireEnvironment(id);
-    return decryptDeploymentSecrets(row.encryptedSecrets);
+    try {
+      const secrets = this.requiredDeploymentSecrets(row.encryptedSecrets);
+      await this.audit.record({ ...context, action: 'deployment.secret.read', resource: 'deploy_environment', resourceId: id, result: 'success', metadata: { secretFields: Object.keys(secrets) } });
+      return secrets;
+    } catch (error) {
+      await this.audit.record({ ...context, action: 'deployment.secret.read', resource: 'deploy_environment', resourceId: id, result: 'failure', metadata: {} });
+      throw error;
+    }
   }
   async createEnvironment(
     input: UpsertDeploymentEnvironmentRequest,
@@ -224,7 +232,7 @@ export class DeploymentsService {
     await this.validateEnvironment(input);
     const current = await this.requireEnvironment(id);
     const secrets = {
-      ...decryptDeploymentSecrets(current.encryptedSecrets),
+      ...safeDecryptDeploymentSecrets(current.encryptedSecrets),
       ...this.cleanSecrets(input.secrets),
     };
     await this.validateSecrets(input, secrets);
@@ -264,7 +272,7 @@ export class DeploymentsService {
     const result = await this.checker.checkGit(
       row.repositoryUrl,
       row.gitRef,
-      decryptDeploymentSecrets(row.encryptedSecrets),
+      this.requiredDeploymentSecrets(row.encryptedSecrets),
     );
     const latest = await this.requireEnvironment(id);
     const now = result.success ? new Date() : null;
@@ -293,7 +301,7 @@ export class DeploymentsService {
         authMode: row.sshAuthMode,
         deployPath: row.deployPath,
       },
-      decryptDeploymentSecrets(row.encryptedSecrets),
+      this.requiredDeploymentSecrets(row.encryptedSecrets),
     );
     const latest = await this.requireEnvironment(id);
     const now = result.success ? new Date() : null;
@@ -549,7 +557,7 @@ export class DeploymentsService {
     ]);
     if (server) {
       const values = server.values as Record<string, string>,
-        secrets = decryptDeploymentSecrets(server.encryptedSecrets) as unknown as Record<
+        secrets = this.requiredDeploymentSecrets(server.encryptedSecrets) as unknown as Record<
           string,
           string
         >;
@@ -565,7 +573,7 @@ export class DeploymentsService {
     }
     if (git) {
       const values = git.values as Record<string, string>,
-        secrets = decryptDeploymentSecrets(git.encryptedSecrets) as unknown as Record<
+        secrets = this.requiredDeploymentSecrets(git.encryptedSecrets) as unknown as Record<
           string,
           string
         >;
@@ -578,7 +586,7 @@ export class DeploymentsService {
     }
     if (sql) {
       const values = sql.values as Record<string, string>,
-        secrets = decryptDeploymentSecrets(sql.encryptedSecrets) as unknown as Record<
+        secrets = this.requiredDeploymentSecrets(sql.encryptedSecrets) as unknown as Record<
           string,
           string
         >;
@@ -589,7 +597,7 @@ export class DeploymentsService {
     }
     if (redis) {
       const values = redis.values as Record<string, string>;
-      const secrets = decryptDeploymentSecrets(redis.encryptedSecrets) as unknown as Record<
+      const secrets = this.requiredDeploymentSecrets(redis.encryptedSecrets) as unknown as Record<
         string,
         string
       >;
@@ -711,7 +719,7 @@ export class DeploymentsService {
       redisResourceId: row.redisResourceId,
       values: row.environmentValues as Record<string, string>,
       configuredSecrets: secretKeys.filter((key) =>
-        Boolean(decryptDeploymentSecrets(row.encryptedSecrets)[key]),
+        Boolean(safeDecryptDeploymentSecrets(row.encryptedSecrets)[key]),
       ),
       status: environmentStatus[row.status],
       lastVerifiedAt: row.lastVerifiedAt?.toISOString() ?? null,
@@ -842,5 +850,12 @@ export class DeploymentsService {
       applications,
       createdAt: new Date().toISOString(),
     } as unknown as Prisma.InputJsonValue;
+  }
+  private requiredDeploymentSecrets(value: string | null): DeploymentSecrets {
+    try {
+      return decryptDeploymentSecrets(value);
+    } catch {
+      throw new BadRequestException('DEPLOYMENT_SECRETS_REENTRY_REQUIRED');
+    }
   }
 }

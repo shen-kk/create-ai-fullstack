@@ -69,8 +69,13 @@ try {
     console.log('[FULL] 在初始化前安装锁定依赖，模拟文档推荐的新项目流程。');
     runCommand(pnpm, pnpmArgs(['install', '--frozen-lockfile']));
   }
-  run('template-init.mjs', ['--defaults', '--preset=quick', ...(userWeb ? ['--user-web'] : [])]);
-  run('template-doctor.mjs');
+  const selectedFeatures = userWeb ? 'customerWeb,customerAvatar' : '';
+  run('template-init.mjs', [
+    '--name=admin-project',
+    '--display-name=验收项目',
+    '--scope=@admin-project',
+    `--features=${selectedFeatures}`,
+  ]);
   const config = await readFile(join(target, 'project.config.json'), 'utf8');
   const context = await readFile(join(target, 'docs', 'ai', 'PROJECT.md'), 'utf8');
   const contractsPackage = JSON.parse(
@@ -88,15 +93,18 @@ try {
   if (contractsPackage.name !== '@admin-project/contracts')
     throw new Error(`包命名空间未替换：${contractsPackage.name}`);
   const initialized = JSON.parse(config);
-  if (
-    initialized.modules.userWeb !== userWeb ||
-    initialized.modules.customerAuthentication !== userWeb
-  )
+  if (initialized.features.includes('customerWeb') !== userWeb)
     throw new Error(`用户端能力未按验收参数${userWeb ? '启用' : '停用'}`);
-  console.log('[PASS] 全新目录初始化、配置检查和敏感信息隔离验证通过。');
+  const productionCompose = await readFile(join(target, 'docker-compose.production.yml'), 'utf8');
+  if (!userWeb && productionCompose.includes('apps/web/Dockerfile'))
+    throw new Error('未选择用户端，但生产 Compose 仍引用用户端镜像');
+  run('feature-check.mjs');
+  console.log('[PASS] 全新目录功能组合、配置检查和敏感信息隔离验证通过。');
   if (full) {
     console.log('[FULL] 刷新新命名空间的工作区链接。');
     runCommand(pnpm, pnpmArgs(['install', '--frozen-lockfile']));
+    run('project-setup.mjs', ['--defaults']);
+    run('template-doctor.mjs');
     console.log('[FULL] 生成 Prisma Client。');
     runCommand(pnpm, pnpmArgs(['db:generate']));
     console.log('[FULL] 执行初始化后的后台/API 全量质量门禁。');

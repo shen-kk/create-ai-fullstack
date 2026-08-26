@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { changePassword, updateProfile, uploadAvatar } from '../api/profile';
 import { getCurrentUser, saveCurrentUser } from '../auth/session';
+import AppPasswordInput from '../components/AppPasswordInput.vue';
 
 const router = useRouter(),
   user = getCurrentUser();
@@ -85,7 +86,7 @@ async function savePassword(): Promise<void> {
         <p>管理当前登录账号的公开资料与登录密码。</p>
       </div>
     </section>
-    <p v-if="notice" class="operation-notice" role="status">{{ notice }}</p>
+    <p v-if="notice" :key="notice" class="operation-notice" :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'">{{ notice }}</p>
     <div class="profile-layout">
       <section class="panel profile-card">
         <div class="profile-avatar">
@@ -131,9 +132,9 @@ async function savePassword(): Promise<void> {
           </header>
           <label
             ><span>当前密码</span
-            ><input
-              v-model="password.currentPassword"
-              type="password"
+            ><AppPasswordInput
+              :model-value="password.currentPassword"
+              @update:model-value="password.currentPassword = $event"
               required
               minlength="12"
               autocomplete="current-password"
@@ -141,17 +142,17 @@ async function savePassword(): Promise<void> {
           <div class="profile-password-grid">
             <label
               ><span>新密码</span
-              ><input
-                v-model="password.newPassword"
-                type="password"
+              ><AppPasswordInput
+                :model-value="password.newPassword"
+                @update:model-value="password.newPassword = $event"
                 required
                 minlength="12"
                 autocomplete="new-password" /></label
             ><label
               ><span>确认新密码</span
-              ><input
-                v-model="password.confirmPassword"
-                type="password"
+              ><AppPasswordInput
+                :model-value="password.confirmPassword"
+                @update:model-value="password.confirmPassword = $event"
                 required
                 minlength="12"
                 autocomplete="new-password"

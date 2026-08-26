@@ -1,4 +1,4 @@
-// 此文件由 pnpm template:init / template:sync 自动生成，请勿手工修改。
+// 此文件由项目组合器 / template:sync 自动生成，请勿手工修改。
 export const project = {
   "name": "adminback-template",
   "packageScope": "@template",
@@ -29,6 +29,11 @@ export const project = {
       "designStandard": "apple-linear-vercel"
     }
   },
+  "features": [
+    "customerWeb",
+    "customerAvatar",
+    "deploymentCenter"
+  ],
   "modules": {
     "authentication": true,
     "customerAuthentication": true,
@@ -42,9 +47,9 @@ export const project = {
     "redis": true,
     "sms": true,
     "email": true,
-    "payment": true
+    "payment": false
   },
   "providers": {
-    "objectStorage": "tencent_cos"
+    "objectStorage": "resource_library"
   }
 } as const;

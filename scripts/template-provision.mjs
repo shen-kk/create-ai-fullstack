@@ -22,9 +22,8 @@ try {
   const errors = validateProjectConfig(config);
   if (errors.length) throw new Error(errors.join('；'));
 
-  const envPath = process.env.ENV_FILE || '.env';
-  const envFile = parseEnv(await readFile(new URL(envPath, root), 'utf8'));
-  if (!envFile.DATABASE_URL) throw new Error('缺少 DATABASE_URL，请先运行 pnpm template:init');
+  const envFile = parseEnv(await readFile(new URL('.env', root), 'utf8'));
+  if (!envFile.DATABASE_URL) throw new Error('缺少 DATABASE_URL，请先运行 pnpm setup');
 
   const commands = provisionCommands(config);
   if (process.env.SKIP_PRISMA_GENERATE === '1') {

@@ -6,7 +6,6 @@
 - [ ] `pnpm test:e2e`（真实 PostgreSQL）
 - [x] `pnpm test:startup`（Windows 安全启动守卫）
 - [x] `pnpm template:verify -- --full`（全新目录安装、初始化、改名、Prisma 生成、测试与构建）
-- [x] Skill `quick_validate.py`
 
 ## 环境门禁
 

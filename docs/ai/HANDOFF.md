@@ -17,7 +17,7 @@
 - 管理员、角色、菜单/操作权限和审计日志。
 - 可选 Web 注册、登录、找回密码、个人中心、头像和设备会话。
 - 对象存储、Redis、短信、邮件和支付配置；敏感字段加密且不回显。
-- quick、standard、custom 初始化模式、数据库迁移和初始管理员种子。
+- 可视化业务功能组合、统一 `pnpm setup`、数据库迁移和初始管理员种子。
 - 分端 AI 规范、UI 一致性检查、Template Doctor 和干净副本验证。
 - 可选部署中心：平台托管通用部署项目、Git/服务器/服务资源环境绑定、独立 Deploy Worker、SSE 进度、持久化日志、发布版本与应用回滚。
 
@@ -26,10 +26,13 @@
 ```bash
 npm create aiforge@latest my-project
 cd my-project
+pnpm setup
+pnpm dev
+cd my-project
 pnpm dev:local
 ```
 
-CLI 内部完成模板获取、依赖安装、交互配置、workspace 刷新、Doctor、模板 Git 历史移除和新 Git 仓库初始化。用户不需要手动执行 `template:init`。
+CLI 只选择业务功能并组合代码，不收集数据库或服务密钥。它完成模板获取、应用级裁剪、依赖安装、功能检查、模板 Git 历史移除和新 Git 仓库初始化。模板维护者拉取完整仓库后也使用同一个 `pnpm setup`，不维护专用环境文件。
 
 部署中心由初始化向导显式选择。未启用时不注册 API 模块、Admin 路由、菜单或部署权限。
 

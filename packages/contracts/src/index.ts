@@ -145,6 +145,12 @@ export const permissionCatalog = [
     groupCode: 'integrations',
   },
   {
+    code: 'secrets.read',
+    description: '查看服务与部署敏感配置明文',
+    type: 'action',
+    groupCode: 'security',
+  },
+  {
     code: 'deployments.read',
     description: '查看部署环境、任务与日志',
     type: 'action',

@@ -13,7 +13,7 @@ import type {
   VerificationPurpose,
   UpdateCustomerAuthSettingsRequest,
 } from '@template/contracts';
-import { getAccessToken } from '../auth/session';
+import { clearSession, getAccessToken } from '../auth/session';
 import { apiBaseUrl } from './base';
 const base = apiBaseUrl;
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -28,6 +28,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const error = (await response.json().catch(() => null)) as { code?: string } | null;
+    if (response.status === 401) {
+      clearSession();
+      window.dispatchEvent(new CustomEvent('template-auth-expired'));
+    }
     throw new Error(error?.code ?? `INTEGRATION_REQUEST_${response.status}`);
   }
   return response.json() as Promise<T>;
@@ -44,6 +48,8 @@ export const updateServiceResource = (
   input: UpsertServiceResourceRequest,
 ): Promise<ServiceResourceSummary> =>
   request(`/integrations/resources/${id}`, { method: 'PUT', body: JSON.stringify(input) });
+export const getServiceResourceSecrets = (id: string): Promise<Record<string, string>> =>
+  request(`/integrations/resources/${id}/secrets`);
 export const deleteServiceResource = (id: string): Promise<DeleteServiceResourceResponse> =>
   request(`/integrations/resources/${id}`, { method: 'DELETE' });
 export const getServiceFeatureBindings = (): Promise<ServiceFeatureBindingSummary[]> =>

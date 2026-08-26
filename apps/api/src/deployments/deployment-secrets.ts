@@ -36,3 +36,11 @@ export function decryptDeploymentSecrets(value: string | null): DeploymentSecret
     Buffer.concat([decipher.update(payload.subarray(28)), decipher.final()]).toString('utf8'),
   ) as DeploymentSecrets;
 }
+
+export function safeDecryptDeploymentSecrets(value: string | null): DeploymentSecrets {
+  try {
+    return decryptDeploymentSecrets(value);
+  } catch {
+    return {};
+  }
+}

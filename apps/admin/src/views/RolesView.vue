@@ -88,7 +88,7 @@ onMounted(load);
         ><button class="primary-button" @click="openCreate">＋ 新增角色</button>
       </div>
     </section>
-    <p v-if="notice" class="operation-notice" role="status">{{ notice }}</p>
+    <p v-if="notice" :key="notice" class="operation-notice" :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'">{{ notice }}</p>
     <div v-if="loading" class="panel table-state"><span class="loading-ring" />正在加载角色…</div>
     <div v-else-if="error" class="panel table-state error-state">
       <strong>加载失败</strong>

@@ -1,95 +1,39 @@
-import { access, copyFile, readFile, readdir, writeFile } from 'node:fs/promises';
-import { constants } from 'node:fs';
-import { createInterface } from 'node:readline/promises';
-import { randomBytes } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import process from 'node:process';
 import {
-  presetModules,
+  featureCatalog,
+  modulesForFeatures,
+  resolveFeatures,
+} from '../packages/create-ai-fullstack/lib/features.mjs';
+import {
+  renderAdminFeatureRoutes,
+  renderApiFeatureModules,
   renderProjectContext,
   renderRuntimeProject,
   validateProjectConfig,
 } from './lib/template-config.mjs';
 
 const root = new URL('../', import.meta.url);
-const args = new Set(process.argv.slice(2));
-const defaultsMode = args.has('--defaults');
-const userWebMode = args.has('--user-web');
-const deploymentCenterMode = args.has('--deployment-center');
-const dryRun = args.has('--dry-run');
-const presetArgument = process.argv
-  .slice(2)
-  .find((item) => item.startsWith('--preset='))
-  ?.split('=')[1];
-const projectNameArgument = process.argv
-  .slice(2)
-  .find((item) => item.startsWith('--name='))
-  ?.slice(7);
-const rl = defaultsMode
-  ? undefined
-  : createInterface({ input: process.stdin, output: process.stdout });
-const ask = async (label, fallback, validate = () => true) => {
-  if (!rl) return String(fallback);
-  while (true) {
-    const value = (await rl.question(`${label} (${fallback}): `)).trim() || String(fallback);
-    if (validate(value)) return value;
-    console.log('输入格式不正确，请重新输入。');
-  }
+const argument = (name) =>
+  process.argv
+    .slice(2)
+    .find((item) => item.startsWith(`--${name}=`))
+    ?.slice(name.length + 3);
+const name = argument('name') ?? 'admin-project';
+const displayName = argument('display-name') ?? name;
+const packageScope = argument('scope') ?? `@${name}`;
+const requestedFeatures = (argument('features') ?? '').split(',').filter(Boolean);
+const features = resolveFeatures(requestedFeatures);
+const dryRun = process.argv.includes('--dry-run');
+const writeJson = async (path, value) =>
+  writeFile(new URL(path, root), `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+const removeComposeService = async (path, service) => {
+  const url = new URL(path, root);
+  const source = await readFile(url, 'utf8');
+  const pattern = new RegExp(`\\n  ${service}:\\r?\\n[\\s\\S]*?(?=\\n  [A-Za-z0-9_-]+:\\r?\\n|$)`);
+  await writeFile(url, source.replace(pattern, ''), 'utf8');
 };
-const yes = async (label, fallback = true) =>
-  ['y', 'yes', '是'].includes(
-    (await ask(`${label} [${fallback ? 'Y/n' : 'y/N'}]`, fallback ? 'y' : 'n')).toLowerCase(),
-  );
-const askRequired = (label, fallback = '') =>
-  ask(label, fallback, (value) => value.trim().length > 0);
-const portValidator = (value) => Number(value) >= 1024 && Number(value) <= 65535;
-const choose = async (label, options, fallbackIndex = 0) => {
-  if (rl) {
-    console.log(`\n${label}`);
-    options.forEach((item, index) => console.log(`  ${index + 1}. ${item.label}`));
-  }
-  const answer = Number(
-    await ask(
-      '请选择序号',
-      fallbackIndex + 1,
-      (value) => Number(value) >= 1 && Number(value) <= options.length,
-    ),
-  );
-  return options[answer - 1].value;
-};
-const secret = () => randomBytes(32).toString('base64url');
-const integration = (kind, enabled, values, secrets = {}) => ({ kind, enabled, values, secrets });
-const collectIntegrationBootstrap = async (database) => [
-  integration(
-    'sql',
-    true,
-    {
-      engine: 'postgresql',
-      host: database.host,
-      port: String(database.port),
-      database: database.name,
-      username: database.username,
-    },
-    { password: database.password },
-  ),
-];
-const formatWorkspaceIfAvailable = async () => {
-  const prettierUrl = new URL('node_modules/prettier/bin/prettier.cjs', root);
-  try {
-    await access(prettierUrl, constants.F_OK);
-  } catch {
-    console.log('[SKIP] 依赖尚未安装；安装后运行 pnpm format 以规范化命名空间替换结果');
-    return;
-  }
-  const result = spawnSync(process.execPath, [fileURLToPath(prettierUrl), '--write', '.'], {
-    cwd: fileURLToPath(root),
-    encoding: 'utf8',
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error('初始化后的代码格式化失败');
-  console.log('[FORMAT] 已规范化命名空间替换后的项目文件');
-};
+
 const replaceWorkspaceScope = async (nextScope) => {
   const contractsPackage = JSON.parse(
     await readFile(new URL('packages/contracts/package.json', root), 'utf8'),
@@ -110,213 +54,90 @@ const replaceWorkspaceScope = async (nextScope) => {
     }
   };
   await visit(root);
-  console.log(`[RENAME] 工作区包命名空间 ${currentScope} → ${nextScope}`);
 };
 
-try {
-  console.log('\nAdminback 模板初始化\n敏感信息只写入本机 .env，不会写入 project.config.json。\n');
-  const preset =
-    presetArgument ??
-    (await choose(
-      '初始化模式',
-      [
-        { value: 'quick', label: '快速：PostgreSQL 基础配置，最少外部依赖' },
-        { value: 'standard', label: '标准：PostgreSQL、Redis、对象存储和邮件能力' },
-        { value: 'custom', label: '自定义：逐项选择基础能力' },
-      ],
-      2,
-    ));
-  if (!['quick', 'standard', 'custom'].includes(preset))
-    throw new Error('PRESET_INVALID：仅支持 quick、standard、custom');
-  if (projectNameArgument && !/^[a-z][a-z0-9-]{1,62}$/.test(projectNameArgument))
-    throw new Error('PROJECT_NAME_INVALID：项目名称只能使用小写字母、数字和连字符');
-  const name =
-    projectNameArgument ??
-    (await ask('项目英文名称', 'admin-project', (value) => /^[a-z][a-z0-9-]{1,62}$/.test(value)));
-  const packageScope = await ask('包命名空间', `@${name}`, (value) =>
-    /^@[a-z][a-z0-9-]{1,62}$/.test(value),
-  );
-  const displayName = await ask(
-    '项目显示名称',
-    '后台管理系统',
-    (value) => value.length >= 2 && value.length <= 80,
-  );
-  const description = await ask('项目简介', '内部运营后台');
-  const defaultLocale = await choose('默认界面语言', [{ value: 'zh-CN', label: '简体中文' }]);
-  const adminPort = Number(
-    await ask('后台端口', 3000, (value) => Number(value) >= 1024 && Number(value) <= 65535),
-  );
-  const apiPort = Number(
-    await ask('API 端口', 3001, (value) => Number(value) >= 1024 && Number(value) <= 65535),
-  );
-  const webPort = Number(
-    preset === 'custom' ? await ask('用户端端口', '3002', portValidator) : '3002',
-  );
-  const databaseMode = 'prisma';
-  const database =
-    databaseMode === 'prisma'
-      ? {
-          mode: 'prisma',
-          host: await ask('PostgreSQL 主机', '127.0.0.1'),
-          port: Number(await ask('PostgreSQL 端口', '5432', portValidator)),
-          name: await ask('PostgreSQL 数据库名', name.replaceAll('-', '_')),
-          username: await ask('PostgreSQL 用户名', 'postgres'),
-          password: await askRequired('PostgreSQL 密码', defaultsMode ? secret() : ''),
-        }
-      : null;
-  if (!database) throw new Error('DATABASE_CONFIG_REQUIRED：必须提供 PostgreSQL 配置');
-  const databaseUrl = `postgresql://${encodeURIComponent(database.username)}:${encodeURIComponent(database.password)}@${database.host}:${database.port}/${encodeURIComponent(database.name)}?schema=public`;
-  const adminPhone = await ask('初始管理员手机号', '13800000000', (value) =>
-    /^1\d{10}$/.test(value),
-  );
-  const adminName = await ask('初始管理员名称', '系统管理员');
-  const adminPassword = `Adm!${randomBytes(18).toString('base64url')}`;
-  const userWeb =
-    userWebMode || (await yes('启用用户端（注册、登录、个人中心和后台用户管理）', false));
-  const modules =
-    preset === 'custom'
-      ? {
-          ...presetModules('quick'),
-          userWeb,
-          customerAuthentication: userWeb,
-          deploymentCenter: deploymentCenterMode || (await yes('启用部署中心', false)),
-        }
-      : {
-          ...presetModules(preset),
-          userWeb,
-          customerAuthentication: userWeb,
-          deploymentCenter: deploymentCenterMode || (await yes('启用部署中心', false)),
-        };
-  if (userWeb) {
-    modules.sms = true;
-    modules.redis = true;
-  }
-  console.log(`\n[CHOICE] 用户端：${userWeb ? '启用' : '不启用'}`);
-  const config = {
-    $schema: './project.config.schema.json',
-    schemaVersion: 1,
-    template: {
-      name: 'adminback-template',
-      version: '0.1.0',
-      repository: 'https://github.com/shen-kk/create-ai-fullstack',
+const config = {
+  $schema: './project.config.schema.json',
+  schemaVersion: 2,
+  template: {
+    name: 'adminback-template',
+    version: '0.2.0',
+    repository: 'https://github.com/shen-kk/create-ai-fullstack',
+  },
+  project: { name, packageScope, displayName, description: `${displayName} 全栈项目` },
+  runtime: { packageManager: 'pnpm', adminPort: 3000, apiPort: 3001, webPort: 3002 },
+  database: { mode: 'prisma', engine: 'postgresql', orm: 'prisma' },
+  localization: { defaultLocale: 'zh-CN', supportedLocales: ['zh-CN'] },
+  ui: {
+    web: {
+      businessComponents: 'shadcn-vue',
+      motion: 'vueuse-motion',
+      orchestration: 'gsap',
+      designStandard: 'apple-linear-vercel',
     },
-    project: { name, packageScope, displayName, description },
-    runtime: { packageManager: 'pnpm', adminPort, apiPort, webPort },
-    database: {
-      mode: databaseMode,
-      engine: databaseMode === 'prisma' ? 'postgresql' : 'none',
-      orm: databaseMode === 'prisma' ? 'prisma' : 'none',
-    },
-    localization: { defaultLocale, supportedLocales: [defaultLocale] },
-    ui: {
-      web: {
-        businessComponents: 'shadcn-vue',
-        motion: 'vueuse-motion',
-        orchestration: 'gsap',
-        designStandard: 'apple-linear-vercel',
-      },
-    },
-    modules,
-    providers: { objectStorage: modules.objectStorage ? 'resource_library' : 'none' },
-  };
-  const configErrors = validateProjectConfig(config);
-  if (configErrors.length) throw new Error(`项目配置无效：${configErrors.join('；')}`);
-  const bootstrapIntegrations = await collectIntegrationBootstrap(database);
-  const provisionNow =
-    databaseMode === 'prisma' && !defaultsMode
-      ? await yes('配置完成后立即校验连接、初始化数据库并创建管理员', true)
-      : false;
-  const env = [
-    'NODE_ENV=development',
-    `ADMIN_PORT=${adminPort}`,
-    `API_PORT=${apiPort}`,
-    `WEB_PORT=${webPort}`,
-    `DATABASE_URL=${databaseUrl}`,
-    `PUBLIC_API_BASE_URL=http://localhost:${apiPort}/api`,
-    `ADMIN_ORIGIN=http://localhost:${adminPort}`,
-    `WEB_ORIGIN=http://localhost:${webPort}`,
-    `JWT_ACCESS_SECRET=${secret()}`,
-    `JWT_REFRESH_SECRET=${secret()}`,
-    `CUSTOMER_JWT_ACCESS_SECRET=${secret()}`,
-    `CUSTOMER_JWT_REFRESH_SECRET=${secret()}`,
-    `CONFIG_ENCRYPTION_KEY=${secret()}`,
-    'DEV_ADMIN_EMAIL=admin@example.com',
-    `DEV_ADMIN_PHONE=${adminPhone}`,
-    `DEV_ADMIN_NAME=${adminName}`,
-    `DEV_ADMIN_PASSWORD=${adminPassword}`,
-    '',
-  ].join('\n');
-  console.log('\n初始化摘要');
+  },
+  features,
+  modules: modulesForFeatures(features),
+  providers: { objectStorage: features.includes('customerAvatar') ? 'resource_library' : 'none' },
+};
+const errors = validateProjectConfig(config);
+if (errors.length) throw new Error(`项目配置无效：${errors.join('；')}`);
+if (dryRun) {
   console.log(JSON.stringify(config, null, 2));
-  if (dryRun) console.log('\n[DRY RUN] 未写入任何文件。');
-  else {
-    try {
-      await access(new URL('.env', root), constants.F_OK);
-      await copyFile(new URL('.env', root), new URL(`.env.backup-${Date.now()}`, root));
-      console.log('[BACKUP] 已备份现有 .env');
-    } catch {}
-    await writeFile(
-      new URL('project.config.json', root),
-      `${JSON.stringify(config, null, 2)}\n`,
-      'utf8',
-    );
-    await writeFile(new URL('.env', root), env, 'utf8');
-    if (bootstrapIntegrations.length)
-      await writeFile(
-        new URL('.template-bootstrap.json', root),
-        `${JSON.stringify({ integrations: bootstrapIntegrations }, null, 2)}\n`,
-        'utf8',
-      );
-    await writeFile(new URL('docs/ai/PROJECT.md', root), renderProjectContext(config), 'utf8');
-    await writeFile(
-      new URL('apps/admin/src/generated/project.ts', root),
-      renderRuntimeProject(config),
-      'utf8',
-    );
-    await writeFile(
-      new URL('apps/api/src/generated/project.ts', root),
-      renderRuntimeProject(config),
-      'utf8',
-    );
-    await writeFile(
-      new URL('apps/web/app/generated/project.ts', root),
-      renderRuntimeProject(config),
-      'utf8',
-    );
-    await replaceWorkspaceScope(packageScope);
-    await formatWorkspaceIfAvailable();
-    console.log('\n[DONE] 已生成 project.config.json、.env 与 docs/ai/PROJECT.md');
-    console.log(`初始管理员手机号：${adminPhone}`);
-    console.log(
-      '初始管理员随机密码仅保存在项目根目录 .env 的 DEV_ADMIN_PASSWORD，请复制完整值登录并在首次登录后修改。',
-    );
-    if (provisionNow) {
-      const pnpmEntry = process.env.npm_execpath;
-      const executable = pnpmEntry
-        ? process.execPath
-        : process.platform === 'win32'
-          ? 'pnpm.cmd'
-          : 'pnpm';
-      const run = (args) => {
-        const commandArgs = pnpmEntry ? [pnpmEntry, ...args] : args;
-        const result = spawnSync(executable, commandArgs, {
-          cwd: fileURLToPath(root),
-          stdio: 'inherit',
-          env: process.env,
-          shell: false,
-        });
-        if (result.error) throw result.error;
-        if (result.status !== 0)
-          throw new Error(`自动初始化失败，退出码 ${result.status ?? 'unknown'}`);
-      };
-      console.log('\n[SETUP] 刷新工作区链接并校验数据库配置。');
-      run(['install', '--frozen-lockfile']);
-      run(['template:provision', '--', '--yes']);
-    } else
-      console.log(
-        '下一步：重新运行 pnpm install 刷新工作区链接，再运行 pnpm template:doctor，确认后运行 pnpm template:provision，最后 pnpm dev:local',
-      );
-  }
-} finally {
-  rl?.close();
+  process.exit(0);
 }
+
+await writeFile(
+  new URL('project.config.json', root),
+  `${JSON.stringify(config, null, 2)}\n`,
+  'utf8',
+);
+await writeFile(
+  new URL('apps/admin/src/generated/feature-routes.ts', root),
+  renderAdminFeatureRoutes(config),
+  'utf8',
+);
+await writeFile(
+  new URL('apps/api/src/generated/feature-modules.ts', root),
+  renderApiFeatureModules(config),
+  'utf8',
+);
+await writeFile(new URL('docs/ai/PROJECT.md', root), renderProjectContext(config), 'utf8');
+await writeFile(
+  new URL('apps/admin/src/generated/project.ts', root),
+  renderRuntimeProject(config),
+  'utf8',
+);
+await writeFile(
+  new URL('apps/api/src/generated/project.ts', root),
+  renderRuntimeProject(config),
+  'utf8',
+);
+if (features.includes('customerWeb'))
+  await writeFile(
+    new URL('apps/web/app/generated/project.ts', root),
+    renderRuntimeProject(config),
+    'utf8',
+  );
+for (const feature of featureCatalog) {
+  if (features.includes(feature.id)) continue;
+  for (const path of feature.ownedPaths ?? []) {
+    await rm(new URL(path, root), { recursive: true, force: true });
+    console.log(`[CUT] ${feature.label}：${path}`);
+  }
+}
+if (!features.includes('customerWeb'))
+  await removeComposeService('docker-compose.production.yml', 'web');
+if (!features.includes('deploymentCenter')) {
+  const rootPackage = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
+  delete rootPackage.scripts['dev:worker'];
+  await writeJson('package.json', rootPackage);
+  const apiPackage = JSON.parse(await readFile(new URL('apps/api/package.json', root), 'utf8'));
+  delete apiPackage.scripts['start:worker'];
+  delete apiPackage.scripts['dev:worker'];
+  delete apiPackage.dependencies.ssh2;
+  delete apiPackage.devDependencies['@types/ssh2'];
+  await writeJson('apps/api/package.json', apiPackage);
+}
+await replaceWorkspaceScope(packageScope);
+console.log(`[DONE] 已组合功能：${features.join(', ') || '仅核心功能'}`);

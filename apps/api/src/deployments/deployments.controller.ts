@@ -76,10 +76,11 @@ export class DeploymentsController {
   ): Promise<DeploymentEnvironmentSummary> {
     return this.deployments.getEnvironment(id);
   }
-  @Get('environments/:id/secrets') @RequirePermissions('deployments.manage') getEnvironmentSecrets(
+  @Get('environments/:id/secrets') @RequirePermissions('secrets.read') getEnvironmentSecrets(
     @Param('id') id: string,
+    @Req() request: AuthenticatedRequest,
   ) {
-    return this.deployments.getEnvironmentSecrets(id);
+    return this.deployments.getEnvironmentSecrets(id, this.context(request));
   }
   @Post('environments') @RequirePermissions('deployments.manage') createEnvironment(
     @Body() input: UpsertDeploymentEnvironmentDto,

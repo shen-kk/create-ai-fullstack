@@ -2,7 +2,7 @@
 
 > 第一次创建项目请按照 [中文分步使用手册](docs/GETTING_STARTED.md)，从环境准备、交互选择、启动一路操作到验收。
 
-最终使用者只需运行一次 `npm create aiforge@latest my-project`。CLI 会获取模板、进入交互式配置、安装依赖并完成 Doctor 检查，不需要再手动执行 `template:init`。
+最终使用者先通过 `npm create aiforge@latest my-project` 可视化选择业务功能并生成代码，再运行 `pnpm setup` 配置数据库和开发环境。邮件、短信、Redis、对象存储及具体服务商不在 CLI 中选择，由所选业务功能自动保留并在后台按需绑定。
 
 面向 AI 协作开发的后台管理端、用户端与服务端 Monorepo 模板。后台管理员和用户端账号使用独立身份边界，模板不预置行业业务。
 
@@ -18,10 +18,11 @@
 ```bash
 npm create aiforge@latest my-project
 cd my-project
+pnpm setup
 pnpm dev:local
 ```
 
-初始化后的第二次安装用于刷新自定义包命名空间的 workspace 链接，不会重复下载依赖。PostgreSQL 项目按初始化提示先执行 `pnpm template:provision -- --dry-run`，确认目标数据库后再正式部署迁移与种子。
+CLI 已完成依赖安装和工作区刷新。`pnpm setup` 会生成本地 `.env`，并可在确认后立即校验 PostgreSQL、执行迁移和创建管理员。
 
 初始化向导会单独询问是否启用用户端。选择启用后，Web、独立用户身份 API、用户端权限以及后台“用户端用户”管理会一起生效；选择停用时这些运行时能力和菜单不会出现，Web 也不会进入默认开发、检查与构建任务。
 
@@ -46,8 +47,8 @@ AI 应依次读取：
 
 从 `docs/ai/TASK_TEMPLATE.md` 复制任务说明，明确验收标准与影响范围，然后按“契约 → API → 客户端 → 测试 → 文档”实现。
 
-模板包含 Admin、Web、API、共享契约、初始化 CLI、测试和 AI 项目记忆。功能边界见 `docs/ROADMAP.md`，人工验收见 `docs/MANUAL_ACCEPTANCE.md`，可分发 Skill 位于 `skills/create-admin-project`。
+模板包含 Admin、Web、API、共享契约、初始化 CLI、测试和 AI 项目记忆。功能边界见 `docs/ROADMAP.md`，人工验收见 `docs/MANUAL_ACCEPTANCE.md`。
 
 ## 推荐初始化方式
 
-新项目统一使用 npm CLI：`npm create aiforge@latest my-project`。`template:init`、`template:sync` 和 `template:doctor` 是脚手架内部及模板维护命令，不是新用户必须手动执行的安装步骤。完整分发说明见 [`docs/TEMPLATE_DISTRIBUTION.md`](docs/TEMPLATE_DISTRIBUTION.md)。
+新项目统一使用 npm CLI：`npm create aiforge@latest my-project`，然后执行 `pnpm setup`。模板维护者从 GitHub 拉取完整源码后也执行相同命令。完整分发说明见 [`docs/TEMPLATE_DISTRIBUTION.md`](docs/TEMPLATE_DISTRIBUTION.md)。

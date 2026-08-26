@@ -2,7 +2,9 @@
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { createInterface } from 'node:readline/promises';
+import process from 'node:process';
+import * as prompts from '@clack/prompts';
+import { featureCatalog, resolveFeatures } from '../lib/features.mjs';
 
 const args = process.argv.slice(2);
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
@@ -13,19 +15,19 @@ if (args.includes('--help') || args.includes('-h')) {
   npm create aiforge@latest <project-name>
 
 选项：
-  --preset=quick|standard|custom  预选初始化模式
-  --user-web                     自动启用用户端
-  --deployment-center            自动启用部署中心
-  --ref=<git-ref>                指定模板 Tag、分支或 Commit
-  --repo=<git-url>               指定模板仓库（模板维护使用）
-  -h, --help                     显示帮助
-  -v, --version                  显示版本`);
+  --features=<id,id>  非交互选择业务功能
+  --defaults          使用默认功能组合
+  --ref=<git-ref>     指定模板 Tag、分支或 Commit
+  --repo=<git-url>    指定模板仓库（模板维护使用）
+  -h, --help          显示帮助
+  -v, --version       显示版本`);
   process.exit(0);
 }
 if (args.includes('--version') || args.includes('-v')) {
   console.log(packageJson.version);
   process.exit(0);
 }
+
 const positional = args.filter((item) => !item.startsWith('--'));
 const destination = resolve(positional[0] || 'my-ai-project');
 const projectName = basename(destination);
@@ -33,26 +35,34 @@ const repo =
   args.find((item) => item.startsWith('--repo='))?.slice(7) ||
   'https://github.com/shen-kk/create-ai-fullstack.git';
 const ref = args.find((item) => item.startsWith('--ref='))?.slice(6) || 'main';
-
 const defaultsMode = args.includes('--defaults');
-const input = defaultsMode ? undefined : createInterface({ input: process.stdin, output: process.stdout });
-const ask = async (label, fallback, validate = () => true) => {
-  if (!input) return String(fallback);
-  while (true) {
-    const value = (await input.question(`${label} (${fallback}): `)).trim() || String(fallback);
-    if (validate(value)) return value;
-    console.log('输入格式不正确，请重新输入。');
+const featureOption = args.find((item) => item.startsWith('--features='));
+const featureArgument = featureOption?.slice(11);
+const defaultFeatures = ['customerWeb', 'customerAvatar'];
+
+const stopIfCancelled = (value) => {
+  if (prompts.isCancel(value)) {
+    prompts.cancel('已取消创建项目。');
+    process.exit(0);
   }
+  return value;
 };
-const choose = async (label, options, fallbackIndex = 0) => {
-  if (input) {
-    console.log(`\n${label}`);
-    options.forEach((item, index) => console.log(`  ${index + 1}. ${item.label}`));
+const run = (step, command, commandArgs, options = {}) => {
+  const spinner = prompts.spinner();
+  spinner.start(step);
+  const result = spawnSync(command, commandArgs, {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    ...options,
+  });
+  if (result.status !== 0 || result.error) {
+    spinner.stop(`${step}失败`);
+    if (result.stdout) process.stdout.write(result.stdout);
+    if (result.stderr) process.stderr.write(result.stderr);
+    throw result.error ?? new Error(`${step}失败，退出码：${result.status ?? 1}`);
   }
-  const answer = Number(await ask('请选择序号', fallbackIndex + 1, (value) => Number(value) >= 1 && Number(value) <= options.length));
-  return options[answer - 1].value;
+  spinner.stop(`${step}完成`);
 };
-const yes = async (label, fallback = false) => ['y', 'yes', '是'].includes((await ask(`${label} [${fallback ? 'Y/n' : 'y/N'}]`, fallback ? 'y' : 'n')).toLowerCase());
 
 if (existsSync(destination)) {
   console.error(`[ERROR] 目标目录已存在：${destination}`);
@@ -62,63 +72,86 @@ if (!/^[a-z][a-z0-9-]{1,62}$/.test(projectName)) {
   console.error('[ERROR] 项目目录名只能使用小写字母、数字和连字符，并以字母开头。');
   process.exit(1);
 }
-const run = (step, command, commandArgs, options = {}) => {
-  console.log(`[STEP] ${step}`);
-  const result = spawnSync(command, commandArgs, {
-    stdio: 'inherit',
-    shell: process.platform === 'win32',
-    ...options,
+
+prompts.intro('AIForge 项目创建向导');
+const displayName = defaultsMode
+  ? projectName
+  : stopIfCancelled(
+      await prompts.text({
+        message: '项目显示名称',
+        placeholder: projectName,
+        defaultValue: projectName,
+        validate: (value) =>
+          value.trim().length >= 2 && value.trim().length <= 80 ? undefined : '请输入 2–80 个字符',
+      }),
+    );
+const packageScope = defaultsMode
+  ? `@${projectName}`
+  : stopIfCancelled(
+      await prompts.text({
+        message: '包命名空间',
+        placeholder: `@${projectName}`,
+        defaultValue: `@${projectName}`,
+        validate: (value) =>
+          /^@[a-z][a-z0-9-]{1,62}$/.test(value) ? undefined : '格式示例：@my-project',
+      }),
+    );
+const selected =
+  featureOption !== undefined
+    ? featureArgument.split(',').filter(Boolean)
+    : defaultsMode
+      ? defaultFeatures
+      : stopIfCancelled(
+          await prompts.multiselect({
+            message: '选择项目业务功能（空格选择，回车确认）',
+            options: featureCatalog.map((feature) => ({
+              value: feature.id,
+              label: `${feature.group} · ${feature.label}`,
+              hint: feature.hint,
+            })),
+            initialValues: defaultFeatures,
+            required: false,
+          }),
+        );
+const resolvedFeatures = resolveFeatures(selected);
+const confirmed = defaultsMode
+  ? true
+  : stopIfCancelled(
+      await prompts.confirm({
+        message: `将生成 ${resolvedFeatures.length || '仅核心'} 项功能，确认创建？`,
+        initialValue: true,
+      }),
+    );
+if (!confirmed) {
+  prompts.cancel('已取消创建项目。');
+  process.exit(0);
+}
+
+try {
+  run('检查 pnpm', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['--version']);
+  run('获取模板源码', 'git', ['clone', '--branch', ref, '--single-branch', repo, destination]);
+  run(
+    '组合所选功能',
+    process.execPath,
+    [
+      join(destination, 'scripts', 'template-init.mjs'),
+      `--name=${projectName}`,
+      `--display-name=${String(displayName)}`,
+      `--scope=${String(packageScope)}`,
+      `--features=${resolvedFeatures.join(',')}`,
+    ],
+    { cwd: destination, shell: false },
+  );
+  run('安装项目依赖', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install'], {
+    cwd: destination,
   });
-  if (result.error) {
-    console.error(`[ERROR] ${step}无法启动：${result.error.message}`);
-    process.exit(1);
-  }
-  if (result.status !== 0) {
-    console.error(`[ERROR] ${step}失败，退出码：${result.status ?? 1}`);
-    process.exit(result.status ?? 1);
-  }
-};
-
-console.log('\nAIFORGE 项目创建向导\n请先选择项目能力，确认后才会下载模板。');
-const preset = args.find((item) => item.startsWith('--preset='))?.slice(9) || await choose('初始化模式', [
-  { value: 'quick', label: '快速：PostgreSQL 基础配置，最少外部依赖' },
-  { value: 'standard', label: '标准：PostgreSQL、Redis、对象存储和邮件能力' },
-  { value: 'custom', label: '自定义：逐项选择基础能力' },
-], 2);
-const enableUserWeb = args.includes('--user-web') || await yes('启用用户端', false);
-const enableDeploymentCenter = args.includes('--deployment-center') || await yes('启用部署中心', false);
-input?.close();
-console.log(`\n[CHOICE] 模式：${preset}；用户端：${enableUserWeb ? '启用' : '不启用'}；部署中心：${enableDeploymentCenter ? '启用' : '不启用'}`);
-
-run('检查 pnpm', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['--version']);
-console.log(`[CREATE] 从 ${repo} (${ref}) 获取模板`);
-run('获取模板', 'git', ['clone', '--branch', ref, '--single-branch', repo, destination]);
-run('安装模板依赖', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install'], {
-  cwd: destination,
-});
-const forwardedInitArgs = [
-  ...(defaultsMode ? ['--defaults'] : []),
-  `--preset=${preset}`,
-  ...(enableUserWeb ? ['--user-web'] : []),
-  ...(enableDeploymentCenter ? ['--deployment-center'] : []),
-];
-run(
-  '初始化项目配置',
-  process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
-  ['template:init', '--', `--name=${projectName}`, ...forwardedInitArgs],
-  { cwd: destination },
-);
-run('刷新项目依赖', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install'], {
-  cwd: destination,
-});
-run(
-  '检查项目完整性',
-  process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
-  ['template:doctor'],
-  { cwd: destination },
-);
-
-rmSync(join(destination, '.git'), { recursive: true, force: true });
-run('初始化项目 Git 仓库', 'git', ['init'], { cwd: destination });
-console.log(`\n[DONE] 项目已创建：${destination}`);
-console.log('下一步：进入项目目录并运行 pnpm dev:local');
+  run('检查项目结构', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['feature:check'], {
+    cwd: destination,
+  });
+  rmSync(join(destination, '.git'), { recursive: true, force: true });
+  run('初始化项目 Git 仓库', 'git', ['init'], { cwd: destination });
+  prompts.outro(`项目已创建：${destination}\n下一步：cd ${projectName} && pnpm setup`);
+} catch (error) {
+  prompts.cancel(error instanceof Error ? error.message : '创建项目失败');
+  process.exitCode = 1;
+}

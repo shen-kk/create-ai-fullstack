@@ -138,7 +138,7 @@ onMounted(load);
         </button>
       </div>
     </section>
-    <pre v-if="notice" class="operation-notice deployment-notice" role="status">{{ notice }}</pre>
+    <pre v-if="notice" :key="notice" class="operation-notice deployment-notice" :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'">{{ notice }}</pre>
     <div v-if="loading" class="panel table-state">
       <span class="loading-ring" />正在加载部署环境…
     </div>

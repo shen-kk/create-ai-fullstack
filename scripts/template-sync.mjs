@@ -1,6 +1,9 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { access, readFile, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
 import process from 'node:process';
 import {
+  renderAdminFeatureRoutes,
+  renderApiFeatureModules,
   renderProjectContext,
   renderRuntimeProject,
   validateProjectConfig,
@@ -18,15 +21,28 @@ try {
     'utf8',
   );
   await writeFile(
+    new URL('apps/admin/src/generated/feature-routes.ts', root),
+    renderAdminFeatureRoutes(config),
+    'utf8',
+  );
+  await writeFile(
+    new URL('apps/api/src/generated/feature-modules.ts', root),
+    renderApiFeatureModules(config),
+    'utf8',
+  );
+  await writeFile(
     new URL('apps/api/src/generated/project.ts', root),
     renderRuntimeProject(config),
     'utf8',
   );
-  await writeFile(
-    new URL('apps/web/app/generated/project.ts', root),
-    renderRuntimeProject(config),
-    'utf8',
-  );
+  try {
+    await access(new URL('apps/web/', root), constants.F_OK);
+    await writeFile(
+      new URL('apps/web/app/generated/project.ts', root),
+      renderRuntimeProject(config),
+      'utf8',
+    );
+  } catch {}
   console.log('[DONE] AI 项目记忆已与 project.config.json 同步。');
 } catch (error) {
   console.error(`[FAIL] 同步失败：${error instanceof Error ? error.message : '未知错误'}`);

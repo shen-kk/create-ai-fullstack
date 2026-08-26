@@ -4,10 +4,10 @@ import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DeploymentWorkerModule } from './deployments/deployment-worker.module.js';
 
-function loadTemplateDevelopmentEnv(): void {
-  const candidates = [
-    resolve(process.cwd(), '.env.template-dev'),
-    resolve(process.cwd(), '../../.env.template-dev'),
+function loadLocalEnv(): void {
+  const candidates: string[] = [
+    resolve(process.cwd(), '.env'),
+    resolve(process.cwd(), '../..', '.env'),
   ];
   const file = candidates.find((candidate) => existsSync(candidate));
   if (!file) return;
@@ -23,7 +23,7 @@ function loadTemplateDevelopmentEnv(): void {
 }
 
 async function bootstrap(): Promise<void> {
-  loadTemplateDevelopmentEnv();
+  loadLocalEnv();
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required');
   if (
     process.env.NODE_ENV === 'production' &&

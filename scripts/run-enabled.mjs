@@ -28,8 +28,7 @@ const pnpmEntry = process.env.npm_execpath;
 if (!pnpmEntry) throw new Error('必须通过 pnpm 脚本运行能力调度器');
 let localEnv = {};
 try {
-  const envFile = process.env.ENV_FILE || '.env';
-  localEnv = parseEnv(await readFile(resolve(process.cwd(), envFile), 'utf8'));
+  localEnv = parseEnv(await readFile(resolve(process.cwd(), '.env'), 'utf8'));
 } catch {}
 const child = spawn(process.execPath, [pnpmEntry, 'exec', 'turbo', task, ...filters], {
   stdio: 'inherit',

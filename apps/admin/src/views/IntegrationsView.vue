@@ -15,6 +15,7 @@ import {
   createServiceResource,
   getIntegrations,
   getServiceResources,
+  getServiceResourceSecrets,
   updateServiceResource,
   getServiceFeatureBindings,
   updateServiceFeatureBinding,
@@ -31,6 +32,7 @@ import AppSelect from '../components/AppSelect.vue';
 import AppPasswordInput from '../components/AppPasswordInput.vue';
 import AppDialog from '../components/AppDialog.vue';
 import AppRichTextEditor from '../components/AppRichTextEditor.vue';
+import { project } from '../generated/project';
 
 const route = useRoute();
 const activeSection = computed<'resources' | 'bindings' | 'templates'>(() => {
@@ -90,6 +92,8 @@ const templateForm = ref({
   enabled: true,
 });
 const testTarget = ref('');
+const noticeKind = ref<'success' | 'error'>('success');
+const revealingResourceSecrets = ref(false);
 const testPurpose = ref<VerificationPurpose>('login');
 const testingDelivery = ref(false);
 const resourceName = ref('');
@@ -114,8 +118,14 @@ async function load(): Promise<void> {
     authMode.value = authSettings.value.mode;
     verificationTtlMinutes.value = authSettings.value.verificationTtlSeconds / 60;
     verificationRetrySeconds.value = authSettings.value.verificationRetrySeconds;
-  } catch {
-    error.value = '服务配置加载失败，请检查权限与 API。';
+  } catch (cause) {
+    const code = cause instanceof Error ? cause.message : '';
+    error.value =
+      code === 'UNAUTHORIZED' || code.includes('401')
+        ? '登录状态已失效，请重新登录后再查看服务配置。'
+        : code
+          ? `服务配置加载失败（${code}），请检查权限与 API。`
+          : '服务配置加载失败，请检查权限与 API。';
   } finally {
     loading.value = false;
   }
@@ -140,7 +150,7 @@ async function saveAuthMode(): Promise<void> {
       verificationTtlSeconds: verificationTtlMinutes.value * 60,
       verificationRetrySeconds: verificationRetrySeconds.value,
     });
-    notice.value = '用户端认证与验证码规则已更新。';
+    noticeKind.value = 'success'; notice.value = '用户端认证与验证码规则已更新。';
   } catch (error) {
     notice.value =
       error instanceof Error && error.message === 'CUSTOMER_AUTH_FEATURE_BINDINGS_INCOMPLETE'
@@ -198,7 +208,7 @@ async function bindFeature(
     bindings.value = bindings.value.map((item) => (item.code === updated.code ? updated : item));
     notice.value = resourceId ? '功能绑定已保存。' : '已解除绑定，该功能将提示服务未配置。';
   } catch {
-    notice.value = '功能绑定失败，请确认资源已启用且类型匹配。';
+    noticeKind.value = 'error'; notice.value = '功能绑定失败，请确认资源已启用且类型匹配。';
   }
 }
 function templateOptions(binding: ServiceFeatureBindingSummary) {
@@ -214,7 +224,7 @@ async function bindTemplate(
   templateId: string,
 ): Promise<void> {
   if (!binding.resourceId) {
-    notice.value = '请先绑定发送服务资源。';
+    noticeKind.value = 'error'; notice.value = '请先绑定发送服务资源。';
     return;
   }
   const updated = await updateServiceFeatureBinding(
@@ -256,7 +266,7 @@ async function saveTemplate(): Promise<void> {
   try {
     const form = templateForm.value;
     if (form.channel === 'email' && !form.htmlBody.trim()) {
-      notice.value = '请填写邮件正文。';
+      noticeKind.value = 'error'; notice.value = '请填写邮件正文。';
       return;
     }
     const input = {
@@ -277,7 +287,7 @@ async function saveTemplate(): Promise<void> {
     notice.value = '消息模板已保存。';
     await load();
   } catch {
-    notice.value = '模板保存失败，请检查模板变量和参数映射 JSON。';
+    noticeKind.value = 'error'; notice.value = '模板保存失败，请检查模板变量和参数映射 JSON。';
   }
 }
 async function removeTemplate(template: MessageTemplateSummary): Promise<void> {
@@ -286,7 +296,7 @@ async function removeTemplate(template: MessageTemplateSummary): Promise<void> {
     notice.value = '消息模板已删除。';
     await load();
   } catch {
-    notice.value = '模板正在被功能使用，不能删除。';
+    noticeKind.value = 'error'; notice.value = '模板正在被功能使用，不能删除。';
   }
 }
 async function testCurrentDelivery(): Promise<void> {
@@ -306,7 +316,7 @@ async function testCurrentDelivery(): Promise<void> {
       SMS_DELIVERY_FAILED: '短信发送失败，请检查短信服务配置。',
       VERIFICATION_RETRY_LATER: '发送过于频繁，请等待 60 秒后重试。',
     };
-    notice.value = messages[code] ?? '测试发送失败，请检查所选场景的服务和模板绑定。';
+    noticeKind.value = 'error'; notice.value = messages[code] ?? '测试发送失败，请检查所选场景的服务和模板绑定。';
   } finally {
     testingDelivery.value = false;
   }
@@ -336,6 +346,23 @@ function editResource(resource: ServiceResourceSummary): void {
 function hasConfiguredSecret(key: string): boolean {
   return Boolean(editingResource.value?.configuredSecrets.includes(key));
 }
+async function revealResourceSecrets(): Promise<void> {
+  if (!editingResource.value || revealingResourceSecrets.value) return;
+  revealingResourceSecrets.value = true;
+  try {
+    secrets.value = { ...secrets.value, ...(await getServiceResourceSecrets(editingResource.value.id)) };
+  } catch (cause) {
+    const code = cause instanceof Error ? cause.message : '';
+    noticeKind.value = 'error';
+    notice.value = code === 'FORBIDDEN' || code.includes('403')
+      ? '当前账号没有“查看敏感配置明文”权限。'
+      : code === 'INTEGRATION_SECRETS_REENTRY_REQUIRED'
+        ? '历史密钥已无法解密，请重新填写并保存。'
+        : '敏感配置读取失败，请检查权限或 API。';
+  } finally {
+    revealingResourceSecrets.value = false;
+  }
+}
 function visibleFields(item: IntegrationConfigSummary) {
   const provider = values.value.provider || values.value.engine || '';
   return item.fields.filter(
@@ -358,10 +385,19 @@ async function save(): Promise<void> {
     if (editingResource.value) await updateServiceResource(editingResource.value.id, input);
     else await createServiceResource(input);
     editing.value = undefined;
+    noticeKind.value = 'success';
     notice.value = '服务资源已安全保存，部署环境现在可以绑定该资源。';
     await load();
-  } catch {
-    notice.value = '保存失败，请检查必填字段、平台类型和加密配置。';
+  } catch (cause) {
+    const code = cause instanceof Error ? cause.message : '';
+    const messages: Record<string, string> = {
+      INTEGRATION_REQUIRED_FIELD_MISSING: '旧密钥无法使用，请重新填写当前服务所需的密码或访问密钥。',
+      INTEGRATION_AUTH_CREDENTIAL_REQUIRED: '请重新填写当前认证方式对应的密码、令牌或 SSH 私钥。',
+      SERVICE_DEPLOY_ROOT_INVALID: '部署根目录必须是合法的 Linux 绝对路径。',
+      INTEGRATION_OPTION_INVALID: '所选服务平台或配置选项无效，请重新选择。',
+    };
+    noticeKind.value = 'error';
+    notice.value = messages[code] ?? '保存失败，请检查必填字段、平台类型和加密配置。';
   } finally {
     saving.value = false;
   }
@@ -399,7 +435,9 @@ onMounted(load);
       </div>
       <button class="secondary-button" :disabled="loading" @click="load">刷新</button>
     </section>
-    <p v-if="notice" class="operation-notice" role="status">{{ notice }}</p>
+    <p v-if="notice" :key="notice" class="operation-notice" :class="`notice-${noticeKind}`" :role="noticeKind === 'error' ? 'alert' : 'status'">
+      <span class="notice-icon" aria-hidden="true">{{ noticeKind === 'error' ? '!' : '✓' }}</span>{{ notice }}
+    </p>
     <nav class="integration-subnav" aria-label="服务配置二级导航">
       <RouterLink to="/integrations/resources">
         <strong>服务资源</strong><small>配置外部服务与基础设施</small>
@@ -414,7 +452,10 @@ onMounted(load);
     <div v-if="loading" class="panel table-state"><span class="loading-ring" />正在加载…</div>
     <div v-else-if="error" class="panel table-state error-state">{{ error }}</div>
     <template v-else>
-      <section v-if="activeSection === 'bindings'" class="panel integration-binding-panel">
+      <section
+        v-if="activeSection === 'bindings' && project.modules.customerAuthentication"
+        class="panel integration-binding-panel"
+      >
         <header class="integration-section-heading">
           <div>
             <p class="eyebrow">功能绑定</p>
@@ -533,7 +574,10 @@ onMounted(load);
             </div>
           </article>
         </div>
-        <div class="customer-auth-setting test-delivery-setting">
+        <div
+          v-if="project.modules.customerAuthentication"
+          class="customer-auth-setting test-delivery-setting"
+        >
           <span
             ><strong>测试当前认证绑定</strong
             ><small>选择场景后，使用该场景实际绑定的服务资源和消息模板发送。</small></span
@@ -663,8 +707,11 @@ onMounted(load);
                 v-if="field.secret"
                 :model-value="secrets[field.key] ?? ''"
                 @update:model-value="secrets[field.key] = $event"
+                @reveal="revealResourceSecrets"
+                :revealable="Boolean(editingResource && hasConfiguredSecret(field.key))"
+                :revealing="revealingResourceSecrets"
                 :required="field.required && !hasConfiguredSecret(field.key)"
-                placeholder="留空表示保留原密钥"
+                :placeholder="hasConfiguredSecret(field.key) ? '••••••••（已加密保存）' : '请输入密钥'"
                 autocomplete="new-password"
               />
               <AppSelect

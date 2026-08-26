@@ -54,7 +54,7 @@ describe('customer session API client', () => {
     expect(error).toBeInstanceOf(CustomerApiError);
     expect(error).toMatchObject({
       code: 'INVALID_CUSTOMER_CREDENTIALS',
-      message: '手机号或密码错误',
+      message: '账号或密码错误',
       requestId: 'request-1',
     });
   });

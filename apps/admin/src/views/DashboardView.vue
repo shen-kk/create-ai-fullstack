@@ -79,7 +79,7 @@ onMounted(load);
       </div>
       <button class="secondary-button" :disabled="checking" @click="load">刷新数据</button>
     </section>
-    <p v-if="error" class="operation-notice">{{ error }}</p>
+    <p v-if="error" class="operation-notice" role="alert">{{ error }}</p>
     <section v-if="cards.length" class="metric-grid" aria-label="系统数据">
       <button
         v-for="card in cards"

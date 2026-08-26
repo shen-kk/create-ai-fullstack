@@ -55,6 +55,18 @@ export class IntegrationsController {
   ): Promise<ServiceResourceSummary> {
     return this.service.updateResource(id, input);
   }
+  @Get('resources/:id/secrets')
+  @RequirePermissions('secrets.read')
+  getResourceSecrets(
+    @Param('id') id: string,
+    @Req() request: Request & { user: AuthUser; requestId?: string },
+  ): Promise<Record<string, string>> {
+    return this.service.getResourceSecrets(id, {
+      actorId: request.user.id,
+      ...(request.requestId ? { requestId: request.requestId } : {}),
+      ...(request.ip ? { ipAddress: request.ip } : {}),
+    });
+  }
   @Delete('resources/:id') deleteResource(
     @Param('id') id: string,
     @Req() request: Request & { user: AuthUser; requestId?: string },

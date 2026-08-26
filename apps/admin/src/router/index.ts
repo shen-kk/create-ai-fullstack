@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { getCurrentUser, restoreSession } from '../auth/session';
-import { project } from '../generated/project';
+import { featureRoutes } from '../generated/feature-routes';
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -15,20 +15,7 @@ export const router = createRouter({
       component: () => import('../views/UsersView.vue'),
       meta: { title: '管理员', permissions: ['menu.users', 'users.read'] },
     },
-    ...(project.modules.userWeb && project.modules.customerAuthentication
-      ? [
-          {
-            path: '/customers',
-            component: () => import('../views/CustomersView.vue'),
-            meta: { title: '用户端用户', permissions: ['menu.customers', 'customers.read'] },
-          },
-          {
-            path: '/verification-deliveries',
-            component: () => import('../views/VerificationDeliveriesView.vue'),
-            meta: { title: '验证码记录', permissions: ['menu.verification', 'verification.read'] },
-          },
-        ]
-      : []),
+    ...featureRoutes,
     {
       path: '/logs',
       component: () => import('../views/AuditLogsView.vue'),
@@ -69,67 +56,6 @@ export const router = createRouter({
       component: () => import('../views/IntegrationsView.vue'),
       meta: { title: '消息模板', permissions: ['menu.integrations', 'integrations.manage'] },
     },
-    ...(project.modules.deploymentCenter
-      ? [
-          {
-            path: '/deployments',
-            component: () => import('../views/DeploymentProjectsView.vue'),
-            meta: { title: '部署中心', permissions: ['menu.deployments', 'deployments.read'] },
-          },
-          {
-            path: '/deployments/projects',
-            redirect: '/deployments',
-            meta: { title: '部署项目', permissions: ['menu.deployments', 'deployments.read'] },
-          },
-          {
-            path: '/deployments/projects/new',
-            component: () => import('../views/DeploymentProjectFormView.vue'),
-            meta: {
-              title: '新增部署项目',
-              permissions: ['menu.deployments', 'deployments.manage'],
-            },
-          },
-          {
-            path: '/deployments/projects/:id/edit',
-            component: () => import('../views/DeploymentProjectFormView.vue'),
-            meta: {
-              title: '编辑部署项目',
-              permissions: ['menu.deployments', 'deployments.manage'],
-            },
-          },
-          {
-            path: '/deployments/projects/:projectId',
-            component: () => import('../views/DeploymentsView.vue'),
-            meta: { title: '项目环境', permissions: ['menu.deployments', 'deployments.read'] },
-          },
-          {
-            path: '/deployments/new',
-            component: () => import('../views/DeploymentEnvironmentFormView.vue'),
-            meta: {
-              title: '新增部署环境',
-              permissions: ['menu.deployments', 'deployments.manage'],
-            },
-          },
-          {
-            path: '/deployments/history',
-            component: () => import('../views/DeploymentHistoryView.vue'),
-            meta: { title: '部署记录', permissions: ['menu.deployments', 'deployments.read'] },
-          },
-          {
-            path: '/deployments/:id/edit',
-            component: () => import('../views/DeploymentEnvironmentFormView.vue'),
-            meta: {
-              title: '编辑部署环境',
-              permissions: ['menu.deployments', 'deployments.manage'],
-            },
-          },
-          {
-            path: '/deployments/runs/:runId',
-            component: () => import('../views/DeploymentRunView.vue'),
-            meta: { title: '部署进度', permissions: ['menu.deployments', 'deployments.read'] },
-          },
-        ]
-      : []),
     {
       path: '/login',
       component: () => import('../views/LoginView.vue'),

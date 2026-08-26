@@ -76,19 +76,21 @@ async function seedIntegrationConfigs(): Promise<void> {
         encryptedSecrets: encryptSecrets(secrets),
       },
     });
-    if (item.kind === 'sql') {
+    if (item.kind === 'sql' || item.kind === 'redis') {
+      const name = item.kind === 'sql' ? '开发数据库' : '开发 Redis';
+      const provider = item.kind === 'sql' ? item.values.engine || 'postgresql' : 'redis';
       await prisma.serviceResource.upsert({
-        where: { kind_name: { kind: 'sql', name: '开发数据库' } },
+        where: { kind_name: { kind: item.kind, name } },
         create: {
-          name: '开发数据库',
-          kind: 'sql',
-          provider: item.values.engine || 'postgresql',
+          name,
+          kind: item.kind,
+          provider,
           enabled: true,
           values: item.values,
           encryptedSecrets: encryptSecrets(secrets),
         },
         update: {
-          provider: item.values.engine || 'postgresql',
+          provider,
           enabled: true,
           values: item.values,
           encryptedSecrets: encryptSecrets(secrets),
@@ -243,12 +245,10 @@ async function main(): Promise<void> {
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.upsert({
     where: { phone },
-    update: {
-      name,
-      email: process.env.DEV_ADMIN_EMAIL ?? 'admin@example.com',
-      passwordHash,
-      status: UserStatus.ACTIVE,
-    },
+    // Project provisioning treats DEV_ADMIN_PASSWORD as the authoritative
+    // recovery credential. Re-running setup/provision intentionally resets
+    // the initial administrator password without overwriting profile/status.
+    update: { passwordHash },
     create: {
       phone,
       email: process.env.DEV_ADMIN_EMAIL ?? 'admin@example.com',

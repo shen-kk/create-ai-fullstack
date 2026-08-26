@@ -1,40 +1,12 @@
-export const coreModules = Object.freeze({
-  authentication: true,
-  adminUsers: true,
-  rolesAndPermissions: true,
-  auditLogs: true,
-  serviceConfig: true,
-});
-
-export function presetModules(preset) {
-  if (preset === 'standard')
-    return {
-      ...coreModules,
-      customerAuthentication: false,
-      userWeb: false,
-      objectStorage: true,
-      redis: true,
-      sms: false,
-      email: true,
-      payment: false,
-      deploymentCenter: false,
-    };
-  return {
-    ...coreModules,
-    customerAuthentication: false,
-    userWeb: false,
-    objectStorage: true,
-    redis: false,
-    sms: false,
-    email: false,
-    payment: false,
-    deploymentCenter: false,
-  };
-}
+import {
+  coreModules,
+  modulesForFeatures,
+  resolveFeatures,
+} from '../../packages/create-ai-fullstack/lib/features.mjs';
 
 export function validateProjectConfig(config) {
   const errors = [];
-  if (config?.schemaVersion !== 1) errors.push('schemaVersion 必须为 1');
+  if (config?.schemaVersion !== 2) errors.push('schemaVersion 必须为 2');
   try {
     new URL(config?.template?.repository);
   } catch {
@@ -73,10 +45,19 @@ export function validateProjectConfig(config) {
     errors.push('Prisma 模式当前只支持 PostgreSQL');
   for (const [name, enabled] of Object.entries(coreModules))
     if (config?.modules?.[name] !== enabled) errors.push(`核心模块 ${name} 必须启用`);
-  if (config?.modules?.userWeb !== config?.modules?.customerAuthentication)
-    errors.push('userWeb 与 customerAuthentication 必须同时启用或停用');
-  if (config?.modules?.userWeb && (!config?.modules?.sms || !config?.modules?.redis))
-    errors.push('启用用户端身份时必须同时启用 sms 与 redis');
+  let expectedModules;
+  try {
+    const resolved = resolveFeatures(config?.features ?? []);
+    if (resolved.length !== (config?.features?.length ?? 0))
+      errors.push('features 必须包含完整依赖且不能重复');
+    expectedModules = modulesForFeatures(resolved);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : 'features 无效');
+  }
+  if (expectedModules)
+    for (const [name, enabled] of Object.entries(expectedModules))
+      if (config?.modules?.[name] !== enabled)
+        errors.push(`模块 ${name} 必须由 features 自动推导为 ${enabled}`);
   if (
     config?.modules?.objectStorage &&
     (!config?.providers?.objectStorage || config.providers.objectStorage === 'none')
@@ -110,7 +91,7 @@ export function renderProjectContext(config) {
       .join('\n') || '- 无';
   return `# 当前项目声明（自动生成）
 
-> 本文件由 \`pnpm template:init\` 根据 \`project.config.json\` 生成。不要手工修改；需要调整能力时重新运行初始化命令。
+> 本文件由项目组合器根据 \`project.config.json\` 生成。不要手工修改。
 
 ## 项目
 
@@ -144,6 +125,10 @@ ${enabled}
 
 ${disabled}
 
+## 已选择业务功能
+
+${(config.features ?? []).map((name) => `- \`${name}\``).join('\n') || '- 仅核心功能'}
+
 ## AI 实现约束
 
 - 开始开发前以 \`project.config.json\` 和本文件确认项目边界。
@@ -166,5 +151,82 @@ export function provisionCommands(config) {
 }
 
 export function renderRuntimeProject(config) {
-  return `// 此文件由 pnpm template:init / template:sync 自动生成，请勿手工修改。\nexport const project = ${JSON.stringify({ name: config.project.name, packageScope: config.project.packageScope, displayName: config.project.displayName, description: config.project.description, runtime: config.runtime, database: config.database, localization: config.localization, ui: config.ui, modules: config.modules, providers: config.providers }, null, 2)} as const;\n`;
+  return `// 此文件由项目组合器 / template:sync 自动生成，请勿手工修改。\nexport const project = ${JSON.stringify({ name: config.project.name, packageScope: config.project.packageScope, displayName: config.project.displayName, description: config.project.description, runtime: config.runtime, database: config.database, localization: config.localization, ui: config.ui, features: config.features, modules: config.modules, providers: config.providers }, null, 2)} as const;\n`;
+}
+
+export function renderApiFeatureModules(config) {
+  const imports = [];
+  const modules = [];
+  if (config.features.includes('customerWeb')) {
+    imports.push("import { CustomerAuthModule } from '../customer-auth/customer-auth.module.js';");
+    modules.push('CustomerAuthModule');
+  }
+  if (config.features.includes('deploymentCenter')) {
+    imports.push("import { DeploymentsModule } from '../deployments/deployments.module.js';");
+    modules.push('DeploymentsModule');
+  }
+  return `// 此文件由项目组合器 / template:sync 自动生成，请勿手工修改。\n${imports.join('\n')}${imports.length ? '\n\n' : ''}export const featureModules = [${modules.join(', ')}];\n`;
+}
+
+export function renderAdminFeatureRoutes(config) {
+  const routes = [];
+  if (config.features.includes('customerWeb')) {
+    routes.push(`  {
+    path: '/customers',
+    component: () => import('../views/CustomersView.vue'),
+    meta: { title: '用户端用户', permissions: ['menu.customers', 'customers.read'] },
+  },`);
+    routes.push(`  {
+    path: '/verification-deliveries',
+    component: () => import('../views/VerificationDeliveriesView.vue'),
+    meta: { title: '验证码记录', permissions: ['menu.verification', 'verification.read'] },
+  },`);
+  }
+  if (config.features.includes('deploymentCenter')) {
+    routes.push(`  {
+    path: '/deployments',
+    component: () => import('../views/DeploymentProjectsView.vue'),
+    meta: { title: '部署中心', permissions: ['menu.deployments', 'deployments.read'] },
+  },`);
+    routes.push(`  {
+    path: '/deployments/projects',
+    redirect: '/deployments',
+    meta: { title: '部署项目', permissions: ['menu.deployments', 'deployments.read'] },
+  },`);
+    for (const route of [
+      [
+        '/deployments/projects/new',
+        'DeploymentProjectFormView.vue',
+        '新增部署项目',
+        'deployments.manage',
+      ],
+      [
+        '/deployments/projects/:id/edit',
+        'DeploymentProjectFormView.vue',
+        '编辑部署项目',
+        'deployments.manage',
+      ],
+      ['/deployments/projects/:projectId', 'DeploymentsView.vue', '项目环境', 'deployments.read'],
+      [
+        '/deployments/new',
+        'DeploymentEnvironmentFormView.vue',
+        '新增部署环境',
+        'deployments.manage',
+      ],
+      ['/deployments/history', 'DeploymentHistoryView.vue', '部署记录', 'deployments.read'],
+      [
+        '/deployments/:id/edit',
+        'DeploymentEnvironmentFormView.vue',
+        '编辑部署环境',
+        'deployments.manage',
+      ],
+      ['/deployments/runs/:runId', 'DeploymentRunView.vue', '部署进度', 'deployments.read'],
+    ])
+      routes.push(`  {
+    path: '${route[0]}',
+    component: () => import('../views/${route[1]}'),
+    meta: { title: '${route[2]}', permissions: ['menu.deployments', '${route[3]}'] },
+  },`);
+  }
+  return `// 此文件由项目组合器 / template:sync 自动生成，请勿手工修改。\nimport type { RouteRecordRaw } from 'vue-router';\n\nexport const featureRoutes: RouteRecordRaw[] = [\n${routes.join('\n')}\n];\n`;
 }

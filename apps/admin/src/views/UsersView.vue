@@ -13,6 +13,7 @@ import {
 import AppSelect from '../components/AppSelect.vue';
 import AppPagination from '../components/AppPagination.vue';
 import AppCheckbox from '../components/AppCheckbox.vue';
+import AppPasswordInput from '../components/AppPasswordInput.vue';
 
 const keyword = ref('');
 const selectedStatus = ref<'' | UserStatus>('');
@@ -182,7 +183,7 @@ onMounted(loadUsers);
       </div>
       <button class="primary-button" @click="createOpen = true">＋ 新增管理员</button>
     </section>
-    <p v-if="notice" class="operation-notice" role="status">{{ notice }}</p>
+    <p v-if="notice" :key="notice" class="operation-notice" :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'">{{ notice }}</p>
 
     <section class="panel filter-panel" aria-label="用户筛选">
       <form class="filter-form" @submit.prevent="search">
@@ -304,10 +305,10 @@ onMounted(loadUsers);
           ><input v-model.trim="createForm.email" type="email" maxlength="254" /></label
         ><label
           ><span>初始密码</span
-          ><input
-            v-model="createForm.password"
+          ><AppPasswordInput
+            :model-value="createForm.password"
+            @update:model-value="createForm.password = $event"
             required
-            type="password"
             minlength="12"
             maxlength="128"
             autocomplete="new-password"

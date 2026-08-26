@@ -1,6 +1,6 @@
 # 当前项目声明（自动生成）
 
-> 本文件由 `pnpm template:init` 根据 `project.config.json` 生成。不要手工修改；需要调整能力时重新运行初始化命令。
+> 本文件由项目组合器根据 `project.config.json` 生成。不要手工修改。
 
 ## 项目
 
@@ -8,7 +8,7 @@
 - 显示名称：AI 友好全栈模板
 - 包命名空间：`@template`
 - 用途：可复用的后台管理、用户端与 API 项目模板
-- 模板版本：`0.1.0`
+- 模板版本：`0.2.0`
 - 模板仓库：https://github.com/shen-kk/create-ai-fullstack
 
 ## 运行与数据
@@ -24,7 +24,7 @@
 - 用户端动效：`vueuse-motion`
 - 用户端动画编排：`gsap`
 - 用户端设计标准：`apple-linear-vercel`
-- 默认对象存储：`tencent_cos`
+- 默认对象存储：`resource_library`
 
 ## 已启用能力
 
@@ -40,11 +40,16 @@
 - `redis`
 - `sms`
 - `email`
-- `payment`
 
 ## 未启用能力
 
-- 无
+- `payment`
+
+## 已选择业务功能
+
+- `customerWeb`
+- `customerAvatar`
+- `deploymentCenter`
 
 ## AI 实现约束
 

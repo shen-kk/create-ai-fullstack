@@ -11,11 +11,12 @@
     "database",
     "localization",
     "ui",
+    "features",
     "modules"
   ],
   "properties": {
     "$schema": { "type": "string" },
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "template": {
       "type": "object",
       "required": ["name", "version", "repository"],
@@ -90,12 +91,19 @@
       },
       "additionalProperties": false
     },
+    "features": {
+      "type": "array",
+      "items": {
+        "enum": ["customerWeb", "customerAvatar", "deploymentCenter"]
+      },
+      "uniqueItems": true
+    },
     "modules": { "type": "object", "additionalProperties": { "type": "boolean" } },
     "providers": {
       "type": "object",
       "properties": {
         "objectStorage": {
-          "enum": ["none", "tencent_cos", "aliyun_oss", "aws_s3", "s3_compatible"]
+          "enum": ["none", "resource_library"]
         }
       },
       "additionalProperties": true

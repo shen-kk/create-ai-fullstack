@@ -1,4 +1,0 @@
-interface:
-  display_name: 'AI ��̨��Ŀ��ʼ��'
-  short_description: '�� Git ģ�崴�����淶����̨������ API ��Ŀ'
-  default_prompt: 'ʹ�� $create-admin-project �� Git ģ���ʼ��һ���µĺ�̨������ API ��Ŀ��'

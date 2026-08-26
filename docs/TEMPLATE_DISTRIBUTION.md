@@ -3,7 +3,7 @@
 本项目分为三个层次：
 
 1. Git 模板仓库：保存源码、迁移、文档和初始化脚本，是唯一事实来源。
-2. `create-aiforge` npm CLI：负责获取模板并执行完整交互式初始化，不保存数据库或密钥。
+2. `create-aiforge` npm CLI：负责可视化选择业务功能、获取模板并组合代码，不收集数据库或密钥。
 3. 模板联调项目：单独保存真实 PostgreSQL 和第三方服务配置，不提交到模板仓库。
 
 ## 使用 npm CLI
@@ -14,7 +14,7 @@ cd my-project
 pnpm dev:local
 ```
 
-CLI 会自动完成 Git 获取、首次依赖安装、交互式能力选择、工作区链接刷新和 Doctor 检查，并移除模板仓库历史后初始化一个新的 Git 仓库。用户不需要再运行 `template:init`。
+CLI 会自动完成业务功能选择、Git 获取、代码组合、依赖安装、功能一致性检查，并移除模板仓库历史后初始化新的 Git 仓库。用户随后统一运行 `pnpm setup` 配置 PostgreSQL、项目密钥和管理员。
 
 也可以固定模板版本：
 
@@ -31,4 +31,4 @@ pnpm --filter create-aiforge pack
 pnpm --filter create-aiforge publish
 ```
 
-模板源码通过 Git Tag 发布，npm 包只作为初始化入口。真实环境配置只能放在联调项目或部署平台的加密配置中。
+模板源码通过 Git Tag 发布，npm 包只包含创建器与同版本功能目录。模板维护者拉取完整源码后也运行 `pnpm setup`，与 CLI 项目共用初始化逻辑。真实环境配置只能放在 Git 忽略的 `.env`、后台加密资源或部署平台密钥中。

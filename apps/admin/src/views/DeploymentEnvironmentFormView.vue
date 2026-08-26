@@ -179,7 +179,12 @@ async function revealSecrets(): Promise<void> {
     form.value.secrets = await getDeploymentEnvironmentSecrets(id.value);
     secretsRevealed.value = true;
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '密钥读取失败，请确认管理员权限';
+    const code = cause instanceof Error ? cause.message : '';
+    error.value = code === 'FORBIDDEN' || code.includes('403')
+      ? '当前账号没有“查看敏感配置明文”权限。'
+      : code === 'DEPLOYMENT_SECRETS_REENTRY_REQUIRED'
+        ? '历史部署密钥已无法解密，请重新填写并保存。'
+        : '密钥读取失败，请检查权限或 API。';
   } finally {
     revealingSecrets.value = false;
   }
@@ -318,8 +323,11 @@ onMounted(async () => {
               v-if="variable.secret"
               :model-value="variableValue(variable)"
               @update:model-value="updateVariable(variable, $event)"
+              @reveal="revealSecrets"
+              :revealable="Boolean(id)"
+              :revealing="revealingSecrets"
               :required="variable.required && !id"
-              placeholder="留空保留原值"
+              :placeholder="id ? '••••••••（已加密保存）' : '请输入敏感值'"
             />
             <input
               v-else
@@ -333,22 +341,6 @@ onMounted(async () => {
       </fieldset>
       <fieldset>
         <legend>访问与发布</legend>
-        <div v-if="id" class="secret-actions">
-          <button
-            type="button"
-            class="secondary-button"
-            :disabled="revealingSecrets"
-            @click="revealSecrets"
-          >
-            {{
-              revealingSecrets
-                ? '读取中…'
-                : secretsRevealed
-                  ? '已显示已保存密钥'
-                  : '显示已保存密钥（管理员）'
-            }}
-          </button>
-        </div>
         <div class="form-grid">
           <label v-if="selectedProject?.units.some((unit) => unit.key === 'admin')"
             ><span>后台地址</span

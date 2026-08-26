@@ -11,7 +11,7 @@
 
 - 用户端验证码有效时间与再次发送间隔由后台“服务配置 → 功能绑定 → 用户端认证”配置；验证码按钮使用服务端返回值倒计时。全局 Toast 由成功/异常分支显式指定语义，禁止按中文文案猜测状态。
 
-- 服务配置已改为固定类型、多实例资源库：SQL、Redis、对象存储、短信、邮件、支付、Linux 服务器和 Git 仓库始终可创建。初始化只要求 PostgreSQL，并把它写入“开发数据库”资源；其他外部服务不再出现在初始化选择中。部署环境通过资源 ID 绑定 Git、服务器、SQL 和 Redis，API 保存时生成加密部署快照。
+- 服务配置是固定类型、多实例资源库：SQL、Redis、对象存储、短信、邮件、支付、Linux 服务器和 Git 仓库始终可创建。CLI 不选择这些基础设施；业务功能通过依赖图自动保留共享适配能力，具体服务商在运行后由后台绑定。
 - 服务配置支持按资源类型筛选，并通过稳定功能编码把后台/用户端头像上传以及登录、找回密码、联系方式绑定的邮件或短信流程绑定到具体资源；禁止默认选择第一条资源，未绑定时功能不可用并显示配置提示。
 - 服务配置中的“用户端认证设置”只允许手机号或邮箱二选一；启用前强制校验登录、找回密码对应的功能绑定。用户端不提供独立注册页，首次验证码登录自动创建账号并登录；Customer 手机号与邮箱分别唯一且至少存在一个。
 - 验证码消息模板与服务资源分离：功能绑定同时指定资源和模板；SMTP 渲染可编辑标题/正文，SES API 与短信使用服务商模板 ID 和参数映射。系统预置登录、找回密码、绑定联系方式六条模板，未绑定模板时不发送且不自动选择第一条。
@@ -21,11 +21,11 @@
 - Admin 管理员成功完成密码登录后更新 `User.lastActiveAt`，用户管理列表的“最近活跃”展示该真实时间；认证失败不得更新。后台 `.page-content` 不设置桌面端最大宽度，在高分辨率屏幕上使用侧边栏以外的全部可用空间。
 - Admin 的全部 API 请求统一使用 `src/api/base.ts` 解析地址：优先采用部署时的 `VITE_API_BASE_URL`，否则读取初始化生成的 `project.runtime.apiPort`。禁止在会话或业务 API 文件中硬编码 `3001`，避免自定义端口被浏览器误报为 CORS 错误。
 
-- `template:init` 默认进入 custom 自定义模式。Redis 连接或鉴权失败会保留在当前初始化向导并默认要求重新填写，不再结束整个初始化。所有运行环境固定使用 PostgreSQL + Prisma，数据库不可用时启动或就绪检查失败，不回退假数据。未启用用户端时 Admin 隐藏整个空“用户运营”分组，API 权限目录、角色响应和数据库种子同时移除 `customers`、`verification` 权限。
+- `create-aiforge` 只选择业务功能并组合代码，不再提供 quick、standard、custom，也不询问邮件、短信、Redis、对象存储或数据库凭据。`project.config.json.features` 是业务选择事实来源，`modules` 必须由共享功能目录推导。未启用用户端时物理移除 `apps/web`，并继续收敛关联 API、权限和 Prisma 的细粒度组合。
 
-- 初始化向导的 quick、standard、custom 交互模式均显式询问是否启用用户端并输出最终选择；PostgreSQL 按主机、端口、库名、用户名、密码分项收集。正式数据库可在向导结尾立即刷新 workspace、校验连接、部署迁移、创建初始管理员。初始化填写的 SQL/Redis/对象存储/短信/邮件/支付配置通过 Git 忽略的一次性文件传递，种子程序使用 `CONFIG_ENCRYPTION_KEY` 加密写入 `IntegrationConfig`，成功后删除；Redis 配置在入库前执行 PING/鉴权校验。
+- 完整模板与 CLI 生成项目统一使用可视化 `pnpm setup` 配置端口、PostgreSQL、项目密钥和初始管理员，可选择立即执行迁移和种子。模板维护者与普通使用者的区别仅是 GitHub 完整源码与 CLI 裁剪源码。
 
-- 冻结候选验收已覆盖启用用户端的全新临时目录：锁定依赖安装、`template:init`、全仓库包命名空间替换、Doctor 19/19、Prisma Client 生成、格式/Lint/类型/测试以及 Admin/API/Web 生产构建。能力调度和数据库部署命令必须从 `project.packageScope` 生成，不得再硬编码 `@template/*`。手工验收流程见 `docs/MANUAL_ACCEPTANCE.md`。
+- 新组合器已覆盖“仅核心”和“用户端 + 头像”的干净临时目录结构验收；用户端账号将验证码、消息模板和邮件/短信适配作为共享依赖自动保留，不再向用户提供容易误裁剪的验证码独立开关。发布 0.2 前仍需完成锁定依赖安装、`pnpm setup`、Doctor、Prisma Client、格式/Lint/类型/测试及生产构建的完整组合矩阵。
 - 用户端 `/profile` 使用左侧分组设置导航，分为个人资料、联系方式、安全设置和登录设备；顶部账号区通过鼠标移入、键盘聚焦或点击展开个人中心/退出菜单。用户头像只能通过 `POST /api/customer-auth/avatar` 上传 JPG、PNG 或 WebP（最大 2 MB）到已配置的对象存储；不接受手工 URL 且不提供本地文件兜底，未配置时返回稳定错误码并显示中文提示。
 - 用户端现有账户 API 已全部收口到 `useCustomerSession`：注册、密码/验证码登录、找回密码、会话恢复与退出、资料编辑、邮箱绑定、修改密码和设备会话管理均使用共享契约的类型化方法。请求默认 12 秒超时，稳定错误码映射为中文；Access Token 过期时仅发起一次并发刷新并重试原请求。撤销设备会话后，API 对后续 Access Token 请求同步校验会话有效性。
 - 用户端以 shadcn-vue 作为业务组件基础，VueUse Motion 处理常规过渡，GSAP 只处理首页等高价值动画编排；自定义 Design System 采用 Apple 的克制与空间感、Linear 的交互密度和 Vercel 的黑白层级。`components/ui` 不依赖动效，`components/motion` 不承载业务状态，并尊重 SSR 与减少动态效果偏好。
@@ -42,7 +42,7 @@
 - 用户管理通过 `GET /api/users` 和 `UsersRepository` 访问真实 PostgreSQL；运行模块无条件注入 Prisma 仓库，内存实现只允许单元测试直接构造，配置错误不得回退假数据。
 - 认证基线已实现：`/api/auth/login|refresh|logout|me`，Admin 具有登录页、会话恢复和受保护路由；身份始终从 PostgreSQL 用户、角色和权限加载。
 - 用户查询接口已要求 Bearer Access Token；Refresh Token 仅通过 HttpOnly Cookie 传递。
-- 模板完善顺序与冻结标准记录在 `docs/ROADMAP.md`；冻结前不创建分发型 Git 模板或 Skill。
+- 模板完善顺序与冻结标准记录在 `docs/ROADMAP.md`。
 - 外部服务接入按 `docs/architecture/SERVICE_INTEGRATIONS.md` 管理；验证码已支持腾讯云短信、TLS SMTP 和腾讯云 SES，其他适配器按项目需要接入。
 - Prisma 已定义 User、Role、Permission、RefreshSession、AuditLog 及关系；13 个迁移、幂等种子和真实 PostgreSQL E2E 已在模板开发数据库通过。
 - API 已统一输出稳定错误结构和 `x-request-id`，生产环境启动时校验关键配置；健康检查分为 `/api/health/live` 与 `/api/health/ready`。
@@ -68,17 +68,16 @@
 - Admin 使用统一线性 SVG 图标和分组侧边栏；筛选与状态选择使用可控圆角浮层的 `AppSelect`，不依赖无法统一样式的浏览器原生下拉菜单。侧边栏账号区进入 `/profile`。
 - 个人中心支持修改显示名称、HTTPS 头像地址和密码；`PATCH /api/auth/profile` 与 `POST /api/auth/password` 均要求 Access Token，密码修改校验当前密码并重新生成 scrypt 哈希。Prisma 迁移 `20260802000400_user_profile` 增加 `avatarUrl`。
 - 后台身份以手机号作为必填唯一登录标识，邮箱降为可选联系资料；登录、管理员创建/编辑、Prisma 仓库和种子均按手机号执行。迁移 `20260802000600_admin_phone_identity` 负责既有数据过渡。
-- `/integrations` 管理对象存储、SQL、Redis、短信、邮件和支付配置；字段定义由代码注册，密钥采用 AES-256-GCM 加密，API 只返回已配置字段名且永不回显明文。需要 `menu.integrations` 与 `integrations.manage`，Prisma 迁移为 `20260802000700_integration_config`。
+- `/integrations` 管理对象存储、SQL、Redis、短信、邮件和支付配置；字段定义由代码注册，密钥采用 AES-256-GCM 加密。普通列表只返回已配置字段名；持有独立 `secrets.read` 权限时可通过眼睛按钮临时读取明文，读取动作必须审计且前端不得持久化。密码哈希永不回显。决策见 ADR-0014。
 - 服务配置字段支持平台/类型枚举选择；头像通过 `POST /api/auth/avatar` 直接上传到已启用的对象存储，当前适配腾讯云 COS。模板明确不提供本地文件存储或本地兜底，未配置、配置不完整或适配器不可用时返回稳定错误码并由 Admin 引导前往服务配置。
-- 最终用户入口为 `npm create aiforge@latest <project-name>`；CLI 内部调用 `template:init`，提供 quick、standard、custom 三种模式，自动刷新 workspace、执行 Doctor、移除模板 Git 历史并初始化新仓库。非敏感能力声明写入 `project.config.json`，敏感配置写入 Git 忽略的 `.env`。数据库固定使用 PostgreSQL + Prisma，是否校验连接、执行迁移和创建管理员由向导明确询问。
+- 最终用户入口为 `npm create aiforge@latest <project-name>`；CLI 使用终端多选界面选择业务功能，在下载后按功能依赖图组合代码、安装依赖、执行 `feature:check`、移除模板 Git 历史并初始化新仓库。随后统一运行 `pnpm setup` 生成 Git 忽略的 `.env`，校验 PostgreSQL并按确认执行迁移和管理员种子。
 - 项目通过显式的 `pnpm template:provision` 执行 Prisma Client 生成、`prisma migrate deploy` 与管理员种子；默认要求输入 `YES`，支持 `--dry-run`，且不输出数据库连接串。
-- `template:init` / `template:sync` 会同时生成 Admin 与 API 的无密钥运行时能力文件；项目显示名称用于后台品牌与 Swagger，未在 `project.config.json` 启用的 Redis、短信、邮件、支付等配置不会由 API 列出或接受更新。`template:doctor` 检查生成文件与声明一致性。
+- 内部组合器与 `template:sync` 会为现存应用生成无密钥运行时功能文件；项目显示名称用于后台品牌与 Swagger。业务功能从 `features` 推导模块，共享服务适配器不能由散落布尔值独立选择；Doctor 检查生成文件与声明一致性。
 - 服务配置 API 按字段定义执行嵌套白名单、字符串类型、平台枚举和启用时必填校验；未知字段、错误平台和不完整配置使用稳定错误码拒绝。对象存储 endpoint 为兼容 S3 等平台的可选字段，腾讯云 COS 不强制填写。
 - 服务配置成功与失败更新均写入审计日志，记录操作者、请求 ID、来源 IP、服务类型、启用状态及变更字段名；审计元数据不包含任何配置值或密钥值。Admin 操作日志支持按“服务配置”资源与“修改服务配置”动作筛选。
 - API E2E 以黑盒方式启动编译产物，覆盖手机号登录、受保护用户接口、服务配置失败校验、用户端完整生命周期及秘密值不进入审计响应；测试从私有环境读取管理员凭据，使用唯一临时用户并在结束时清理。真实 PostgreSQL 流程已通过。
 - Admin 会话层已覆盖登录持久化、离线退出清理和损坏缓存恢复测试；分页统一从 1 开始、最大 100，默认采用 `createdAt desc, id asc` 稳定排序。
-- `pnpm template:verify -- --full` 已在无依赖、无构建产物、无本地密钥的临时副本中验证安装前后命名空间替换、workspace 链接刷新、Prisma Client 生成、43 个单元测试与 Admin/API 生产构建。
-- 仓库内可分发 Skill 位于 `skills/create-admin-project`，已通过官方 `quick_validate.py`；它引导新项目完成 Git 获取、初始化选择、二次 workspace 链接刷新、Doctor、数据库显式确认和 AI 上下文维护。
+- `pnpm template:verify -- --full` 在无依赖、无构建产物、无本地密钥的临时副本中验证安装前后命名空间替换、workspace 链接刷新、Prisma Client 生成、测试与生产构建。
 - 模板唯一主仓库为 `https://github.com/shen-kk/create-ai-fullstack`。
 - 已增加 PostgreSQL CI 服务、迁移/种子/Prisma E2E、Admin Nginx 镜像、API Node 生产镜像、生产 Compose 及部署备份文档；当前机器没有 Docker，镜像实际构建需由 CI 或有 Docker 的环境最终确认。
 
@@ -102,4 +101,4 @@
 - 用户查询、认证/权限加载和刷新会话均具备 Prisma 数据源实现，但本机尚未进行 PostgreSQL 集成验证。
 - 部署平台和可观测性供应商尚未确定。
 
-> 运行约束：模板冻结版统一使用 PostgreSQL + Prisma，禁止新增或恢复 memory 数据源、内存默认值或静默假数据回退。开发环境也必须通过 `.env`/`.env.template-dev` 提供真实 `DATABASE_URL`。
+> 运行约束：模板统一使用 PostgreSQL + Prisma，禁止新增或恢复 memory 数据源、内存默认值或静默假数据回退。所有开发环境都通过 `pnpm setup` 生成的 `.env` 提供真实 `DATABASE_URL`。

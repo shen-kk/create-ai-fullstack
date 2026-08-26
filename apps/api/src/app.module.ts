@@ -9,27 +9,22 @@ import { AuditModule } from './audit/audit.module.js';
 import { StructuredLogger } from './logging/structured-logger.js';
 import { HttpLoggingMiddleware } from './logging/http-logging.middleware.js';
 import { IntegrationsModule } from './integrations/integrations.module.js';
-import { DeploymentsModule } from './deployments/deployments.module.js';
-import { CustomerAuthModule } from './customer-auth/customer-auth.module.js';
-import { project } from './generated/project.js';
+import { featureModules } from './generated/feature-modules.js';
 
 @Module({
   imports: [
     DatabaseModule,
     AuthModule,
-    ...(project.modules.userWeb && project.modules.customerAuthentication
-      ? [CustomerAuthModule]
-      : []),
+    ...featureModules,
     AuditModule,
     HealthModule,
     UsersModule,
     IntegrationsModule,
-    ...(project.modules.deploymentCenter ? [DeploymentsModule] : []),
   ],
   providers: [StructuredLogger, HttpLoggingMiddleware],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(RequestIdMiddleware, HttpLoggingMiddleware).forRoutes('*');
+    consumer.apply(RequestIdMiddleware, HttpLoggingMiddleware).forRoutes('{*path}');
   }
 }

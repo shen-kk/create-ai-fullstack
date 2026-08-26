@@ -1,14 +1,18 @@
 {
   "name": "create-aiforge",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "交互式创建包含 Admin、Web 与 API 的 AI 友好全栈项目",
   "type": "module",
   "bin": {
     "create-aiforge": "bin/create.mjs"
   },
   "files": [
-    "bin"
+    "bin",
+    "lib"
   ],
+  "dependencies": {
+    "@clack/prompts": "1.7.0"
+  },
   "engines": {
     "node": ">=22"
   },

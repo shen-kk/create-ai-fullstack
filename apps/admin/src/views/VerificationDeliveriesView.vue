@@ -75,7 +75,7 @@ onMounted(load);
     </section>
     <section class="panel users-table-panel">
       <div v-if="loading" class="table-state">正在加载…</div>
-      <div v-else-if="error" class="table-state error-state">{{ error }}</div>
+      <div v-else-if="error" class="operation-notice" role="alert">{{ error }}</div>
       <div v-else-if="!items.length" class="table-state">暂无验证码发送记录</div>
       <div v-else class="table-scroll">
         <table>
