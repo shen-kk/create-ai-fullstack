@@ -137,12 +137,13 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     try {
       await this.step(run.id, 'prepare', 5, '正在连接服务器并检查运行环境');
       await this.connect(client, environment);
-      await this.command(
+      const runtime = await this.command(
         client,
         run.id,
-        'command -v git >/dev/null && command -v curl >/dev/null && df -Pk / | tail -1',
+        'set -e; command -v git >/dev/null; command -v curl >/dev/null; command -v node >/dev/null; command -v pnpm >/dev/null; command -v pm2 >/dev/null; printf "git "; git --version; printf "node "; node --version; printf "pnpm "; pnpm --version; printf "pm2 "; pm2 --version; df -Pk / | tail -1',
       );
-      await this.completeStep(run.id, 'prepare', 10, '服务器具备 Git、curl 和可用磁盘空间');
+      const runtimeSummary = runtime.trim().split(/\r?\n/).filter(Boolean).slice(0, 5).join(' · ');
+      await this.completeStep(run.id, 'prepare', 10, `服务器运行环境：${runtimeSummary}`);
       if (run.releaseId) {
         await this.executeRollback(client, run, environment);
         return;
