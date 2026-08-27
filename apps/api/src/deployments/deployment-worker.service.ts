@@ -23,6 +23,7 @@ import {
 import {
   atomicReleaseSwitchCommand,
   deploymentHealthCheckCommand,
+  deploymentReleaseCommand,
   shellQuote as shell,
 } from './deployment-release-commands.js';
 
@@ -211,18 +212,22 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       await this.command(
         client,
         run.id,
-        `cd ${shell(releasePath)} && ${snapshot.project.installCommand}`,
+        deploymentReleaseCommand(releasePath, snapshot.project.installCommand),
       );
       await this.completeStep(run.id, 'install', 42, '依赖安装完成');
       await this.step(run.id, 'build', 46, '正在构建所选应用');
       await this.command(
         client,
         run.id,
-        `cd ${shell(releasePath)} && pnpm --filter @template/contracts build`,
+        deploymentReleaseCommand(releasePath, 'pnpm --filter @template/contracts build'),
       );
       await this.log(run.id, 'info', '共享 contracts 构建完成');
       for (const unit of selectedUnits)
-        await this.command(client, run.id, `cd ${shell(releasePath)} && ${unit.buildCommand}`);
+        await this.command(
+          client,
+          run.id,
+          deploymentReleaseCommand(releasePath, unit.buildCommand),
+        );
       await this.completeStep(run.id, 'build', 64, '应用构建完成');
       const migrations = selectedUnits.filter((unit) => unit.migrationCommand);
       if (migrations.length) {
@@ -231,7 +236,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
           await this.command(
             client,
             run.id,
-            `cd ${shell(releasePath)} && ${unit.migrationCommand}`,
+            deploymentReleaseCommand(releasePath, unit.migrationCommand!),
           );
         await this.completeStep(run.id, 'migrate', 70, '数据库迁移完成');
       }
@@ -257,7 +262,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
         await this.command(
           client,
           run.id,
-          `cd ${shell(`${environment.deployPath}/current`)} && ${unit.restartCommand}`,
+          deploymentReleaseCommand(`${environment.deployPath}/current`, unit.restartCommand),
         );
       await this.completeStep(run.id, 'restart', 88, '应用重启完成');
 
@@ -325,7 +330,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
               await this.command(
                 client,
                 run.id,
-                `cd ${shell(`${environment.deployPath}/current`)} && ${unit.restartCommand}`,
+                deploymentReleaseCommand(`${environment.deployPath}/current`, unit.restartCommand),
               );
             await this.log(run.id, 'warn', '新版本失败，已自动恢复上一运行版本');
           } else {
@@ -427,7 +432,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
         await this.command(
           client,
           run.id,
-          `cd ${shell(`${environment.deployPath}/current`)} && ${unit.restartCommand}`,
+          deploymentReleaseCommand(`${environment.deployPath}/current`, unit.restartCommand),
         );
       await this.completeStep(run.id, 'restart', 75, '历史版本已重启');
       await this.step(run.id, 'health', 80, '正在检查回滚版本');
@@ -449,7 +454,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
           await this.command(
             client,
             run.id,
-            `cd ${shell(`${environment.deployPath}/current`)} && ${unit.restartCommand}`,
+            deploymentReleaseCommand(`${environment.deployPath}/current`, unit.restartCommand),
           );
       }
       throw error;

@@ -1,5 +1,9 @@
 export const shellQuote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
 
+export function deploymentReleaseCommand(releasePath: string, command: string): string {
+  return `cd ${shellQuote(releasePath)} && set -a && . ./.env && set +a && ${command}`;
+}
+
 export function atomicReleaseSwitchCommand(deployPath: string, releasePath: string): string {
   const next = `${deployPath}/.current-next`;
   return `ln -sfn ${shellQuote(releasePath)} ${shellQuote(next)} && mv -Tf ${shellQuote(next)} ${shellQuote(`${deployPath}/current`)}`;
