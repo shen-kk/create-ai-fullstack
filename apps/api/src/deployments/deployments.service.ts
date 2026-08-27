@@ -8,6 +8,7 @@ import {
   DeployEnvironmentKind as PrismaEnvironmentKind,
   DeployEnvironmentStatus as PrismaEnvironmentStatus,
   DeployRunStatus as PrismaRunStatus,
+  DeployStepStatus as PrismaStepStatus,
   type DeployEnvironment,
   type DeployProject,
   type DeployRun,
@@ -17,10 +18,12 @@ import {
 import type {
   CreateDeploymentRunRequest,
   DeploymentCheckResult,
+  DeploymentExecutionSnapshot,
   DeploymentEnvironmentSummary,
   DeploymentLogEntry,
   DeploymentReleaseSummary,
   DeploymentRunSummary,
+  DeploymentWorkerStatus,
   DeploymentProjectSummary,
   DeploymentUnitDefinition,
   DeploymentVariableDefinition,
@@ -107,6 +110,27 @@ export class DeploymentsService {
       orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
     });
     return rows.map((row) => this.projectSummary(row, row._count.environments));
+  }
+  async getWorkerStatus(): Promise<DeploymentWorkerStatus> {
+    const onlineAfter = new Date(Date.now() - 30_000);
+    const [workers, queuedRuns, runningRuns] = await this.prisma.$transaction([
+      this.prisma.deployWorker.findMany({
+        where: { lastHeartbeatAt: { gte: onlineAfter } },
+        orderBy: { lastHeartbeatAt: 'desc' },
+        select: { lastHeartbeatAt: true },
+      }),
+      this.prisma.deployRun.count({ where: { status: PrismaRunStatus.QUEUED } }),
+      this.prisma.deployRun.count({
+        where: { status: { in: [PrismaRunStatus.RUNNING, PrismaRunStatus.ROLLING_BACK] } },
+      }),
+    ]);
+    return {
+      online: workers.length > 0,
+      activeWorkers: workers.length,
+      queuedRuns,
+      runningRuns,
+      lastHeartbeatAt: workers[0]?.lastHeartbeatAt.toISOString() ?? null,
+    };
   }
   async getProject(id: string): Promise<DeploymentProjectSummary> {
     const row = await this.prisma.deployProject.findUnique({
@@ -372,6 +396,7 @@ export class DeploymentsService {
     input: CreateDeploymentRunRequest,
     context: AuditContext,
   ): Promise<DeploymentRunSummary> {
+    await this.assertWorkerOnline();
     const environment = await this.requireEnvironment(environmentId);
     if (environment.status !== PrismaEnvironmentStatus.VERIFIED)
       throw new BadRequestException('DEPLOYMENT_ENVIRONMENT_NOT_VERIFIED');
@@ -404,18 +429,23 @@ export class DeploymentsService {
       ['health', '健康检查'],
       ['finalize', '记录版本'],
     ] as const;
-    const row = await this.prisma.deployRun.create({
-      data: {
-        environmentId,
-        actorId: context.actorId,
-        gitRef: input.gitRef?.trim() || environment.gitRef,
-        applications,
-        executionSnapshot: this.executionSnapshot(project, environment, applications),
-        steps: { create: labels.map(([key, label], position) => ({ key, label, position })) },
-        logs: { create: { sequence: 1, level: 'info', message: '部署任务已进入队列' } },
-      },
-      include: { steps: { orderBy: { position: 'asc' } } },
-    });
+    const row = await this.prisma.deployRun
+      .create({
+        data: {
+          environmentId,
+          actorId: context.actorId,
+          gitRef: input.gitRef?.trim() || environment.gitRef,
+          applications,
+          executionSnapshot: this.executionSnapshot(project, environment, applications),
+          steps: { create: labels.map(([key, label], position) => ({ key, label, position })) },
+          logs: { create: { sequence: 1, level: 'info', message: '部署任务已进入队列' } },
+        },
+        include: { steps: { orderBy: { position: 'asc' } } },
+      })
+      .catch((error: unknown) => {
+        if (this.isUniqueError(error)) throw new ConflictException('DEPLOYMENT_ALREADY_RUNNING');
+        throw error;
+      });
     await this.audit.record({
       ...context,
       action: 'deployment.run.create',
@@ -448,6 +478,7 @@ export class DeploymentsService {
     releaseId: string,
     context: AuditContext,
   ): Promise<DeploymentRunSummary> {
+    await this.assertWorkerOnline();
     const environment = await this.requireEnvironment(environmentId);
     const release = await this.prisma.deployRelease.findFirst({
       where: { id: releaseId, environmentId },
@@ -465,26 +496,36 @@ export class DeploymentsService {
       ['restart', '重启历史版本'],
       ['health', '健康检查'],
     ] as const;
-    const row = await this.prisma.deployRun.create({
-      data: {
-        environmentId,
-        actorId: context.actorId,
-        gitRef: release.version,
-        commitSha: release.commitSha,
-        applications: release.applications,
-        releaseId: release.id,
-        status: PrismaRunStatus.QUEUED,
-        steps: { create: labels.map(([key, label], position) => ({ key, label, position })) },
-        logs: {
-          create: {
-            sequence: 1,
-            level: 'info',
-            message: `回滚任务已进入队列，目标版本 ${release.version}`,
+    const project = await this.requireProject(environment.projectId);
+    const executionSnapshot =
+      release.executionSnapshot ??
+      this.executionSnapshot(project, environment, release.applications);
+    const row = await this.prisma.deployRun
+      .create({
+        data: {
+          environmentId,
+          actorId: context.actorId,
+          gitRef: release.version,
+          commitSha: release.commitSha,
+          applications: release.applications,
+          executionSnapshot,
+          releaseId: release.id,
+          status: PrismaRunStatus.QUEUED,
+          steps: { create: labels.map(([key, label], position) => ({ key, label, position })) },
+          logs: {
+            create: {
+              sequence: 1,
+              level: 'info',
+              message: `回滚任务已进入队列，目标版本 ${release.version}`,
+            },
           },
         },
-      },
-      include: { steps: { orderBy: { position: 'asc' } } },
-    });
+        include: { steps: { orderBy: { position: 'asc' } } },
+      })
+      .catch((error: unknown) => {
+        if (this.isUniqueError(error)) throw new ConflictException('DEPLOYMENT_ALREADY_RUNNING');
+        throw error;
+      });
     await this.audit.record({
       ...context,
       action: 'deployment.rollback.create',
@@ -496,18 +537,30 @@ export class DeploymentsService {
     return this.runSummary(row);
   }
   async cancelRun(runId: string, context: AuditContext): Promise<DeploymentRunSummary> {
-    const current = await this.getRun(runId);
-    if (!['queued', 'running'].includes(current.status))
-      throw new ConflictException('DEPLOYMENT_RUN_NOT_CANCELLABLE');
-    await this.prisma.deployRun.update({
-      where: { id: runId },
+    const current = await this.prisma.deployRun.findUnique({ where: { id: runId } });
+    if (!current) throw new NotFoundException('DEPLOYMENT_RUN_NOT_FOUND');
+    const cancelled = await this.prisma.deployRun.updateMany({
+      where: { id: runId, status: { in: activeStatuses } },
       data: {
         status: PrismaRunStatus.CANCELLED,
         completedAt: new Date(),
         errorCode: 'DEPLOYMENT_CANCELLED',
         errorMessage: '部署已由管理员取消',
+        currentStep: null,
+        workerId: null,
+        leaseExpiresAt: null,
       },
     });
+    if (!cancelled.count) throw new ConflictException('DEPLOYMENT_RUN_NOT_CANCELLABLE');
+    if (current.currentStep)
+      await this.prisma.deployStep.updateMany({
+        where: { runId, key: current.currentStep, status: PrismaStepStatus.RUNNING },
+        data: {
+          status: PrismaStepStatus.FAILED,
+          message: '任务已由管理员取消',
+          completedAt: new Date(),
+        },
+      });
     await this.audit.record({
       ...context,
       action: 'deployment.run.cancel',
@@ -784,6 +837,13 @@ export class DeploymentsService {
     if (!project) throw new NotFoundException('DEPLOYMENT_PROJECT_NOT_FOUND');
     return project;
   }
+  private async assertWorkerOnline(): Promise<void> {
+    const worker = await this.prisma.deployWorker.findFirst({
+      where: { lastHeartbeatAt: { gte: new Date(Date.now() - 30_000) } },
+      select: { id: true },
+    });
+    if (!worker) throw new ConflictException('DEPLOYMENT_WORKER_OFFLINE');
+  }
   private async normalizeEnvironmentProject(
     input: UpsertDeploymentEnvironmentRequest,
   ): Promise<UpsertDeploymentEnvironmentRequest> {
@@ -857,20 +917,20 @@ export class DeploymentsService {
     environment: DeployEnvironment,
     applications: string[],
   ): Prisma.InputJsonValue {
-    return {
+    const snapshot: DeploymentExecutionSnapshot = {
       schemaVersion: 2,
       project: {
         id: project.id,
         code: project.code,
         version: project.version,
-        type: project.type,
+        type: project.type as DeploymentExecutionSnapshot['project']['type'],
         installCommand: project.installCommand,
         units: this.projectUnits(project).filter((unit) => applications.includes(unit.key)),
         variables: this.projectVariables(project),
       },
       environment: {
         id: environment.id,
-        values: environment.environmentValues,
+        values: environment.environmentValues as Record<string, string>,
         resourceBindings: {
           sql: environment.sqlResourceId,
           redis: environment.redisResourceId,
@@ -878,7 +938,8 @@ export class DeploymentsService {
       },
       applications,
       createdAt: new Date().toISOString(),
-    } as unknown as Prisma.InputJsonValue;
+    };
+    return snapshot as unknown as Prisma.InputJsonValue;
   }
   private requiredDeploymentSecrets(value: string | null): DeploymentSecrets {
     try {

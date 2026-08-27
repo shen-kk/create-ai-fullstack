@@ -1,38 +1,30 @@
 import { Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
+import type { DeploymentExecutionSnapshot, DeploymentExecutionUnit } from '@template/contracts';
+import { randomUUID } from 'node:crypto';
+import { hostname } from 'node:os';
 import {
   DeployRunStatus,
   DeployStepStatus,
   type DeployEnvironment,
   type DeployRun,
 } from '@prisma/client';
-import { Client, type ConnectConfig } from 'ssh2';
+import { Client, type ClientChannel, type ConnectConfig } from 'ssh2';
 import { PrismaService } from '../database/prisma.service.js';
 import { decryptDeploymentSecrets } from './deployment-secrets.js';
+import { parseDeploymentExecutionSnapshot } from './deployment-execution-snapshot.js';
+import { deploymentErrorCode } from './deployment-error.js';
+import { deploymentSecretValues, redactDeploymentLog } from './deployment-log-redaction.js';
+import {
+  deploymentCommandTimeoutMs,
+  deploymentWorkerHeartbeatMs,
+  deploymentWorkerLeaseMs,
+  deploymentWorkerLegacyStaleMs,
+} from './deployment-worker-lease.js';
 import {
   atomicReleaseSwitchCommand,
   deploymentHealthCheckCommand,
   shellQuote as shell,
 } from './deployment-release-commands.js';
-
-interface DeploymentExecutionUnit {
-  key: string;
-  buildCommand: string;
-  migrationCommand: string | null;
-  restartCommand: string;
-  healthCheckUrl: string | null;
-}
-interface DeploymentExecutionSnapshot {
-  schemaVersion: number;
-  project: {
-    id: string;
-    code: string;
-    version: number;
-    type: string;
-    installCommand: string;
-    units: DeploymentExecutionUnit[];
-    variables: Array<{ key: string; required: boolean; secret: boolean }>;
-  };
-}
 
 const terminalStatuses: DeployRunStatus[] = [
   DeployRunStatus.SUCCEEDED,
@@ -44,18 +36,29 @@ const terminalStatuses: DeployRunStatus[] = [
 @Injectable()
 export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(DeploymentWorkerService.name);
+  private readonly workerId = `${hostname()}:${process.pid}:${randomUUID()}`;
+  private readonly activeChannels = new Map<string, ClientChannel>();
+  private readonly sensitiveValues = new Map<string, string[]>();
   private timer?: NodeJS.Timeout;
+  private workerHeartbeatTimer?: NodeJS.Timeout;
   private busy = false;
   constructor(private readonly prisma: PrismaService) {}
 
   onApplicationBootstrap(): void {
     if (process.env.DEPLOY_WORKER_ENABLED === 'false') return;
     this.timer = setInterval(() => void this.tick(), 1500);
+    this.workerHeartbeatTimer = setInterval(
+      () => void this.touchWorker().catch((error: unknown) => this.logWorkerError(error)),
+      10_000,
+    );
+    void this.registerWorker().catch((error: unknown) => this.logWorkerError(error));
     void this.recoverStaleRuns();
     void this.tick();
   }
-  onApplicationShutdown(): void {
+  async onApplicationShutdown(): Promise<void> {
     if (this.timer) clearInterval(this.timer);
+    if (this.workerHeartbeatTimer) clearInterval(this.workerHeartbeatTimer);
+    await this.prisma.deployWorker.deleteMany({ where: { id: this.workerId } });
   }
 
   private async tick(): Promise<void> {
@@ -70,11 +73,27 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       if (!queued) return;
       const claimed = await this.prisma.deployRun.updateMany({
         where: { id: queued.id, status: DeployRunStatus.QUEUED },
-        data: { status: DeployRunStatus.RUNNING, startedAt: new Date(), currentStep: 'prepare' },
+        data: {
+          status: DeployRunStatus.RUNNING,
+          startedAt: new Date(),
+          currentStep: 'prepare',
+          workerId: this.workerId,
+          claimedAt: new Date(),
+          heartbeatAt: new Date(),
+          leaseExpiresAt: this.nextLeaseExpiry(),
+          attempt: { increment: 1 },
+        },
       });
       if (claimed.count) {
         this.logger.log(`已领取部署任务 ${queued.id}，开始执行`);
-        await this.execute(queued, queued.environment);
+        await this.touchWorker(queued.id);
+        const stopHeartbeat = this.startHeartbeat(queued.id);
+        try {
+          await this.execute(queued, queued.environment);
+        } finally {
+          stopHeartbeat();
+          await this.touchWorker(null);
+        }
       }
     } catch (error) {
       this.logger.error(error instanceof Error ? error.message : String(error));
@@ -90,13 +109,15 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
    * configured safety window; normal long-running builds remain untouched.
    */
   private async recoverStaleRuns(): Promise<void> {
-    const configured = Number(process.env.DEPLOY_WORKER_STALE_TIMEOUT_MS);
-    const timeout = Number.isFinite(configured) && configured > 0 ? configured : 2 * 60 * 60 * 1000;
-    const before = new Date(Date.now() - timeout);
+    const legacyBefore = new Date(Date.now() - this.legacyStaleTimeoutMs());
+    const now = new Date();
     const stale = await this.prisma.deployRun.findMany({
       where: {
         status: { in: [DeployRunStatus.RUNNING, DeployRunStatus.ROLLING_BACK] },
-        startedAt: { lt: before },
+        OR: [
+          { leaseExpiresAt: { lt: now } },
+          { leaseExpiresAt: null, startedAt: { lt: legacyBefore } },
+        ],
       },
       select: { id: true, currentStep: true },
       take: 100,
@@ -113,6 +134,8 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
           errorMessage: '部署执行器长时间未上报进度，任务已标记失败，可重新部署。',
           completedAt: new Date(),
           currentStep: null,
+          workerId: null,
+          leaseExpiresAt: null,
         },
       });
       if (result.count && run.currentStep) {
@@ -135,6 +158,10 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     let switched = false;
     let selectedUnits: DeploymentExecutionUnit[] = [];
     try {
+      this.sensitiveValues.set(
+        run.id,
+        deploymentSecretValues(decryptDeploymentSecrets(environment.encryptedSecrets)),
+      );
       await this.step(run.id, 'prepare', 5, '正在连接服务器并检查运行环境');
       await this.connect(client, environment);
       const runtime = await this.command(
@@ -254,6 +281,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
           version: release,
           commitSha,
           applications: run.applications,
+          ...(run.executionSnapshot ? { executionSnapshot: run.executionSnapshot } : {}),
         },
       });
       await this.prisma.$transaction([
@@ -269,6 +297,8 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
             currentStep: null,
             releaseId: releaseRow.id,
             completedAt: new Date(),
+            workerId: null,
+            leaseExpiresAt: null,
           },
         }),
         this.prisma.deployStep.update({
@@ -306,19 +336,29 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
             );
           }
         } catch (rollbackError) {
-          await this.log(run.id, 'error', `自动恢复失败：${this.safeMessage(rollbackError)}`);
+          await this.log(
+            run.id,
+            'error',
+            `自动恢复失败：${this.safeMessage(rollbackError, run.id)}`,
+          );
         }
       }
       const current = await this.prisma.deployRun.findUnique({ where: { id: run.id } });
-      if (current && !terminalStatuses.includes(current.status)) {
-        const message = this.safeMessage(error);
+      if (
+        current &&
+        current.workerId === this.workerId &&
+        !terminalStatuses.includes(current.status)
+      ) {
+        const message = this.safeMessage(error, run.id);
         await this.prisma.deployRun.update({
           where: { id: run.id },
           data: {
             status: DeployRunStatus.FAILED,
-            errorCode: 'DEPLOYMENT_EXECUTION_FAILED',
+            errorCode: deploymentErrorCode(current.currentStep, error),
             errorMessage: message,
             completedAt: new Date(),
+            workerId: null,
+            leaseExpiresAt: null,
           },
         });
         if (current.currentStep)
@@ -329,6 +369,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
         await this.log(run.id, 'error', message);
       }
     } finally {
+      this.sensitiveValues.delete(run.id);
       client.end();
     }
   }
@@ -362,13 +403,8 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     });
     if (!release) throw new Error('目标回滚版本不存在');
     const releasePath = `${environment.deployPath}/releases/${release.version}`;
-    const project = await this.prisma.deployProject.findUnique({
-      where: { id: environment.projectId },
-    });
-    if (!project) throw new Error('部署项目不存在');
-    const units = (project.units as unknown as DeploymentExecutionUnit[]).filter((unit) =>
-      release.applications.includes(unit.key),
-    );
+    const snapshot = this.snapshot(run);
+    const units = snapshot.project.units.filter((unit) => release.applications.includes(unit.key));
     const previousTarget = (
       await this.command(
         client,
@@ -431,6 +467,8 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
           progress: 100,
           currentStep: null,
           completedAt: new Date(),
+          workerId: null,
+          leaseExpiresAt: null,
         },
       }),
       this.prisma.deployStep.update({
@@ -459,6 +497,11 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
             reject(error);
             return;
           }
+          this.activeChannels.set(runId, stream);
+          const timeout = setTimeout(() => {
+            stream.close();
+            reject(new Error('DEPLOYMENT_COMMAND_TIMEOUT'));
+          }, this.commandTimeoutMs());
           let stdout = '',
             stderr = '';
           stream.on('data', (chunk: Buffer) => {
@@ -472,6 +515,8 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
             if (writeLog) void this.log(runId, 'warn', value);
           });
           stream.once('close', (code: number | null) => {
+            clearTimeout(timeout);
+            this.activeChannels.delete(runId);
             if (code === 0) {
               resolve(stdout);
               return;
@@ -553,7 +598,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
   }
   private snapshot(run: DeployRun): DeploymentExecutionSnapshot {
     if (!run.executionSnapshot) throw new Error('部署任务缺少执行快照，请重新创建任务');
-    return run.executionSnapshot as unknown as DeploymentExecutionSnapshot;
+    return parseDeploymentExecutionSnapshot(run.executionSnapshot);
   }
 
   private gitCloneCommand(
@@ -614,7 +659,9 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     await this.log(runId, 'info', message);
   }
   private async log(runId: string, level: 'info' | 'warn' | 'error', raw: string): Promise<void> {
-    const message = raw.replace(/[\r\n]+$/g, '').slice(0, 8000);
+    const message = redactDeploymentLog(raw, this.sensitiveValues.get(runId) ?? [])
+      .replace(/[\r\n]+$/g, '')
+      .slice(0, 8000);
     if (!message) return;
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const last = await this.prisma.deployLog.aggregate({
@@ -631,18 +678,97 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       }
     }
   }
-  private safeMessage(error: unknown): string {
+  private safeMessage(error: unknown, runId: string): string {
     const message = error instanceof Error ? error.message : String(error);
     return (
-      message.replace(/(token|password|private.?key)=?[^\s]*/gi, '$1=***').slice(0, 1000) ||
+      redactDeploymentLog(message, this.sensitiveValues.get(runId) ?? []).slice(0, 1000) ||
       '部署执行失败'
     );
   }
   private async assertActive(runId: string): Promise<void> {
     const run = await this.prisma.deployRun.findUnique({
       where: { id: runId },
-      select: { status: true },
+      select: { status: true, workerId: true, leaseExpiresAt: true },
     });
-    if (!run || run.status !== DeployRunStatus.RUNNING) throw new Error('部署任务已取消或不再执行');
+    if (
+      !run ||
+      run.status !== DeployRunStatus.RUNNING ||
+      run.workerId !== this.workerId ||
+      !run.leaseExpiresAt ||
+      run.leaseExpiresAt <= new Date()
+    )
+      throw new Error('部署任务已取消、租约已失效或不再由当前执行器持有');
+  }
+
+  private leaseDurationMs(): number {
+    return deploymentWorkerLeaseMs(process.env.DEPLOY_WORKER_LEASE_MS);
+  }
+
+  private heartbeatIntervalMs(): number {
+    return deploymentWorkerHeartbeatMs(this.leaseDurationMs());
+  }
+
+  private legacyStaleTimeoutMs(): number {
+    return deploymentWorkerLegacyStaleMs(process.env.DEPLOY_WORKER_STALE_TIMEOUT_MS);
+  }
+
+  private commandTimeoutMs(): number {
+    return deploymentCommandTimeoutMs(process.env.DEPLOY_WORKER_COMMAND_TIMEOUT_MS);
+  }
+
+  private nextLeaseExpiry(): Date {
+    return new Date(Date.now() + this.leaseDurationMs());
+  }
+
+  private startHeartbeat(runId: string): () => void {
+    const heartbeat = async (): Promise<void> => {
+      const result = await this.prisma.deployRun.updateMany({
+        where: {
+          id: runId,
+          workerId: this.workerId,
+          status: { in: [DeployRunStatus.RUNNING, DeployRunStatus.ROLLING_BACK] },
+        },
+        data: { heartbeatAt: new Date(), leaseExpiresAt: this.nextLeaseExpiry() },
+      });
+      await this.touchWorker(runId);
+      if (!result.count) this.activeChannels.get(runId)?.close();
+    };
+    const timer = setInterval(
+      () => void heartbeat().catch((error: unknown) => this.logWorkerError(error)),
+      this.heartbeatIntervalMs(),
+    );
+    return () => clearInterval(timer);
+  }
+
+  private registerWorker(): Promise<unknown> {
+    return this.prisma.deployWorker.upsert({
+      where: { id: this.workerId },
+      create: {
+        id: this.workerId,
+        hostname: hostname(),
+        processId: process.pid,
+        version: process.env.npm_package_version ?? 'unknown',
+      },
+      update: {
+        hostname: hostname(),
+        processId: process.pid,
+        version: process.env.npm_package_version ?? 'unknown',
+        lastHeartbeatAt: new Date(),
+      },
+    });
+  }
+
+  private touchWorker(currentRunId?: string | null): Promise<unknown> {
+    return this.prisma.deployWorker.updateMany({
+      where: { id: this.workerId },
+      data: {
+        lastHeartbeatAt: new Date(),
+        ...(currentRunId !== undefined ? { currentRunId } : {}),
+      },
+    });
+  }
+
+  private logWorkerError(error: unknown): void {
+    this.logger.error(error instanceof Error ? error.message : String(error));
   }
 }

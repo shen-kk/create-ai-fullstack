@@ -31,7 +31,11 @@ SQL 资源生成 `DATABASE_URL`，Redis 资源生成 `REDIS_URL`，并与项目�
 
 ## Deploy Worker 与自部署
 
-API 只创建任务和保存不可变执行快照，不在 HTTP 服务进程中执行 SSH、Git 或 Docker 命令。Deploy Worker 使用 `pnpm dev:worker`（开发）或 `pnpm --filter @template/api start:worker`（构建后）作为独立进程运行，只需要 `DATABASE_URL` 与 `CONFIG_ENCRYPTION_KEY`。
+API 只创建任务和保存不可变执行快照，不在 HTTP 服务进程中执行 SSH、Git 或 PM2 命令。Deploy Worker 使用 `pnpm dev:worker`（开发）或 `pnpm --filter @template/api start:worker`（构建后）作为独立进程运行，只需要 `DATABASE_URL` 与 `CONFIG_ENCRYPTION_KEY`。
+
+Worker 通过数据库租约领取任务。任务记录 Worker 标识、领取时间、心跳时间和租约过期时间；执行期间必须持续续租。只有租约已过期的活动任务才能被恢复为失败，不能仅根据任务开始时间判断 Worker 中断。Worker 在更新步骤、完成任务或记录失败前必须再次确认自己仍持有租约。
+
+成功发布会把执行快照同时固化到发布记录；以后回滚只能使用该历史快照中的重启和健康检查规则，不读取已被修改的当前项目命令。迁移前没有快照的历史发布在创建回滚任务时生成一次兼容快照并随任务保存。
 
 Deploy Worker 不属于任何业务部署项目的部署单元。部署 AIForge 自身时只更新 Admin、API、Web，正在工作的 Worker 不被替换；Worker 自身升级采用独立运维流程。首次安装必须先在可信管理节点启动一个 Worker，之后后台发起的任务均可远程执行。
 
@@ -41,6 +45,7 @@ Deploy Worker 不属于任何业务部署项目的部署单元。部署 AIForge 
 - API 只返回 `configuredSecrets`，日志必须脱敏且不得记录执行命令中的凭据。
 - 正式环境部署、取消和回滚全部需要独立权限并写入审计日志。
 - Worker 与 API 进程隔离，只读取任务快照并写入进度和日志；不得把 Worker 加入它所管理的部署项目。
+- 执行快照是带 `schemaVersion` 的公共契约。Worker 必须在执行前校验快照，未知版本或损坏数据直接失败，不得猜测执行。
 
 ## 服务器约定
 

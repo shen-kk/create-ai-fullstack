@@ -19,6 +19,7 @@ import type {
   DeploymentProjectSummary,
   DeploymentReleaseSummary,
   DeploymentRunSummary,
+  DeploymentWorkerStatus,
 } from '@template/contracts';
 import type { Request } from 'express';
 import {
@@ -47,6 +48,10 @@ type AuthenticatedRequest = Request & { user: AuthUser; requestId?: string };
 @RequirePermissions('deployments.read')
 export class DeploymentsController {
   constructor(private readonly deployments: DeploymentsService) {}
+
+  @Get('worker-status') getWorkerStatus(): Promise<DeploymentWorkerStatus> {
+    return this.deployments.getWorkerStatus();
+  }
 
   @Get('projects') listProjects(): Promise<DeploymentProjectSummary[]> {
     return this.deployments.listProjects();

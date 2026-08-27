@@ -1,7 +1,12 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
-import type { CustomerAuthSetting, IntegrationConfig, Prisma } from '@prisma/client';
+import type {
+  CustomerAuthSetting,
+  IntegrationConfig,
+  Prisma,
+  ServiceFeatureBinding,
+} from '@prisma/client';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 describe('Admin API HTTP workflow', () => {
@@ -18,6 +23,7 @@ describe('Admin API HTTP workflow', () => {
     accessToken = '';
   let previousSqlConfig: IntegrationConfig | null = null;
   let previousCustomerAuthSetting: CustomerAuthSetting | null = null;
+  let previousCustomerAvatarBinding: ServiceFeatureBinding | null = null;
   const prisma = new PrismaClient();
   const issueCode = async (
     channel: 'sms' | 'email',
@@ -51,6 +57,12 @@ describe('Admin API HTTP workflow', () => {
       );
     previousCustomerAuthSetting = await prisma.customerAuthSetting.findUnique({
       where: { id: 1 },
+    });
+    previousCustomerAvatarBinding = await prisma.serviceFeatureBinding.findUnique({
+      where: { code: 'customer.avatar_upload' },
+    });
+    await prisma.serviceFeatureBinding.deleteMany({
+      where: { code: 'customer.avatar_upload' },
     });
     await prisma.customerAuthSetting.upsert({
       where: { id: 1 },
@@ -131,6 +143,16 @@ describe('Admin API HTTP workflow', () => {
       });
     } else {
       await prisma.customerAuthSetting.deleteMany({ where: { id: 1 } });
+    }
+    if (previousCustomerAvatarBinding) {
+      await prisma.serviceFeatureBinding.upsert({
+        where: { code: previousCustomerAvatarBinding.code },
+        create: previousCustomerAvatarBinding,
+        update: {
+          resourceId: previousCustomerAvatarBinding.resourceId,
+          templateId: previousCustomerAvatarBinding.templateId,
+        },
+      });
     }
     await prisma.$disconnect();
   });
@@ -282,8 +304,9 @@ describe('Admin API HTTP workflow', () => {
       headers: { authorization: `Bearer ${primary.accessToken}` },
       body: avatarBody,
     });
-    expect(avatar.status).toBe(503);
-    expect(await avatar.json()).toMatchObject({ code: 'OBJECT_STORAGE_NOT_CONFIGURED' });
+    const avatarPayload = (await avatar.json()) as { code?: string; message?: string };
+    expect(avatar.status, JSON.stringify(avatarPayload)).toBe(503);
+    expect(avatarPayload).toMatchObject({ code: 'OBJECT_STORAGE_NOT_CONFIGURED' });
 
     const update = await fetch(`${baseUrl}/customer-auth/profile`, {
       method: 'PATCH',

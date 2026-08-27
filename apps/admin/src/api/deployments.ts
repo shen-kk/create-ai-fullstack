@@ -6,6 +6,7 @@ import type {
   DeploymentProjectSummary,
   DeploymentReleaseSummary,
   DeploymentRunSummary,
+  DeploymentWorkerStatus,
   UpsertDeploymentEnvironmentRequest,
   UpsertDeploymentProjectRequest,
 } from '@template/contracts';
@@ -29,6 +30,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 export const listDeploymentProjects = () =>
   request<DeploymentProjectSummary[]>('/deployments/projects');
+export const getDeploymentWorkerStatus = () =>
+  request<DeploymentWorkerStatus>('/deployments/worker-status');
 export const getDeploymentProject = (id: string) =>
   request<DeploymentProjectSummary>(`/deployments/projects/${id}`);
 export const createDeploymentProject = (input: UpsertDeploymentProjectRequest) =>

@@ -8,6 +8,8 @@
 
 服务器需要 Git、curl、Node.js 22+、pnpm 和 PM2。Node.js 建议通过服务器发行版或可信的版本管理方案安装。确认版本后执行：
 
+前端构建统一使用 Rollup 官方 WASM Node 包，避免老版本 Linux glibc 无法加载 Rollup 原生二进制。不要在服务器上手工升级系统 glibc，也不要删除锁文件后临时重装依赖。
+
 ```bash
 sudo mkdir -p /srv/aiforge/releases
 sudo chown -R deploy:deploy /srv/aiforge

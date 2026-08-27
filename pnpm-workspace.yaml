@@ -14,3 +14,5 @@ allowBuilds:
 
 overrides:
   onetime: 5.1.2
+  # 兼容 glibc 低于 2.29 的现有 Linux 部署服务器，避免 Rollup 原生二进制加载失败。
+  rollup: npm:@rollup/wasm-node@4.62.3

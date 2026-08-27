@@ -470,6 +470,40 @@ export interface DeploymentVariableDefinition {
   secret: boolean;
   resourceKind: DeployResourceKind | null;
 }
+export interface DeploymentExecutionUnit {
+  key: DeployUnitKey;
+  buildCommand: string;
+  migrationCommand: string | null;
+  restartCommand: string;
+  healthCheckUrl: string | null;
+}
+export interface DeploymentExecutionSnapshotV2 {
+  schemaVersion: 2;
+  project: {
+    id: string;
+    code: string;
+    version: number;
+    type: DeployProjectType;
+    installCommand: string;
+    units: DeploymentExecutionUnit[];
+    variables: Array<{
+      key: string;
+      required: boolean;
+      secret: boolean;
+    }>;
+  };
+  environment: {
+    id: string;
+    values: Record<string, string>;
+    resourceBindings: {
+      sql: string | null;
+      redis: string | null;
+    };
+  };
+  applications: DeployUnitKey[];
+  createdAt: string;
+}
+export type DeploymentExecutionSnapshot = DeploymentExecutionSnapshotV2;
 export interface DeploymentProjectSummary {
   id: string;
   name: string;
@@ -615,6 +649,13 @@ export interface DeploymentRunSummary {
   createdAt: string;
   startedAt: string | null;
   completedAt: string | null;
+}
+export interface DeploymentWorkerStatus {
+  online: boolean;
+  activeWorkers: number;
+  queuedRuns: number;
+  runningRuns: number;
+  lastHeartbeatAt: string | null;
 }
 export interface DeploymentLogEntry {
   id: string;

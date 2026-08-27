@@ -3,6 +3,7 @@ import type {
   DeploymentEnvironmentSummary,
   DeploymentReleaseSummary,
   DeploymentRunSummary,
+  DeploymentWorkerStatus,
 } from '@template/contracts';
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -10,6 +11,7 @@ import {
   checkDeploymentGit,
   checkDeploymentServer,
   createDeploymentRun,
+  getDeploymentWorkerStatus,
   listDeploymentEnvironments,
   listDeploymentReleases,
   listDeploymentRuns,
@@ -28,6 +30,7 @@ const projectId = computed(() =>
 const environments = ref<DeploymentEnvironmentSummary[]>([]);
 const runs = ref<Record<string, DeploymentRunSummary[]>>({});
 const releases = ref<Record<string, DeploymentReleaseSummary[]>>({});
+const workerStatus = ref<DeploymentWorkerStatus>();
 const rollbackChoice = ref<{ environmentId: string; releaseId: string }>();
 const loading = ref(true),
   error = ref(''),
@@ -48,7 +51,12 @@ async function load(): Promise<void> {
   loading.value = true;
   error.value = '';
   try {
-    environments.value = (await listDeploymentEnvironments()).filter(
+    const [nextEnvironments, nextWorkerStatus] = await Promise.all([
+      listDeploymentEnvironments(),
+      getDeploymentWorkerStatus(),
+    ]);
+    workerStatus.value = nextWorkerStatus;
+    environments.value = nextEnvironments.filter(
       (item) => !projectId.value || item.projectId === projectId.value,
     );
     await Promise.all(
@@ -84,6 +92,10 @@ async function check(item: DeploymentEnvironmentSummary): Promise<void> {
   }
 }
 async function deploy(item: DeploymentEnvironmentSummary): Promise<void> {
+  if (!workerStatus.value?.online) {
+    notice.value = 'Deploy Worker 离线，请先启动独立执行器再创建部署任务。';
+    return;
+  }
   workingId.value = item.id;
   try {
     const run = await createDeploymentRun(item.id, {});
@@ -96,6 +108,10 @@ async function deploy(item: DeploymentEnvironmentSummary): Promise<void> {
 }
 async function rollback(): Promise<void> {
   if (!rollbackChoice.value) return;
+  if (!workerStatus.value?.online) {
+    notice.value = 'Deploy Worker 离线，请先启动独立执行器再创建回滚任务。';
+    return;
+  }
   workingId.value = rollbackChoice.value.environmentId;
   try {
     const run = await rollbackDeploymentRelease(
@@ -138,6 +154,9 @@ onMounted(load);
         </button>
       </div>
     </section>
+    <p v-if="workerStatus && !workerStatus.online" class="operation-notice" role="alert">
+      Deploy Worker 当前离线，配置检查仍可使用，但部署和回滚已暂停。
+    </p>
     <pre
       v-if="notice"
       :key="notice"
@@ -201,7 +220,9 @@ onMounted(load);
           <strong>确认回滚此环境？</strong><span>只回滚应用版本，不会自动回滚数据库。</span>
           <div>
             <button class="secondary-button" @click="rollbackChoice = undefined">取消</button
-            ><button class="danger-button" @click="rollback">确认回滚</button>
+            ><button class="danger-button" :disabled="!workerStatus?.online" @click="rollback">
+              确认回滚
+            </button>
           </div>
         </div>
         <footer>
@@ -211,7 +232,7 @@ onMounted(load);
             检查配置</button
           ><button
             class="primary-button"
-            :disabled="item.status !== 'verified' || workingId === item.id"
+            :disabled="item.status !== 'verified' || workingId === item.id || !workerStatus?.online"
             @click="deploy(item)"
           >
             部署

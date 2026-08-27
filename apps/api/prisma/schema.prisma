@@ -337,6 +337,11 @@ model DeployRun {
   errorCode         String?
   errorMessage      String?
   releaseId         String?
+  workerId          String?
+  claimedAt         DateTime?
+  heartbeatAt       DateTime?
+  leaseExpiresAt    DateTime?
+  attempt           Int               @default(0)
   createdAt         DateTime          @default(now())
   startedAt         DateTime?
   completedAt       DateTime?
@@ -347,6 +352,8 @@ model DeployRun {
 
   @@index([environmentId, createdAt])
   @@index([status, createdAt])
+  @@index([status, leaseExpiresAt])
+  @@index([workerId, status])
 }
 
 model DeployStep {
@@ -380,15 +387,28 @@ model DeployLog {
 }
 
 model DeployRelease {
-  id            String            @id @default(cuid())
-  environmentId String
-  version       String
-  commitSha     String
-  applications  String[]
-  artifactHash  String?
-  createdAt     DateTime          @default(now())
-  environment   DeployEnvironment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
+  id                String            @id @default(cuid())
+  environmentId     String
+  version           String
+  commitSha         String
+  applications      String[]
+  executionSnapshot Json?
+  artifactHash      String?
+  createdAt         DateTime          @default(now())
+  environment       DeployEnvironment @relation(fields: [environmentId], references: [id], onDelete: Restrict)
 
   @@unique([environmentId, version])
   @@index([environmentId, createdAt])
+}
+
+model DeployWorker {
+  id              String   @id
+  hostname        String
+  processId       Int
+  version         String
+  currentRunId    String?
+  startedAt       DateTime @default(now())
+  lastHeartbeatAt DateTime @default(now())
+
+  @@index([lastHeartbeatAt])
 }
