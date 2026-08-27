@@ -21,6 +21,8 @@ sudo -u deploy pm2 --version
 
 部署中心的“检查服务器”会验证这些命令和部署目录写权限。日常发布使用 `deploy` 用户执行，不需要无限制 sudo。
 
+建议为小内存服务器准备 Swap，并确保发布开始时 `MemAvailable + SwapFree` 不低于 Worker 的 `DEPLOY_MIN_AVAILABLE_MEMORY_MB`（默认 1536 MB）。Worker 会把安装和构建的 Node 堆限制为 `DEPLOY_BUILD_MAX_OLD_SPACE_MB`（默认 768 MB）；内存门禁不通过时发布会在修改 `current` 前安全失败。Swap 只能作为防止整机 OOM 的缓冲，不能替代独立构建机。
+
 ## 2. PM2 项目配置
 
 仓库根目录的 `ecosystem.config.cjs` 已定义两个进程：

@@ -15,6 +15,12 @@ import { parseDeploymentExecutionSnapshot } from './deployment-execution-snapsho
 import { deploymentErrorCode } from './deployment-error.js';
 import { deploymentSecretValues, redactDeploymentLog } from './deployment-log-redaction.js';
 import {
+  deploymentBuildCommand,
+  deploymentBuildHeapMb,
+  deploymentMinimumAvailableMb,
+  deploymentResourceCheckCommand,
+} from './deployment-resource-policy.js';
+import {
   deploymentCommandTimeoutMs,
   deploymentWorkerHeartbeatMs,
   deploymentWorkerLeaseMs,
@@ -171,11 +177,22 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
         'set -e; command -v git >/dev/null; command -v curl >/dev/null; command -v node >/dev/null; command -v pnpm >/dev/null; command -v pm2 >/dev/null; printf "git "; git --version; printf "node "; node --version; printf "pnpm "; pnpm --version; printf "pm2 "; pm2 --version; df -Pk / | tail -1',
       );
       const runtimeSummary = runtime.trim().split(/\r?\n/).filter(Boolean).slice(0, 5).join(' · ');
-      await this.completeStep(run.id, 'prepare', 10, `服务器运行环境：${runtimeSummary}`);
       if (run.releaseId) {
+        await this.completeStep(run.id, 'prepare', 10, `服务器运行环境：${runtimeSummary}`);
         await this.executeRollback(client, run, environment);
         return;
       }
+      const resourceSummary = await this.command(
+        client,
+        run.id,
+        deploymentResourceCheckCommand(this.minimumAvailableMb()),
+      );
+      await this.completeStep(
+        run.id,
+        'prepare',
+        10,
+        `服务器运行环境：${runtimeSummary} · ${resourceSummary.trim()}`,
+      );
 
       const release = `${new Date()
         .toISOString()
@@ -212,22 +229,38 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
       await this.command(
         client,
         run.id,
-        deploymentReleaseCommand(releasePath, snapshot.project.installCommand),
+        deploymentReleaseCommand(
+          releasePath,
+          deploymentBuildCommand(snapshot.project.installCommand, this.buildHeapMb()),
+        ),
       );
-      await this.command(client, run.id, deploymentReleaseCommand(releasePath, 'pnpm db:generate'));
+      await this.command(
+        client,
+        run.id,
+        deploymentReleaseCommand(
+          releasePath,
+          deploymentBuildCommand('pnpm db:generate', this.buildHeapMb()),
+        ),
+      );
       await this.completeStep(run.id, 'install', 42, '依赖安装完成');
       await this.step(run.id, 'build', 46, '正在构建所选应用');
       await this.command(
         client,
         run.id,
-        deploymentReleaseCommand(releasePath, 'pnpm --filter @template/contracts build'),
+        deploymentReleaseCommand(
+          releasePath,
+          deploymentBuildCommand('pnpm --filter @template/contracts build', this.buildHeapMb()),
+        ),
       );
       await this.log(run.id, 'info', '共享 contracts 构建完成');
       for (const unit of selectedUnits)
         await this.command(
           client,
           run.id,
-          deploymentReleaseCommand(releasePath, unit.buildCommand),
+          deploymentReleaseCommand(
+            releasePath,
+            deploymentBuildCommand(unit.buildCommand, this.buildHeapMb()),
+          ),
         );
       await this.completeStep(run.id, 'build', 64, '应用构建完成');
       const migrations = selectedUnits.filter((unit) => unit.migrationCommand);
@@ -720,6 +753,14 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
 
   private commandTimeoutMs(): number {
     return deploymentCommandTimeoutMs(process.env.DEPLOY_WORKER_COMMAND_TIMEOUT_MS);
+  }
+
+  private buildHeapMb(): number {
+    return deploymentBuildHeapMb(process.env.DEPLOY_BUILD_MAX_OLD_SPACE_MB);
+  }
+
+  private minimumAvailableMb(): number {
+    return deploymentMinimumAvailableMb(process.env.DEPLOY_MIN_AVAILABLE_MEMORY_MB);
   }
 
   private nextLeaseExpiry(): Date {

@@ -53,5 +53,6 @@ Deploy Worker 不属于任何业务部署项目的部署单元。部署 AIForge 
 - Node.js 应用由 PM2 托管，仓库根目录包含 `ecosystem.config.cjs`。
 - SSH 用户能写入部署目录，并使用同一用户运行 PM2；日常发布不需要 sudo。
 - API 运行时需要的 `.env` 或平台 Secret 必须在服务器部署目录按项目部署规范准备；构建日志不得显示其内容。
+- Worker 在拉取代码前检查目标机的 `MemAvailable + SwapFree`，不足时直接终止，不得在资源不足时进入安装和构建。安装、Prisma Client 生成和构建命令使用受限 Node 堆内存并保持低进程优先级；迁移、重启和应用运行时不继承该构建内存上限。
 
 首次服务器准备与 PM2 示例见 `docs/deployment/RELEASE_DIRECTORY.md`。

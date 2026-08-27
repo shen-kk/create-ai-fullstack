@@ -12,6 +12,8 @@
 
 部署命令必须是单行、可审查配置；不得包含换行或空字节。服务器检查要求 Git、curl、Node.js、Corepack、PM2 和可写部署目录。
 
+Worker 在发布构建前执行资源门禁，默认要求 `MemAvailable + SwapFree` 至少为 1536 MB。依赖安装、Prisma Client 生成和应用构建统一以低进程优先级执行，并默认把 Node 堆限制为 768 MB；两项阈值可通过 Worker 环境变量调整。资源限制只作用于构建阶段，不传递给迁移、PM2 重载或最终应用进程。长期建议在独立 Linux Worker/CI 产出构建结果，让生产机只承担发布切换。
+
 ## 数据迁移
 
 Docker Compose 项目定义不能无歧义转换为宿主机命令。本次迁移仅清理 `DeployProject`、`DeployEnvironment`、`DeployRun`、`DeployStep`、`DeployLog` 与 `DeployRelease`，不删除服务资源、账号、审计日志或其他业务数据。初始化种子会按需要创建新的 AIForge 目录发布预设。
