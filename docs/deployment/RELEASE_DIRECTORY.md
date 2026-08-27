@@ -31,6 +31,7 @@ sudo -u deploy pm2 --version
 - `aiforge-web`：运行 `apps/web/.output/server/index.mjs`。
 
 两个进程都从当前 release 的 `.env` 读取环境变量。Admin 是静态文件，不需要 PM2；Nginx 的站点目录应指向 `/srv/aiforge/current/apps/admin/dist`。
+Web 的 PM2 配置会把 `WEB_PORT` 映射为 Nitro 使用的 `PORT`，避免与 Admin 默认端口冲突。
 
 部署中心切换 `current` 后分别执行：
 
