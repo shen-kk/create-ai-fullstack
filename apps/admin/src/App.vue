@@ -142,7 +142,9 @@ const menuGroups = computed(() =>
     .filter((group) => group.items.length > 0),
 );
 function isMenuActive(path: string): boolean {
-  return path === '/' ? route.path === '/' : route.path === path || route.path.startsWith(`${path}/`);
+  return path === '/'
+    ? route.path === '/'
+    : route.path === path || route.path.startsWith(`${path}/`);
 }
 </script>
 

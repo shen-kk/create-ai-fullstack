@@ -438,7 +438,7 @@ export class DeploymentsService {
       environmentId,
       version: row.version,
       commitSha: row.commitSha,
-      applications: row.applications as DeploymentReleaseSummary['applications'],
+      applications: row.applications,
       createdAt: row.createdAt.toISOString(),
       current: row.id === environment.currentReleaseId,
     }));
@@ -670,11 +670,11 @@ export class DeploymentsService {
       const value = input[key]?.trim();
       if (value) result[key] = value;
     }
-    const variables = Object.fromEntries(
-      Object.entries(input.variables ?? {})
-        .map(([key, value]) => [key, value.trim()])
-        .filter(([, value]) => value),
-    );
+    const variables: Record<string, string> = {};
+    for (const [key, value] of Object.entries(input.variables ?? {})) {
+      const trimmedValue = value.trim();
+      if (trimmedValue) variables[key] = trimmedValue;
+    }
     if (Object.keys(variables).length) result.variables = variables;
     return result;
   }
@@ -716,7 +716,7 @@ export class DeploymentsService {
       kind: kindFromPrisma[row.kind],
       projectId: row.projectId,
       projectName: row.project.name,
-      applications: row.applications as DeploymentEnvironmentSummary['applications'],
+      applications: row.applications,
       gitProvider: row.gitProvider as DeploymentEnvironmentSummary['gitProvider'],
       repositoryUrl: row.repositoryUrl,
       gitRef: row.gitRef,
@@ -753,7 +753,7 @@ export class DeploymentsService {
       actorId: row.actorId,
       gitRef: row.gitRef,
       commitSha: row.commitSha,
-      applications: row.applications as DeploymentRunSummary['applications'],
+      applications: row.applications,
       status: runStatus[row.status],
       progress: row.progress,
       currentStep: row.currentStep,

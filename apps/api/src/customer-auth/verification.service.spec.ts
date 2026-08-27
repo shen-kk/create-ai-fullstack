@@ -125,7 +125,10 @@ describe('VerificationService', () => {
   });
 
   it('does not rate-limit a retry after a failed delivery', async () => {
-    const findFirst = vi.fn().mockResolvedValue(null);
+    type VerificationLookup = {
+      where: { deliveryStatus?: { in: string[] } };
+    };
+    const findFirst = vi.fn<(input: VerificationLookup) => Promise<null>>().mockResolvedValue(null);
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue({
@@ -182,10 +185,8 @@ describe('VerificationService', () => {
     );
 
     await service.send('email', 'user@example.com', 'login');
-    expect(findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ deliveryStatus: { in: ['pending', 'sent'] } }),
-      }),
-    );
+    expect(findFirst.mock.calls[0]?.[0].where.deliveryStatus).toEqual({
+      in: ['pending', 'sent'],
+    });
   });
 });

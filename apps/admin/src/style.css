@@ -3465,8 +3465,16 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
   line-height: 1.5;
   background: #fff;
 }
-.operation-notice[role='status'] { color: #166534; border-color: #86efac; background: #f0fdf4; }
-.operation-notice[role='alert'] { color: #b91c1c; border-color: #fca5a5; background: #fef2f2; }
+.operation-notice[role='status'] {
+  color: #166534;
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+.operation-notice[role='alert'] {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
 .notice-icon {
   display: inline-grid;
   width: 20px;
@@ -3479,26 +3487,116 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
   vertical-align: -3px;
   background: #16a34a;
 }
-.operation-notice[role='alert'] .notice-icon { background: #dc2626; }
-.operation-notice:not(:has(.notice-icon))::before { content: '✓'; display: inline-grid; width: 20px; height: 20px; margin-right: 8px; place-items: center; border-radius: 50%; color: #fff; font-weight: 700; background: #16a34a; vertical-align: -3px; }
-.operation-notice[role='alert']:not(:has(.notice-icon))::before { content: '!'; background: #dc2626; }
-.operation-notice { transition: opacity 220ms ease, transform 220ms ease; }
-.operation-notice.notice-dismissed { opacity: 0; transform: translateY(-8px); pointer-events: none; }
-.operation-notice[role='status'], .operation-notice[role='alert'] {
-  animation: admin-toast-in 240ms ease-out, admin-toast-out 260ms ease-in 4s forwards;
+.operation-notice[role='alert'] .notice-icon {
+  background: #dc2626;
 }
-.operation-notice[role='alert'] { animation-delay: 0s, 6s; }
-@keyframes admin-toast-in { from { opacity: 0; transform: translateY(-10px) scale(.98); } to { opacity: 1; transform: none; } }
-@keyframes admin-toast-out { to { opacity: 0; transform: translateY(-8px); visibility: hidden; } }
+.operation-notice:not(:has(.notice-icon))::before {
+  content: '✓';
+  display: inline-grid;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 700;
+  background: #16a34a;
+  vertical-align: -3px;
+}
+.operation-notice[role='alert']:not(:has(.notice-icon))::before {
+  content: '!';
+  background: #dc2626;
+}
+.operation-notice {
+  transition:
+    opacity 220ms ease,
+    transform 220ms ease;
+}
+.operation-notice.notice-dismissed {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+.operation-notice[role='status'],
+.operation-notice[role='alert'] {
+  animation:
+    admin-toast-in 240ms ease-out,
+    admin-toast-out 260ms ease-in 4s forwards;
+}
+.operation-notice[role='alert'] {
+  animation-delay: 0s, 6s;
+}
+@keyframes admin-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes admin-toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+    visibility: hidden;
+  }
+}
 @media (max-width: 640px) {
-  html, body, #app { max-width: 100%; overflow-x: hidden; }
-  .page-content { padding: 20px 14px; }
-  .panel { max-width: 100%; border-radius: 14px; padding: 16px; overflow: hidden; }
-  .table-wrap { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .table-wrap table { min-width: 620px; }
-  .table-wrap th, .table-wrap td { white-space: nowrap; }
-  .panel > table, .panel table { display: block; width: 100%; max-width: 100%; overflow-x: auto; }
-  .panel > table thead, .panel > table tbody { min-width: 620px; display: table; width: 100%; }
-  .modal, .dialog, .user-dialog { width: calc(100vw - 24px); max-width: none; max-height: calc(100vh - 24px); }
-  .operation-notice[role='status'], .operation-notice[role='alert'] { top: 12px; right: 12px; min-width: 0; max-width: calc(100vw - 24px); }
+  html,
+  body,
+  #app {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  .page-content {
+    padding: 20px 14px;
+  }
+  .panel {
+    max-width: 100%;
+    border-radius: 14px;
+    padding: 16px;
+    overflow: hidden;
+  }
+  .table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-wrap table {
+    min-width: 620px;
+  }
+  .table-wrap th,
+  .table-wrap td {
+    white-space: nowrap;
+  }
+  .panel > table,
+  .panel table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .panel > table thead,
+  .panel > table tbody {
+    min-width: 620px;
+    display: table;
+    width: 100%;
+  }
+  .modal,
+  .dialog,
+  .user-dialog {
+    width: calc(100vw - 24px);
+    max-width: none;
+    max-height: calc(100vh - 24px);
+  }
+  .operation-notice[role='status'],
+  .operation-notice[role='alert'] {
+    top: 12px;
+    right: 12px;
+    min-width: 0;
+    max-width: calc(100vw - 24px);
+  }
 }

@@ -33,7 +33,10 @@ const active = computed(
 );
 const currentStepLabel = computed(() => {
   if (!run.value?.currentStep) return '等待执行器领取任务';
-  return run.value.steps.find((step) => step.key === run.value?.currentStep)?.label ?? run.value.currentStep;
+  return (
+    run.value.steps.find((step) => step.key === run.value?.currentStep)?.label ??
+    run.value.currentStep
+  );
 });
 function append(next: DeploymentLogEntry[]): void {
   const known = new Set(logs.value.map((item) => item.id));

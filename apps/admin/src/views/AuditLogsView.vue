@@ -34,7 +34,11 @@ const actionLabels: Record<string, string> = {
   'deployment.rollback': '回滚部署版本',
 };
 const resourceLabels: Record<string, string> = {
-  user: '后台用户', role: '角色', integration: '服务配置', deploy_environment: '部署环境', deploy_run: '部署任务',
+  user: '后台用户',
+  role: '角色',
+  integration: '服务配置',
+  deploy_environment: '部署环境',
+  deploy_run: '部署任务',
 };
 const actionOptions = [
   { value: '', label: '全部操作' },
@@ -178,20 +182,103 @@ onMounted(load);
         @change="load"
       />
     </section>
-    <AppDialog v-if="selectedLog" :open="true" size="lg" eyebrow="操作日志详情" :title="actionLabels[selectedLog.action] || selectedLog.action" @close="selectedLog = null">
-        <dl class="detail-grid"><dt>时间</dt><dd>{{ formatDate(selectedLog.createdAt) }}</dd><dt>操作者</dt><dd>{{ selectedLog.actorName || '系统' }}</dd><dt>操作者 ID</dt><dd><code>{{ selectedLog.actorId || '—' }}</code></dd><dt>资源</dt><dd>{{ resourceLabels[selectedLog.resource] || selectedLog.resource }} · {{ selectedLog.resourceId || '—' }}</dd><dt>请求 ID</dt><dd><code>{{ selectedLog.requestId || '—' }}</code></dd><dt>来源 IP</dt><dd>{{ selectedLog.ipAddress || '—' }}</dd><dt>原始动作</dt><dd><code>{{ selectedLog.action }}</code></dd></dl>
-        <div class="code-container" aria-label="技术元数据"><div class="code-container__header">技术元数据</div><pre>{{ JSON.stringify(selectedLog.metadata || {}, null, 2) }}</pre></div>
+    <AppDialog
+      v-if="selectedLog"
+      :open="true"
+      size="lg"
+      eyebrow="操作日志详情"
+      :title="actionLabels[selectedLog.action] || selectedLog.action"
+      @close="selectedLog = null"
+    >
+      <dl class="detail-grid">
+        <dt>时间</dt>
+        <dd>{{ formatDate(selectedLog.createdAt) }}</dd>
+        <dt>操作者</dt>
+        <dd>{{ selectedLog.actorName || '系统' }}</dd>
+        <dt>操作者 ID</dt>
+        <dd>
+          <code>{{ selectedLog.actorId || '—' }}</code>
+        </dd>
+        <dt>资源</dt>
+        <dd>
+          {{ resourceLabels[selectedLog.resource] || selectedLog.resource }} ·
+          {{ selectedLog.resourceId || '—' }}
+        </dd>
+        <dt>请求 ID</dt>
+        <dd>
+          <code>{{ selectedLog.requestId || '—' }}</code>
+        </dd>
+        <dt>来源 IP</dt>
+        <dd>{{ selectedLog.ipAddress || '—' }}</dd>
+        <dt>原始动作</dt>
+        <dd>
+          <code>{{ selectedLog.action }}</code>
+        </dd>
+      </dl>
+      <div class="code-container" aria-label="技术元数据">
+        <div class="code-container__header">技术元数据</div>
+        <pre>{{ JSON.stringify(selectedLog.metadata || {}, null, 2) }}</pre>
+      </div>
     </AppDialog>
   </div>
 </template>
 
 <style scoped>
-.link-button { border: 0; background: transparent; color: #5965d8; font-weight: 700; cursor: pointer; }
-.link-button:hover { color: #3e49bd; text-decoration: underline; }
-.detail-grid { display: grid; grid-template-columns: 110px 1fr; gap: 14px 18px; margin: 0; padding: 24px 30px; }
-.detail-grid dt { color: #7a8496; font-size: 13px; }
-.detail-grid dd { margin: 0; color: #273247; font-size: 14px; word-break: break-word; }
-.code-container { margin-top: 4px; overflow: hidden; border: 1px solid #e1e6ef; border-radius: 10px; background: #f7f8fb; }
-.code-container__header { padding: 10px 14px; border-bottom: 1px solid #e1e6ef; color: #65718a; font-size: 12px; font-weight: 700; }
-.code-container pre { margin: 0; padding: 16px; max-height: 220px; overflow: auto; color: #536078; text-align: left; white-space: pre-wrap; word-break: break-word; font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.link-button {
+  border: 0;
+  background: transparent;
+  color: #5965d8;
+  font-weight: 700;
+  cursor: pointer;
+}
+.link-button:hover {
+  color: #3e49bd;
+  text-decoration: underline;
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 14px 18px;
+  margin: 0;
+  padding: 24px 30px;
+}
+.detail-grid dt {
+  color: #7a8496;
+  font-size: 13px;
+}
+.detail-grid dd {
+  margin: 0;
+  color: #273247;
+  font-size: 14px;
+  word-break: break-word;
+}
+.code-container {
+  margin-top: 4px;
+  overflow: hidden;
+  border: 1px solid #e1e6ef;
+  border-radius: 10px;
+  background: #f7f8fb;
+}
+.code-container__header {
+  padding: 10px 14px;
+  border-bottom: 1px solid #e1e6ef;
+  color: #65718a;
+  font-size: 12px;
+  font-weight: 700;
+}
+.code-container pre {
+  margin: 0;
+  padding: 16px;
+  max-height: 220px;
+  overflow: auto;
+  color: #536078;
+  text-align: left;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font:
+    12px/1.6 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+}
 </style>

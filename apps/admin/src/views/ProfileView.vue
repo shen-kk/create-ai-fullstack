@@ -86,7 +86,14 @@ async function savePassword(): Promise<void> {
         <p>管理当前登录账号的公开资料与登录密码。</p>
       </div>
     </section>
-    <p v-if="notice" :key="notice" class="operation-notice" :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'">{{ notice }}</p>
+    <p
+      v-if="notice"
+      :key="notice"
+      class="operation-notice"
+      :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'"
+    >
+      {{ notice }}
+    </p>
     <div class="profile-layout">
       <section class="panel profile-card">
         <div class="profile-avatar">

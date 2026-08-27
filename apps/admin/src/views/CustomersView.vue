@@ -92,7 +92,14 @@ onMounted(loadCustomers);
       </div>
       <span class="template-badge">可选模块</span>
     </section>
-    <p v-if="notice" :key="notice" class="operation-notice" :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'">{{ notice }}</p>
+    <p
+      v-if="notice"
+      :key="notice"
+      class="operation-notice"
+      :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'"
+    >
+      {{ notice }}
+    </p>
     <section class="panel filter-panel" aria-label="用户端用户筛选">
       <form class="filter-form" @submit.prevent="search">
         <label

@@ -88,7 +88,14 @@ onMounted(load);
         ><button class="primary-button" @click="openCreate">＋ 新增角色</button>
       </div>
     </section>
-    <p v-if="notice" :key="notice" class="operation-notice" :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'">{{ notice }}</p>
+    <p
+      v-if="notice"
+      :key="notice"
+      class="operation-notice"
+      :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'"
+    >
+      {{ notice }}
+    </p>
     <div v-if="loading" class="panel table-state"><span class="loading-ring" />正在加载角色…</div>
     <div v-else-if="error" class="panel table-state error-state">
       <strong>加载失败</strong>
@@ -150,30 +157,30 @@ onMounted(load);
           ><span>角色说明</span><input v-model.trim="form.description" maxlength="240"
         /></label>
         <div class="permission-grid">
-        <fieldset>
-          <legend>功能菜单权限</legend>
-          <label
-            v-for="permission in menuPermissions"
-            :key="permission.code"
-            class="permission-option"
-            ><input v-model="form.permissions" type="checkbox" :value="permission.code" /><span
-              ><strong>{{ permission.description }}</strong
-              ><small>{{ permission.code }}</small></span
-            ></label
-          >
-        </fieldset>
-        <fieldset>
-          <legend>操作权限</legend>
-          <label
-            v-for="permission in actionPermissions"
-            :key="permission.code"
-            class="permission-option"
-            ><input v-model="form.permissions" type="checkbox" :value="permission.code" /><span
-              ><strong>{{ permission.description }}</strong
-              ><small>{{ permission.code }}</small></span
-            ></label
-          >
-        </fieldset>
+          <fieldset>
+            <legend>功能菜单权限</legend>
+            <label
+              v-for="permission in menuPermissions"
+              :key="permission.code"
+              class="permission-option"
+              ><input v-model="form.permissions" type="checkbox" :value="permission.code" /><span
+                ><strong>{{ permission.description }}</strong
+                ><small>{{ permission.code }}</small></span
+              ></label
+            >
+          </fieldset>
+          <fieldset>
+            <legend>操作权限</legend>
+            <label
+              v-for="permission in actionPermissions"
+              :key="permission.code"
+              class="permission-option"
+              ><input v-model="form.permissions" type="checkbox" :value="permission.code" /><span
+                ><strong>{{ permission.description }}</strong
+                ><small>{{ permission.code }}</small></span
+              ></label
+            >
+          </fieldset>
         </div>
         <p class="permission-help">
           菜单权限决定入口与路由可见性；操作权限由 API

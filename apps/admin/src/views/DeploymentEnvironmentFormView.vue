@@ -182,11 +182,12 @@ async function revealSecrets(): Promise<void> {
     secretsRevealed.value = true;
   } catch (cause) {
     const code = cause instanceof Error ? cause.message : '';
-    error.value = code === 'FORBIDDEN' || code.includes('403')
-      ? '当前账号没有“查看敏感配置明文”权限。'
-      : code === 'DEPLOYMENT_SECRETS_REENTRY_REQUIRED'
-        ? '历史部署密钥已无法解密，请重新填写并保存。'
-        : '密钥读取失败，请检查权限或 API。';
+    error.value =
+      code === 'FORBIDDEN' || code.includes('403')
+        ? '当前账号没有“查看敏感配置明文”权限。'
+        : code === 'DEPLOYMENT_SECRETS_REENTRY_REQUIRED'
+          ? '历史部署密钥已无法解密，请重新填写并保存。'
+          : '密钥读取失败，请检查权限或 API。';
   } finally {
     revealingSecrets.value = false;
   }
@@ -275,10 +276,7 @@ onMounted(async () => {
           /></label>
           <label class="wide"
             ><span>实际部署路径 <b class="required-mark">*</b></span
-            ><input
-              v-model.trim="form.deployPath"
-              required
-              placeholder="例如：/www/wwwroot/my-app"
+            ><input v-model.trim="form.deployPath" required placeholder="例如：/www/wwwroot/my-app"
           /></label>
           <label v-if="projectVariables.some((item) => item.resourceKind === 'sql')"
             ><span>SQL 数据库 <b class="required-mark">*</b></span

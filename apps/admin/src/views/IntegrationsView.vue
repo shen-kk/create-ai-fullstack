@@ -150,7 +150,8 @@ async function saveAuthMode(): Promise<void> {
       verificationTtlSeconds: verificationTtlMinutes.value * 60,
       verificationRetrySeconds: verificationRetrySeconds.value,
     });
-    noticeKind.value = 'success'; notice.value = '用户端认证与验证码规则已更新。';
+    noticeKind.value = 'success';
+    notice.value = '用户端认证与验证码规则已更新。';
   } catch (error) {
     notice.value =
       error instanceof Error && error.message === 'CUSTOMER_AUTH_FEATURE_BINDINGS_INCOMPLETE'
@@ -208,7 +209,8 @@ async function bindFeature(
     bindings.value = bindings.value.map((item) => (item.code === updated.code ? updated : item));
     notice.value = resourceId ? '功能绑定已保存。' : '已解除绑定，该功能将提示服务未配置。';
   } catch {
-    noticeKind.value = 'error'; notice.value = '功能绑定失败，请确认资源已启用且类型匹配。';
+    noticeKind.value = 'error';
+    notice.value = '功能绑定失败，请确认资源已启用且类型匹配。';
   }
 }
 function templateOptions(binding: ServiceFeatureBindingSummary) {
@@ -224,7 +226,8 @@ async function bindTemplate(
   templateId: string,
 ): Promise<void> {
   if (!binding.resourceId) {
-    noticeKind.value = 'error'; notice.value = '请先绑定发送服务资源。';
+    noticeKind.value = 'error';
+    notice.value = '请先绑定发送服务资源。';
     return;
   }
   const updated = await updateServiceFeatureBinding(
@@ -266,7 +269,8 @@ async function saveTemplate(): Promise<void> {
   try {
     const form = templateForm.value;
     if (form.channel === 'email' && !form.htmlBody.trim()) {
-      noticeKind.value = 'error'; notice.value = '请填写邮件正文。';
+      noticeKind.value = 'error';
+      notice.value = '请填写邮件正文。';
       return;
     }
     const input = {
@@ -287,7 +291,8 @@ async function saveTemplate(): Promise<void> {
     notice.value = '消息模板已保存。';
     await load();
   } catch {
-    noticeKind.value = 'error'; notice.value = '模板保存失败，请检查模板变量和参数映射 JSON。';
+    noticeKind.value = 'error';
+    notice.value = '模板保存失败，请检查模板变量和参数映射 JSON。';
   }
 }
 async function removeTemplate(template: MessageTemplateSummary): Promise<void> {
@@ -296,7 +301,8 @@ async function removeTemplate(template: MessageTemplateSummary): Promise<void> {
     notice.value = '消息模板已删除。';
     await load();
   } catch {
-    noticeKind.value = 'error'; notice.value = '模板正在被功能使用，不能删除。';
+    noticeKind.value = 'error';
+    notice.value = '模板正在被功能使用，不能删除。';
   }
 }
 async function testCurrentDelivery(): Promise<void> {
@@ -316,7 +322,8 @@ async function testCurrentDelivery(): Promise<void> {
       SMS_DELIVERY_FAILED: '短信发送失败，请检查短信服务配置。',
       VERIFICATION_RETRY_LATER: '发送过于频繁，请等待 60 秒后重试。',
     };
-    noticeKind.value = 'error'; notice.value = messages[code] ?? '测试发送失败，请检查所选场景的服务和模板绑定。';
+    noticeKind.value = 'error';
+    notice.value = messages[code] ?? '测试发送失败，请检查所选场景的服务和模板绑定。';
   } finally {
     testingDelivery.value = false;
   }
@@ -350,15 +357,19 @@ async function revealResourceSecrets(): Promise<void> {
   if (!editingResource.value || revealingResourceSecrets.value) return;
   revealingResourceSecrets.value = true;
   try {
-    secrets.value = { ...secrets.value, ...(await getServiceResourceSecrets(editingResource.value.id)) };
+    secrets.value = {
+      ...secrets.value,
+      ...(await getServiceResourceSecrets(editingResource.value.id)),
+    };
   } catch (cause) {
     const code = cause instanceof Error ? cause.message : '';
     noticeKind.value = 'error';
-    notice.value = code === 'FORBIDDEN' || code.includes('403')
-      ? '当前账号没有“查看敏感配置明文”权限。'
-      : code === 'INTEGRATION_SECRETS_REENTRY_REQUIRED'
-        ? '历史密钥已无法解密，请重新填写并保存。'
-        : '敏感配置读取失败，请检查权限或 API。';
+    notice.value =
+      code === 'FORBIDDEN' || code.includes('403')
+        ? '当前账号没有“查看敏感配置明文”权限。'
+        : code === 'INTEGRATION_SECRETS_REENTRY_REQUIRED'
+          ? '历史密钥已无法解密，请重新填写并保存。'
+          : '敏感配置读取失败，请检查权限或 API。';
   } finally {
     revealingResourceSecrets.value = false;
   }
@@ -391,7 +402,8 @@ async function save(): Promise<void> {
   } catch (cause) {
     const code = cause instanceof Error ? cause.message : '';
     const messages: Record<string, string> = {
-      INTEGRATION_REQUIRED_FIELD_MISSING: '旧密钥无法使用，请重新填写当前服务所需的密码或访问密钥。',
+      INTEGRATION_REQUIRED_FIELD_MISSING:
+        '旧密钥无法使用，请重新填写当前服务所需的密码或访问密钥。',
       INTEGRATION_AUTH_CREDENTIAL_REQUIRED: '请重新填写当前认证方式对应的密码、令牌或 SSH 私钥。',
       SERVICE_DEPLOY_ROOT_INVALID: '部署根目录必须是合法的 Linux 绝对路径。',
       INTEGRATION_OPTION_INVALID: '所选服务平台或配置选项无效，请重新选择。',
@@ -435,8 +447,15 @@ onMounted(load);
       </div>
       <button class="secondary-button" :disabled="loading" @click="load">刷新</button>
     </section>
-    <p v-if="notice" :key="notice" class="operation-notice" :class="`notice-${noticeKind}`" :role="noticeKind === 'error' ? 'alert' : 'status'">
-      <span class="notice-icon" aria-hidden="true">{{ noticeKind === 'error' ? '!' : '✓' }}</span>{{ notice }}
+    <p
+      v-if="notice"
+      :key="notice"
+      class="operation-notice"
+      :class="`notice-${noticeKind}`"
+      :role="noticeKind === 'error' ? 'alert' : 'status'"
+    >
+      <span class="notice-icon" aria-hidden="true">{{ noticeKind === 'error' ? '!' : '✓' }}</span
+      >{{ notice }}
     </p>
     <nav class="integration-subnav" aria-label="服务配置二级导航">
       <RouterLink to="/integrations/resources">
@@ -711,7 +730,9 @@ onMounted(load);
                 :revealable="Boolean(editingResource && hasConfiguredSecret(field.key))"
                 :revealing="revealingResourceSecrets"
                 :required="field.required && !hasConfiguredSecret(field.key)"
-                :placeholder="hasConfiguredSecret(field.key) ? '••••••••（已加密保存）' : '请输入密钥'"
+                :placeholder="
+                  hasConfiguredSecret(field.key) ? '••••••••（已加密保存）' : '请输入密钥'
+                "
                 autocomplete="new-password"
               />
               <AppSelect

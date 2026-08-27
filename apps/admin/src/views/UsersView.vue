@@ -183,7 +183,14 @@ onMounted(loadUsers);
       </div>
       <button class="primary-button" @click="createOpen = true">＋ 新增管理员</button>
     </section>
-    <p v-if="notice" :key="notice" class="operation-notice" :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'">{{ notice }}</p>
+    <p
+      v-if="notice"
+      :key="notice"
+      class="operation-notice"
+      :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'"
+    >
+      {{ notice }}
+    </p>
 
     <section class="panel filter-panel" aria-label="用户筛选">
       <form class="filter-form" @submit.prevent="search">

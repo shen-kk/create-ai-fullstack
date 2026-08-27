@@ -14,6 +14,8 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>();
     <span class="app-checkbox-mark" aria-hidden="true">
       <svg v-if="modelValue" viewBox="0 0 16 16"><path d="m3.5 8 3 3 6-7" /></svg>
     </span>
-    <span><slot>{{ label }}</slot></span>
+    <span
+      ><slot>{{ label }}</slot></span
+    >
   </label>
 </template>
