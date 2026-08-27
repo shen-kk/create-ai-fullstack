@@ -214,6 +214,7 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
         run.id,
         deploymentReleaseCommand(releasePath, snapshot.project.installCommand),
       );
+      await this.command(client, run.id, deploymentReleaseCommand(releasePath, 'pnpm db:generate'));
       await this.completeStep(run.id, 'install', 42, '依赖安装完成');
       await this.step(run.id, 'build', 46, '正在构建所选应用');
       await this.command(
