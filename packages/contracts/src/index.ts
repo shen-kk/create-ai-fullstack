@@ -8,7 +8,7 @@ export interface SystemInfoResponse {
   service: string;
   version: string;
   environment: 'development' | 'test' | 'production';
-  dataSource: 'memory' | 'prisma';
+  dataSource: 'prisma';
   uptimeSeconds: number;
   nodeVersion: string;
   timestamp: string;
@@ -26,6 +26,8 @@ export interface PageResult<T> {
   pageSize: number;
   total: number;
 }
+
+export const PASSWORD_MIN_LENGTH = 6;
 
 export type UserStatus = 'active' | 'disabled' | 'pending';
 
@@ -228,11 +230,18 @@ export interface AuthSession {
 }
 export interface UpdateProfileRequest {
   name: string;
-  avatarUrl?: string | null;
 }
 export interface ChangePasswordRequest {
   currentPassword: string;
   newPassword: string;
+}
+export interface AuthSessionDevice {
+  id: string;
+  userAgent: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+  expiresAt: string;
+  current: boolean;
 }
 
 export type CustomerStatus = 'active' | 'disabled';

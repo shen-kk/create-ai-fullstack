@@ -6,6 +6,7 @@ dist
 .output
 coverage
 *.log
+*.tgz
 .env
 .env.*
 !.env.example

@@ -47,9 +47,10 @@ class TestAuthIdentityRepository implements AuthIdentityRepository {
 }
 
 class TestRefreshSessionRepository implements RefreshSessionRepository {
+  private nextId = 1;
   private readonly sessions = new Map<
     string,
-    { userId: string; expiresAt: Date; revoked: boolean }
+    { id: string; userId: string; expiresAt: Date; revoked: boolean }
   >();
 
   create(
@@ -57,10 +58,11 @@ class TestRefreshSessionRepository implements RefreshSessionRepository {
     tokenHash: string,
     expiresAt: Date,
     metadata: RefreshSessionMetadata,
-  ): Promise<void> {
+  ): Promise<string> {
     void metadata;
-    this.sessions.set(tokenHash, { userId, expiresAt, revoked: false });
-    return Promise.resolve();
+    const id = `session-${this.nextId++}`;
+    this.sessions.set(tokenHash, { id, userId, expiresAt, revoked: false });
+    return Promise.resolve(id);
   }
 
   consume(userId: string, tokenHash: string): Promise<boolean> {
@@ -75,6 +77,39 @@ class TestRefreshSessionRepository implements RefreshSessionRepository {
     const session = this.sessions.get(tokenHash);
     if (session) session.revoked = true;
     return Promise.resolve();
+  }
+
+  isActive(userId: string, id: string): Promise<boolean> {
+    return Promise.resolve(
+      [...this.sessions.values()].some(
+        (session) => session.id === id && session.userId === userId && !session.revoked,
+      ),
+    );
+  }
+
+  list(userId: string, currentSessionId: string) {
+    return Promise.resolve(
+      [...this.sessions.values()]
+        .filter((session) => session.userId === userId && !session.revoked)
+        .map((session) => ({
+          id: session.id,
+          userAgent: null,
+          ipAddress: null,
+          createdAt: new Date(0).toISOString(),
+          expiresAt: session.expiresAt.toISOString(),
+          current: session.id === currentSessionId,
+        })),
+    );
+  }
+
+  revokeOthers(userId: string, currentSessionId: string): Promise<number> {
+    let count = 0;
+    for (const session of this.sessions.values())
+      if (session.userId === userId && session.id !== currentSessionId && !session.revoked) {
+        session.revoked = true;
+        count += 1;
+      }
+    return Promise.resolve(count);
   }
 }
 
@@ -119,5 +154,21 @@ describe('AuthService', () => {
     const session = await service.login(testPhone, testPassword);
     await service.logout(session.refreshToken);
     await expect(service.refresh(session.refreshToken)).rejects.toThrow('INVALID_REFRESH_TOKEN');
+  });
+
+  it('lists the current device and immediately invalidates other device access tokens', async () => {
+    const first = await service.login(testPhone, testPassword);
+    const second = await service.login(testPhone, testPassword);
+    const current = await service.verifyAccess(second.accessToken);
+    const devices = await service.listSessions(current.id, current.sessionId);
+    expect(devices.length).toBeGreaterThanOrEqual(2);
+    expect(devices.filter((device) => device.current)).toHaveLength(1);
+
+    await service.revokeOtherSessions(current.id, current.sessionId);
+    await expect(service.verifyAccess(first.accessToken)).rejects.toThrow('INVALID_ACCESS_TOKEN');
+    await expect(service.verifyAccess(second.accessToken)).resolves.toMatchObject({
+      id: 'adm_test',
+      sessionId: current.sessionId,
+    });
   });
 });

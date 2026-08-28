@@ -7,7 +7,7 @@
 ## 当前事实
 
 - 部署中心不要求仓库提交部署清单，也不把部署单元固定为 Admin/API/Web。部署项目保存依赖安装和各单元的构建、迁移、重启、健康检查命令；Worker 在不可变 release 目录构建，原子切换 `current`，由 PM2 托管 Node.js 进程，失败时恢复旧目录并重载。环境必须绑定 Git、服务器及项目声明所需的 SQL/Redis 资源。决策见 ADR-0011、ADR-0012、ADR-0015。
-- 部署命令不在 API HTTP 进程内执行。独立 Deploy Worker 通过 `pnpm dev:worker` 或构建后的 `start:worker` 领取数据库任务；Worker 不得加入它管理的业务部署项目，避免 AIForge 自部署时中断当前任务。生产 Worker 至少需要与 API 相同的 `DATABASE_URL`、`CONFIG_ENCRYPTION_KEY` 和出站 SSH/Git 网络权限。
+- 部署命令不在 API HTTP 进程内执行。独立 Deploy Worker 通过 `pnpm run dev:worker` 或 `pnpm --filter @template/api run start:worker` 领取数据库任务；Worker 不得加入它管理的业务部署项目，避免 AIForge 自部署时中断当前任务。生产 Worker 至少需要与 API 相同的 `DATABASE_URL`、`CONFIG_ENCRYPTION_KEY` 和出站 SSH/Git 网络权限。
 - Deploy Worker 使用数据库租约、心跳和每环境活动任务唯一约束；Admin/API 会显示并校验 Worker 在线状态，离线时不接受部署或回滚任务，并提供重新检测与独立启动说明。执行快照使用共享的 V2 契约并在 Worker 边界运行时校验，未知版本或损坏数据直接失败。决策见 ADR-0016。
 - 远端发布在拉取前执行可用内存与 Swap 门禁；安装、Prisma Client 生成和构建以低优先级、受限 Node 堆运行，资源限制不传递给迁移、重启或应用运行时。阈值由 Worker 环境变量配置，详见 ADR-0015。
 - PM2 reload 会沿用旧 release 的 cwd 和脚本绝对路径。AIForge 内置部署预设必须只删除自身管理的 `aiforge-api` / `aiforge-web` 后从目标 release 重新启动；正式发布与历史回滚已验证 `current`、进程 cwd、3001/3002 和 ready 一致。
@@ -21,7 +21,7 @@
 - Admin 服务配置按“服务资源、功能绑定、消息模板”拆为三个二级路由，一级侧边菜单保持选中；邮件 HTML 正文统一通过基于 Tiptap 的 `AppRichTextEditor` 编辑，短信和纯文本回退内容仍使用纯文本字段。
 
 - Admin 登录页不预填固定演示账号或 `Admin@123456`；初始化管理员使用 `.env` 中每个项目独立生成的 `DEV_ADMIN_PHONE` / `DEV_ADMIN_PASSWORD`。初始化结束只显示手机号和密码所在字段，不回显随机密码；登录接口成功状态为 HTTP 200。
-- Admin 管理员成功完成密码登录后更新 `User.lastActiveAt`，用户管理列表的“最近活跃”展示该真实时间；认证失败不得更新。后台 `.page-content` 不设置桌面端最大宽度，在高分辨率屏幕上使用侧边栏以外的全部可用空间。
+- Admin 管理员成功完成密码登录后更新 `User.lastActiveAt`，用户管理列表的“最近活跃”展示该真实时间；认证失败不得更新。后台个人中心可查看有效登录设备并保留当前设备退出其他会话，后台 Access Token 绑定 Refresh Session，撤销后立即失效。后台 `.page-content` 不设置桌面端最大宽度，在高分辨率屏幕上使用侧边栏以外的全部可用空间。
 - Admin 的全部 API 请求统一使用 `src/api/base.ts` 解析地址：优先采用部署时的 `VITE_API_BASE_URL`，否则读取初始化生成的 `project.runtime.apiPort`。禁止在会话或业务 API 文件中硬编码 `3001`，避免自定义端口被浏览器误报为 CORS 错误。
 
 - `create-aiforge` 只询问是否启用用户端，不再提供 quick、standard、custom，也不询问头像、部署中心、邮件、短信、Redis、对象存储或数据库凭据。头像随用户端自动启用；部署中心和对象存储资源库始终保留。`project.config.json.features` 只记录真正可裁剪的 `customerWeb`，`modules` 必须由共享功能目录推导。未启用用户端时物理移除 `apps/web`，并继续收敛关联 API、权限和 Prisma 的细粒度组合。
@@ -30,7 +30,8 @@
 
 - 新组合器已覆盖“仅核心”和“用户端 + 头像”的干净临时目录结构验收；用户端账号将验证码、消息模板和邮件/短信适配作为共享依赖自动保留，不再向用户提供容易误裁剪的验证码独立开关。发布 0.2 前仍需完成锁定依赖安装、`pnpm run setup`、Doctor、Prisma Client、格式/Lint/类型/测试及生产构建的完整组合矩阵。
 - 用户端 `/profile` 使用左侧分组设置导航，分为个人资料、联系方式、安全设置和登录设备；顶部账号区通过鼠标移入、键盘聚焦或点击展开个人中心/退出菜单。用户头像只能通过 `POST /api/customer-auth/avatar` 上传 JPG、PNG 或 WebP（最大 2 MB）到已配置的对象存储；不接受手工 URL 且不提供本地文件兜底，未配置时返回稳定错误码并显示中文提示。
-- 用户端现有账户 API 已全部收口到 `useCustomerSession`：注册、密码/验证码登录、找回密码、会话恢复与退出、资料编辑、邮箱绑定、修改密码和设备会话管理均使用共享契约的类型化方法。请求默认 12 秒超时，稳定错误码映射为中文；Access Token 过期时仅发起一次并发刷新并重试原请求。撤销设备会话后，API 对后续 Access Token 请求同步校验会话有效性。
+- 用户端现有账户 API 已全部收口到 `useCustomerSession`：首次验证码登录自动创建账号、密码/验证码登录、找回密码、会话恢复与退出、资料编辑、邮箱绑定、修改密码和设备会话管理均使用共享契约的类型化方法。请求默认 12 秒超时，稳定错误码映射为中文；Access Token 过期时仅发起一次并发刷新并重试原请求。撤销设备会话后，API 对后续 Access Token 请求同步校验会话有效性。
+- 后台管理员与用户端账号的密码边界统一使用共享的 `PASSWORD_MIN_LENGTH = 6`；API DTO、Admin/Web 表单、初始化种子和 Doctor 必须保持一致，密码仍只保存 scrypt 哈希。
 - 验证码首次登录创建的用户端账号没有可用密码；个人中心首次设置密码不要求当前密码，设置或找回成功后记录 `passwordConfiguredAt`，后续修改必须验证当前密码。
 - 用户端以 shadcn-vue 作为业务组件基础，VueUse Motion 处理常规过渡，GSAP 只处理首页等高价值动画编排；自定义 Design System 采用 Apple 的克制与空间感、Linear 的交互密度和 Vercel 的黑白层级。`components/ui` 不依赖动效，`components/motion` 不承载业务状态，并尊重 SSR 与减少动态效果偏好。
 - 用户端跨页面反馈统一使用右上角 `AppToast`，认证表单不再用撑开布局的行内服务端提示；页面使用统一轻量过渡，不允许只给同级内容中的个别卡片添加入场动画。所有按钮必须明确设计 hover、focus 和 disabled 对比度。
@@ -50,7 +51,7 @@
 - 外部服务接入按 `docs/architecture/SERVICE_INTEGRATIONS.md` 管理；验证码已支持腾讯云短信、TLS SMTP 和腾讯云 SES，其他适配器按项目需要接入。
 - Prisma 已定义 User、Role、Permission、RefreshSession、AuditLog 及关系；13 个迁移、幂等种子和真实 PostgreSQL E2E 已在模板开发数据库通过。
 - API 已统一输出稳定错误结构和 `x-request-id`，生产环境启动时校验关键配置；健康检查分为 `/api/health/live` 与 `/api/health/ready`。
-- 登录接口按“来源 IP + 规范化邮箱”限制 15 分钟内最多 5 次失败；当前为单实例内存实现，生产多实例部署时应切换 Redis。
+- 后台登录接口按“来源 IP + 规范化手机号”限制 15 分钟内最多 5 次失败；当前为单实例内存实现，生产多实例部署时应切换 Redis。
 - API 已提供 `RequirePermissions` 装饰器与 `PermissionsGuard`；`GET /api/users` 除登录外还必须具有 `users.read` 权限。
 - Refresh Token 已实现 PostgreSQL 会话登记、SHA-256 摘要存储、一次性轮换和退出撤销。
 - 用户管理已支持创建、基本资料编辑、状态变更和角色分配；角色分配同时要求 `users.write`、`roles.manage` 并在 Prisma 事务中替换。依据 ADR-0004，模板不删除管理员账号，退出使用时改为停用。
@@ -62,7 +63,7 @@
 - Admin `/logs` 支持服务端分页浏览，已覆盖用户与角色写操作的中文动作展示。
 - API 使用 JSON 结构化日志记录请求 ID、方法、路径、状态、耗时和可用的操作者 ID；禁止记录请求体、密码、Cookie 与 Authorization Header。
 - OpenAPI 已声明 Bearer Access Token、HttpOnly Refresh Cookie 及模块标签；依据 ADR-0005，共享 TypeScript 契约是单仓库权威来源，当前不生成内部客户端，外部 SDK 在具体项目需要时再启用完整响应 Schema 门禁。
-- 权限目录按 ADR-0003 分为 `menu` 与 `action`，通过 `groupCode` 归组；Admin 菜单/路由检查 `menu.*`，API 只以业务操作权限作为数据安全边界。数据库迁移 `20260802000200_permission_taxonomy` 已加入，待 PostgreSQL 执行验证。
+- 权限目录按 ADR-0003 分为 `menu` 与 `action`，通过 `groupCode` 归组；Admin 菜单/路由检查 `menu.*`，API 只以业务操作权限作为数据安全边界。数据库迁移 `20260802000200_permission_taxonomy` 已通过 PostgreSQL 验证。
 - Windows `dev-local.cmd` 会通过 `scripts/prepare-local.ps1` 检测 3000/3001：只替换命令行属于当前工作区的旧服务，发现外部程序占用时拒绝误杀；重复启动已实际验证。
 - `apps/web` 已恢复为正式用户端模板并纳入默认启动、检查和构建；提供 SSR 首页、验证码/密码登录、找回密码、会话恢复、个人中心、联系方式绑定和响应式布局。验证码按用途隔离，5 分钟过期、60 秒重发限制、5 次错误上限、摘要存储且单次消费；必须经后台绑定的腾讯云短信、TLS SMTP 或腾讯云 SES 真实发送，API 不回显验证码。
 - 用户端安全中心可列出有效 Refresh Session，并撤销单个或其他设备；后台 `/verification-deliveries` 按渠道、用途和状态分页查询脱敏验证码发送记录，不展示目标明文或验证码。
@@ -70,7 +71,7 @@
 - 用户端是初始化时显式选择的可选能力：`userWeb` 与 `customerAuthentication` 必须成对启停；关闭时不注册用户端 API、不启动/构建 Web，也不显示用户端权限和后台“用户端用户”菜单。启用时后台提供查询、筛选、分页和状态管理，停用账号会撤销其全部 Refresh Session，Access Token 请求也会重新确认账号仍启用。
 - Admin 已移除内容、订单等行业业务占位入口；工作台只展示用户、角色、审计和健康检查的真实接口数据，所有卡片和快捷入口均可访问。`/system` 通过 `system.read` 展示非敏感运行信息。模板不预置具体行业模块，初始化后的项目按需选择。
 - Admin 使用统一线性 SVG 图标和分组侧边栏；筛选与状态选择使用可控圆角浮层的 `AppSelect`，不依赖无法统一样式的浏览器原生下拉菜单。侧边栏账号区进入 `/profile`。
-- 个人中心支持修改显示名称、HTTPS 头像地址和密码；`PATCH /api/auth/profile` 与 `POST /api/auth/password` 均要求 Access Token，密码修改校验当前密码并重新生成 scrypt 哈希。Prisma 迁移 `20260802000400_user_profile` 增加 `avatarUrl`。
+- 后台个人中心支持修改显示名称、通过对象存储上传头像、修改密码和管理登录设备；`PATCH /api/auth/profile` 不接受手工头像 URL，密码修改校验当前密码并重新生成 scrypt 哈希。Prisma 迁移 `20260802000400_user_profile` 增加 `avatarUrl`。
 - 后台身份以手机号作为必填唯一登录标识，邮箱降为可选联系资料；登录、管理员创建/编辑、Prisma 仓库和种子均按手机号执行。迁移 `20260802000600_admin_phone_identity` 负责既有数据过渡。
 - `/integrations` 管理对象存储、SQL、Redis、短信、邮件和支付配置；字段定义由代码注册，密钥采用 AES-256-GCM 加密。普通列表只返回已配置字段名；持有独立 `secrets.read` 权限时可通过眼睛按钮临时读取明文，读取动作必须审计且前端不得持久化。密码哈希永不回显。决策见 ADR-0014。
 - 服务配置字段支持平台/类型枚举选择；头像通过 `POST /api/auth/avatar` 直接上传到已启用的对象存储，当前适配腾讯云 COS。模板明确不提供本地文件存储或本地兜底，未配置、配置不完整或适配器不可用时返回稳定错误码并由 Admin 引导前往服务配置。
@@ -102,7 +103,6 @@
 ## 待业务确认
 
 - 身份基线已按 ADR-0002 选择为单租户起步；未来是否启用多租户仍待具体项目确认。
-- 用户查询、认证/权限加载和刷新会话均具备 Prisma 数据源实现，但本机尚未进行 PostgreSQL 集成验证。
 - 部署平台和可观测性供应商尚未确定。
 
 > 运行约束：模板统一使用 PostgreSQL + Prisma，禁止新增或恢复 memory 数据源、内存默认值或静默假数据回退。所有开发环境都通过 `pnpm run setup` 生成的 `.env` 提供真实 `DATABASE_URL`。

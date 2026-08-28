@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import type { AuthSession, AuthUser } from '@template/contracts';
+import type { AuthSession, AuthSessionDevice, AuthUser } from '@template/contracts';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -18,6 +18,7 @@ import { hashScryptPassword } from './password-hash.js';
 interface RefreshTokenPayload {
   sub: string;
 }
+type AuthAccessToken = AuthUser & { sessionId: string };
 const refreshLifetimeSeconds = 7 * 24 * 60 * 60;
 
 @Injectable()
@@ -67,11 +68,20 @@ export class AuthService {
     if (token) await this.refreshSessions.revoke(hashRefreshToken(token));
   }
 
-  verifyAccess(token: string): Promise<AuthUser> {
-    return this.jwt.verifyAsync<AuthUser>(token);
+  async verifyAccess(token: string): Promise<AuthAccessToken> {
+    const payload = await this.jwt.verifyAsync<AuthAccessToken>(token);
+    if (!payload.sessionId || !(await this.refreshSessions.isActive(payload.id, payload.sessionId)))
+      throw new UnauthorizedException('INVALID_ACCESS_TOKEN');
+    return payload;
   }
-  async updateProfile(id: string, name: string, avatarUrl: string | null): Promise<AuthUser> {
-    const user = await this.identities.updateProfile(id, name.trim(), avatarUrl);
+  async updateProfile(id: string, name: string, avatarUrl?: string | null): Promise<AuthUser> {
+    const current = avatarUrl === undefined ? await this.identities.findActiveById(id) : null;
+    if (avatarUrl === undefined && !current) throw new NotFoundException('USER_NOT_FOUND');
+    const user = await this.identities.updateProfile(
+      id,
+      name.trim(),
+      avatarUrl === undefined ? (current?.avatarUrl ?? null) : avatarUrl,
+    );
     if (!user) throw new NotFoundException('USER_NOT_FOUND');
     return user;
   }
@@ -83,22 +93,28 @@ export class AuthService {
     );
     if (!changed) throw new UnauthorizedException('CURRENT_PASSWORD_INVALID');
   }
+  listSessions(id: string, currentSessionId: string): Promise<AuthSessionDevice[]> {
+    return this.refreshSessions.list(id, currentSessionId);
+  }
+  revokeOtherSessions(id: string, currentSessionId: string): Promise<number> {
+    return this.refreshSessions.revokeOthers(id, currentSessionId);
+  }
 
   private async issueSession(
     user: AuthUser,
     metadata: RefreshSessionMetadata,
   ): Promise<AuthSession & { refreshToken: string }> {
-    const accessToken = await this.jwt.signAsync(user, { expiresIn: '15m' });
     const refreshToken = await this.jwt.signAsync(
       { sub: user.id, jti: randomUUID() },
       { secret: this.refreshSecret, expiresIn: refreshLifetimeSeconds },
     );
-    await this.refreshSessions.create(
+    const sessionId = await this.refreshSessions.create(
       user.id,
       hashRefreshToken(refreshToken),
       new Date(Date.now() + refreshLifetimeSeconds * 1000),
       metadata,
     );
+    const accessToken = await this.jwt.signAsync({ ...user, sessionId }, { expiresIn: '15m' });
     return { accessToken, refreshToken, expiresIn: 900, user };
   }
 }

@@ -103,13 +103,15 @@ try {
   if (full) {
     console.log('[FULL] 刷新新命名空间的工作区链接。');
     runCommand(pnpm, pnpmArgs(['install', '--frozen-lockfile']));
+    console.log('[FULL] 格式化命名空间替换后的项目源码。');
+    runCommand(pnpm, pnpmArgs(['run', 'format']));
     console.log('[FULL] 通过公开命令运行项目初始化。');
     runCommand(pnpm, pnpmArgs(['run', 'setup', '--', '--defaults']));
     run('template-doctor.mjs');
     console.log('[FULL] 生成 Prisma Client。');
-    runCommand(pnpm, pnpmArgs(['db:generate']));
+    runCommand(pnpm, pnpmArgs(['run', 'db:generate']));
     console.log('[FULL] 执行初始化后的后台/API 全量质量门禁。');
-    runCommand(pnpm, pnpmArgs(['check']));
+    runCommand(pnpm, pnpmArgs(['run', 'check']));
     console.log('[PASS] 全新目录依赖安装、测试与生产构建验证通过。');
   }
 } catch (error) {

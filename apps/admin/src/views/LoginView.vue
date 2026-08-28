@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PASSWORD_MIN_LENGTH } from '@template/contracts';
 import { ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { login } from '../auth/session';
@@ -81,6 +82,7 @@ async function submit(): Promise<void> {
                 autocomplete="current-password"
                 placeholder="请输入登录密码"
                 required
+                :minlength="PASSWORD_MIN_LENGTH"
               />
             </div>
           </label>

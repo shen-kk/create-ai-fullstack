@@ -11,7 +11,6 @@ const environmentLabels = {
   test: '测试环境',
   production: '生产环境',
 } as const;
-const dataSourceLabels = { memory: '内存预览模式', prisma: 'Prisma / PostgreSQL' } as const;
 const formatUptime = (seconds: number): string =>
   `${Math.floor(seconds / 3600)} 小时 ${Math.floor((seconds % 3600) / 60)} 分钟`;
 async function load(): Promise<void> {
@@ -55,7 +54,7 @@ onMounted(load);
         ><small>{{ info.nodeVersion }}</small>
       </article>
       <article class="panel system-card">
-        <span>数据源</span><strong>{{ dataSourceLabels[info.dataSource] }}</strong
+        <span>数据源</span><strong>Prisma / PostgreSQL</strong
         ><small>固定使用 PostgreSQL + Prisma</small>
       </article>
       <article class="panel system-card">

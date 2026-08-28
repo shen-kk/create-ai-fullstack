@@ -173,6 +173,40 @@ describe('Admin API HTTP workflow', () => {
     expect(users.status).toBe(200);
   });
 
+  it('lists administrator devices and revokes every other session', async () => {
+    const previousAccessToken = accessToken;
+    const login = await fetch(`${baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'user-agent': 'E2E second admin device' },
+      body: JSON.stringify({ phone: adminPhone, password: adminPassword }),
+    });
+    expect(login.status).toBe(200);
+    const current = (await login.json()) as { accessToken: string };
+    accessToken = current.accessToken;
+
+    const sessions = await fetch(`${baseUrl}/auth/sessions`, {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(sessions.status).toBe(200);
+    const devices = (await sessions.json()) as Array<{ current: boolean }>;
+    expect(devices.length).toBeGreaterThanOrEqual(2);
+    expect(devices.filter((device) => device.current)).toHaveLength(1);
+
+    const revokeOthers = await fetch(`${baseUrl}/auth/sessions/others`, {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(revokeOthers.status).toBe(204);
+    const revokedDevice = await fetch(`${baseUrl}/auth/me`, {
+      headers: { authorization: `Bearer ${previousAccessToken}` },
+    });
+    expect(revokedDevice.status).toBe(401);
+    const currentDevice = await fetch(`${baseUrl}/auth/me`, {
+      headers: { authorization: `Bearer ${accessToken}` },
+    });
+    expect(currentDevice.status).toBe(200);
+  });
+
   it('rejects incomplete service configuration and exposes a secret-free audit record', async () => {
     previousSqlConfig = await prisma.integrationConfig.findUnique({ where: { kind: 'sql' } });
     await prisma.integrationConfig.deleteMany({ where: { kind: 'sql' } });

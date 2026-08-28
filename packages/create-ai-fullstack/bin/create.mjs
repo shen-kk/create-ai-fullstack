@@ -156,9 +156,17 @@ try {
   run('安装项目依赖', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install'], {
     cwd: destination,
   });
-  run('检查项目结构', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['feature:check'], {
+  run('格式化项目源码', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['run', 'format'], {
     cwd: destination,
   });
+  run(
+    '检查项目结构',
+    process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+    ['run', 'feature:check'],
+    {
+      cwd: destination,
+    },
+  );
   rmSync(join(destination, '.git'), { recursive: true, force: true });
   run('初始化项目 Git 仓库', 'git', ['init'], { cwd: destination });
   prompts.outro(`项目已创建：${destination}\n下一步：cd ${projectName} && pnpm run setup`);

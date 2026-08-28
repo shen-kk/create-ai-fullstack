@@ -48,3 +48,11 @@ test('setup always invokes database provisioning as an explicit pnpm script', as
   assert.match(provision, /includes\('pnpm'\)/);
   assert.doesNotMatch(setup, /\['template:provision', '--', '--yes'\]/);
 });
+
+test('CLI formats and checks the renamed workspace through explicit pnpm scripts', async () => {
+  const source = await read('packages/create-ai-fullstack/bin/create.mjs');
+
+  assert.match(source, /\['run', 'format'\]/);
+  assert.match(source, /\['run', 'feature:check'\]/);
+  assert.doesNotMatch(source, /\['feature:check'\]/);
+});

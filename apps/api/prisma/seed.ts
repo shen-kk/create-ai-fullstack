@@ -1,6 +1,6 @@
 import { PermissionType, PrismaClient, UserStatus } from '@prisma/client';
 import type { DeployEnvironmentKind } from '@prisma/client';
-import { permissionCatalog } from '@template/contracts';
+import { PASSWORD_MIN_LENGTH, permissionCatalog } from '@template/contracts';
 import { createCipheriv, createHash, randomBytes, scrypt } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { promisify } from 'node:util';
@@ -351,8 +351,10 @@ async function main(): Promise<void> {
   const password = process.env.DEV_ADMIN_PASSWORD;
   if (!phone || !/^1\d{10}$/.test(phone))
     throw new Error('DEV_ADMIN_PHONE must be an explicit 11-digit mobile number');
-  if (!password || password.length < 12)
-    throw new Error('DEV_ADMIN_PASSWORD must be explicitly configured with at least 12 characters');
+  if (!password || password.length < PASSWORD_MIN_LENGTH)
+    throw new Error(
+      `DEV_ADMIN_PASSWORD must be explicitly configured with at least ${PASSWORD_MIN_LENGTH} characters`,
+    );
   const name = process.env.DEV_ADMIN_NAME ?? '模板管理员';
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.upsert({

@@ -7,6 +7,7 @@ defineProps<{
     | 'logs'
     | 'system'
     | 'deployment'
+    | 'device'
     | 'user'
     | 'chevron'
     | 'check'
@@ -50,6 +51,10 @@ defineProps<{
     <template v-else-if="name === 'deployment'">
       <path d="M12 3v12M7 10l5 5 5-5" />
       <path d="M5 20h14M4 7h16" />
+    </template>
+    <template v-else-if="name === 'device'">
+      <rect x="3" y="4" width="18" height="13" rx="2" />
+      <path d="M8 21h8M12 17v4" />
     </template>
     <template v-else-if="name === 'user'">
       <circle cx="12" cy="8" r="4" />

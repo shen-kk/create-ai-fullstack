@@ -1,5 +1,10 @@
 <script setup lang="ts">
-import type { RoleOption, UserStatus, UserSummary } from '@template/contracts';
+import {
+  PASSWORD_MIN_LENGTH,
+  type RoleOption,
+  type UserStatus,
+  type UserSummary,
+} from '@template/contracts';
 import { onMounted, ref } from 'vue';
 
 import {
@@ -316,10 +321,10 @@ onMounted(loadUsers);
             :model-value="createForm.password"
             @update:model-value="createForm.password = $event"
             required
-            minlength="12"
+            :minlength="PASSWORD_MIN_LENGTH"
             maxlength="128"
             autocomplete="new-password"
-          /><small>至少 12 个字符，服务端仅保存 scrypt 哈希。</small></label
+          /><small>至少 {{ PASSWORD_MIN_LENGTH }} 个字符，服务端仅保存 scrypt 哈希。</small></label
         >
         <footer>
           <button type="button" class="secondary-button" @click="createOpen = false">取消</button

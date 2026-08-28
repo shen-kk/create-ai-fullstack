@@ -14,12 +14,12 @@ cd my-project
 pnpm dev:local
 ```
 
-CLI 会自动完成用户端选择、GitHub 获取（失败时回退 CNB 镜像）、代码组合、依赖安装、功能一致性检查，并移除模板仓库历史后初始化新的 Git 仓库。用户随后统一运行 `pnpm run setup` 配置 PostgreSQL、项目密钥和管理员；不能省略 `run`，否则 pnpm 11 会执行自己的同名命令。
+CLI 会自动完成用户端选择、从官方 GitHub 仓库获取源码、代码组合、依赖安装、功能一致性检查，并移除模板仓库历史后初始化新的 Git 仓库。GitHub 获取失败时直接报告仓库、ref 与 Git 错误，不回退到可能不同步的镜像。用户随后统一运行 `pnpm run setup` 配置 PostgreSQL、项目密钥和管理员；不能省略 `run`，否则 pnpm 11 会执行自己的同名命令。
 
 也可以固定模板版本：
 
 ```bash
-npm create aiforge@0.1.0 my-project -- --ref=v0.1.0
+npm create aiforge@0.2.4 my-project -- --ref=v0.2.4
 ```
 
 ## 发布 CLI

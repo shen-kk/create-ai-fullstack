@@ -1,6 +1,17 @@
-import { Body, Controller, Get, HttpCode, Patch, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Patch,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
-import type { AuthSession, AuthUser } from '@template/contracts';
+import type { AuthSession, AuthSessionDevice, AuthUser } from '@template/contracts';
 import { AccessTokenGuard } from './access-token.guard.js';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -67,13 +78,27 @@ export class AuthController {
     @Body() input: UpdateProfileDto,
     @Req() request: Request & { user: AuthUser },
   ): Promise<AuthUser> {
-    return this.auth.updateProfile(request.user.id, input.name, input.avatarUrl ?? null);
+    return this.auth.updateProfile(request.user.id, input.name);
   }
   @Post('password') @HttpCode(204) @ApiBearerAuth() @UseGuards(AccessTokenGuard) changePassword(
     @Body() input: ChangePasswordDto,
     @Req() request: Request & { user: AuthUser },
   ): Promise<void> {
     return this.auth.changePassword(request.user.id, input.currentPassword, input.newPassword);
+  }
+  @Get('sessions') @ApiBearerAuth() @UseGuards(AccessTokenGuard) listSessions(
+    @Req() request: Request & { user: AuthUser & { sessionId: string } },
+  ): Promise<AuthSessionDevice[]> {
+    return this.auth.listSessions(request.user.id, request.user.sessionId);
+  }
+  @Delete('sessions/others')
+  @HttpCode(204)
+  @ApiBearerAuth()
+  @UseGuards(AccessTokenGuard)
+  async revokeOtherSessions(
+    @Req() request: Request & { user: AuthUser & { sessionId: string } },
+  ): Promise<void> {
+    await this.auth.revokeOtherSessions(request.user.id, request.user.sessionId);
   }
   private respond(
     session: AuthSession & { refreshToken: string },

@@ -8,7 +8,7 @@
 - 显示名称：AI 友好全栈模板
 - 包命名空间：`@template`
 - 用途：可复用的后台管理、用户端与 API 项目模板
-- 模板版本：`0.2.0`
+- 模板版本：`0.2.4`
 - 模板仓库：https://github.com/shen-kk/create-ai-fullstack
 
 ## 运行与数据

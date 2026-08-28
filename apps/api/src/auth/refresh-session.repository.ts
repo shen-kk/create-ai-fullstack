@@ -1,3 +1,5 @@
+import type { AuthSessionDevice } from '@template/contracts';
+
 export const refreshSessionRepositoryToken = Symbol('RefreshSessionRepository');
 
 export interface RefreshSessionMetadata {
@@ -11,7 +13,10 @@ export interface RefreshSessionRepository {
     tokenHash: string,
     expiresAt: Date,
     metadata: RefreshSessionMetadata,
-  ): Promise<void>;
+  ): Promise<string>;
   consume(userId: string, tokenHash: string): Promise<boolean>;
   revoke(tokenHash: string): Promise<void>;
+  isActive(userId: string, id: string): Promise<boolean>;
+  list(userId: string, currentSessionId: string): Promise<AuthSessionDevice[]>;
+  revokeOthers(userId: string, currentSessionId: string): Promise<number>;
 }

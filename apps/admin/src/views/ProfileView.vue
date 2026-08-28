@@ -1,27 +1,61 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { PASSWORD_MIN_LENGTH, type AuthSessionDevice } from '@template/contracts';
+import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { changePassword, updateProfile, uploadAvatar } from '../api/profile';
+import {
+  changePassword,
+  listAuthSessions,
+  revokeOtherAuthSessions,
+  updateProfile,
+  uploadAvatar,
+} from '../api/profile';
 import { getCurrentUser, saveCurrentUser } from '../auth/session';
 import AppPasswordInput from '../components/AppPasswordInput.vue';
+import AppIcon from '../components/AppIcon.vue';
 
 const router = useRouter(),
   user = getCurrentUser();
 const profile = ref({ name: user?.name ?? '', avatarUrl: user?.avatarUrl ?? '' });
 const password = ref({ currentPassword: '', newPassword: '', confirmPassword: '' });
+const devices = ref<AuthSessionDevice[]>([]);
 const saving = ref(false),
   uploading = ref(false),
+  loadingDevices = ref(false),
+  revokingDevices = ref(false),
   notice = ref('');
 const initials = (): string => profile.value.name.slice(0, 2).toUpperCase();
+const formatDate = (value: string): string => new Date(value).toLocaleString('zh-CN');
+
+async function loadDevices(): Promise<void> {
+  loadingDevices.value = true;
+  try {
+    devices.value = await listAuthSessions();
+  } catch {
+    notice.value = '登录设备加载失败，请稍后重试。';
+  } finally {
+    loadingDevices.value = false;
+  }
+}
+
+async function revokeOthers(): Promise<void> {
+  revokingDevices.value = true;
+  notice.value = '';
+  try {
+    await revokeOtherAuthSessions();
+    await loadDevices();
+    notice.value = '其他设备已全部退出。';
+  } catch {
+    notice.value = '退出其他设备失败，请稍后重试。';
+  } finally {
+    revokingDevices.value = false;
+  }
+}
 
 async function saveProfile(): Promise<void> {
   saving.value = true;
   notice.value = '';
   try {
-    const updated = await updateProfile({
-      name: profile.value.name,
-      avatarUrl: profile.value.avatarUrl || null,
-    });
+    const updated = await updateProfile({ name: profile.value.name });
     saveCurrentUser(updated);
     notice.value = '个人资料已更新。';
   } catch {
@@ -70,11 +104,12 @@ async function savePassword(): Promise<void> {
     password.value = { currentPassword: '', newPassword: '', confirmPassword: '' };
     notice.value = '密码修改成功。';
   } catch {
-    notice.value = '密码修改失败，请确认当前密码正确且新密码不少于 12 位。';
+    notice.value = `密码修改失败，请确认当前密码正确且新密码不少于 ${PASSWORD_MIN_LENGTH} 位。`;
   } finally {
     saving.value = false;
   }
 }
+onMounted(loadDevices);
 </script>
 
 <template>
@@ -83,7 +118,7 @@ async function savePassword(): Promise<void> {
       <div>
         <p class="eyebrow">账号 / 个人中心</p>
         <h1>个人中心</h1>
-        <p>管理当前登录账号的公开资料与登录密码。</p>
+        <p>管理当前登录账号的公开资料、登录密码与设备会话。</p>
       </div>
     </section>
     <p
@@ -135,7 +170,7 @@ async function savePassword(): Promise<void> {
         <form class="panel settings-form" @submit.prevent="savePassword">
           <header>
             <h2>修改密码</h2>
-            <p>新密码至少 12 位，服务端只保存安全哈希。</p>
+            <p>新密码至少 {{ PASSWORD_MIN_LENGTH }} 位，服务端只保存安全哈希。</p>
           </header>
           <label
             ><span>当前密码</span
@@ -143,7 +178,7 @@ async function savePassword(): Promise<void> {
               :model-value="password.currentPassword"
               @update:model-value="password.currentPassword = $event"
               required
-              minlength="12"
+              :minlength="PASSWORD_MIN_LENGTH"
               autocomplete="current-password"
           /></label>
           <div class="profile-password-grid">
@@ -153,7 +188,7 @@ async function savePassword(): Promise<void> {
                 :model-value="password.newPassword"
                 @update:model-value="password.newPassword = $event"
                 required
-                minlength="12"
+                :minlength="PASSWORD_MIN_LENGTH"
                 autocomplete="new-password" /></label
             ><label
               ><span>确认新密码</span
@@ -161,13 +196,131 @@ async function savePassword(): Promise<void> {
                 :model-value="password.confirmPassword"
                 @update:model-value="password.confirmPassword = $event"
                 required
-                minlength="12"
+                :minlength="PASSWORD_MIN_LENGTH"
                 autocomplete="new-password"
             /></label>
           </div>
           <footer><button class="primary-button" :disabled="saving">修改密码</button></footer>
         </form>
+        <section class="panel settings-form device-settings">
+          <header>
+            <div>
+              <h2>登录设备</h2>
+              <p>查看当前有效会话，并退出其他不再使用的设备。</p>
+            </div>
+            <span class="device-count">{{ devices.length }} 个会话</span>
+          </header>
+          <div v-if="loadingDevices" class="device-state">
+            <span class="loading-ring" />正在加载登录设备…
+          </div>
+          <div v-else-if="!devices.length" class="device-state">暂无有效登录设备。</div>
+          <div v-else class="device-list">
+            <article
+              v-for="device in devices"
+              :key="device.id"
+              :class="{ current: device.current }"
+            >
+              <div class="device-icon"><AppIcon name="device" /></div>
+              <div>
+                <strong>{{ device.current ? '当前设备' : '其他设备' }}</strong>
+                <p>{{ device.userAgent || '未知浏览器或客户端' }}</p>
+                <small
+                  >{{ device.ipAddress || '未知 IP' }} · 登录于 {{ formatDate(device.createdAt) }} ·
+                  有效期至 {{ formatDate(device.expiresAt) }}</small
+                >
+              </div>
+              <span v-if="device.current" class="status-pill active"><i />当前</span>
+            </article>
+          </div>
+          <footer>
+            <p>发现陌生设备时，请立即退出其他设备并修改密码。</p>
+            <button
+              type="button"
+              class="danger-button"
+              :disabled="
+                revokingDevices || devices.filter((device) => !device.current).length === 0
+              "
+              @click="revokeOthers"
+            >
+              {{ revokingDevices ? '正在退出…' : '退出其他设备' }}
+            </button>
+          </footer>
+        </section>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.device-settings header,
+.device-settings footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.device-count {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+.device-state {
+  display: flex;
+  min-height: 96px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--muted);
+}
+.device-list {
+  display: grid;
+  gap: 10px;
+}
+.device-list article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e5e9f1;
+  border-radius: 10px;
+}
+.device-list article.current {
+  border-color: #b9e3ca;
+  background: #f4fbf6;
+}
+.device-list p,
+.device-list small,
+.device-settings footer p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+.device-list p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.device-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: #5262cf;
+  background: #eef0ff;
+  border-radius: 9px;
+}
+@media (max-width: 720px) {
+  .device-settings header,
+  .device-settings footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .device-list article {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .device-list .status-pill {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+</style>

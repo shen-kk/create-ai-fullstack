@@ -6,16 +6,16 @@
 
 - GitHub：`https://github.com/shen-kk/create-ai-fullstack`
 - npm：`create-aiforge`
-- 当前公开版本：`0.1.0`
+- 当前冻结版本：`0.2.4`
 - 用户命令：`npm create aiforge@latest my-project`
 - 应用：Vue Admin、NestJS API、初始化时可选的 Nuxt Web。
 - 数据：运行时固定 PostgreSQL + Prisma，不允许内存模式或假数据回退。
 
 ## 当前能力
 
-- Admin 手机号登录、刷新会话、个人资料和密码修改。
+- Admin 手机号登录、刷新会话、个人资料、密码修改和登录设备管理。
 - 管理员、角色、菜单/操作权限和审计日志。
-- 可选 Web 注册、登录、找回密码、个人中心、头像和设备会话。
+- 可选 Web 首次验证码登录自动创建账号、密码登录、找回密码、个人中心、头像和设备会话。
 - 对象存储、Redis、短信、邮件和支付配置；敏感字段加密且不回显。
 - 可视化业务功能组合、统一 `pnpm run setup`、数据库迁移和初始管理员种子。
 - 分端 AI 规范、UI 一致性检查、Template Doctor 和干净副本验证。
@@ -28,13 +28,9 @@ npm create aiforge@latest my-project
 cd my-project
 pnpm run setup
 pnpm dev
-cd my-project
-pnpm dev:local
 ```
 
-CLI 只询问是否启用用户端，不收集数据库或服务密钥。头像随用户端启用，部署中心与对象存储资源库始终保留。CLI 优先从 GitHub 获取模板，失败时回退 CNB 镜像，再完成应用级裁剪、依赖安装、功能检查、模板 Git 历史移除和新 Git 仓库初始化。模板维护者拉取完整仓库后也使用同一个 `pnpm run setup`，不维护专用环境文件。pnpm 11 已有同名内置 `setup` 命令，文档和 CLI 提示不得省略 `run`。
-
-部署中心由初始化向导显式选择。未启用时不注册 API 模块、Admin 路由、菜单或部署权限。
+CLI 只询问是否启用用户端，不收集数据库或服务密钥。头像随用户端启用，部署中心与对象存储资源库始终保留。CLI 只从官方 GitHub 仓库获取模板；失败时报告仓库、ref 与 Git 错误，不回退到其他镜像。随后完成应用级裁剪、依赖安装、功能检查、模板 Git 历史移除和新 Git 仓库初始化。模板维护者拉取完整仓库后也使用同一个 `pnpm run setup`，不维护专用环境文件。pnpm 11 已有同名内置 `setup` 命令，文档和 CLI 提示不得省略 `run`。
 
 ## 开发入口
 
@@ -60,26 +56,16 @@ CLI 只询问是否启用用户端，不收集数据库或服务密钥。头像�
 - 生产 Compose 不创建本地 PostgreSQL，要求通过运行环境提供真实 `DATABASE_URL`，并包含 Admin/API/Web 三个独立服务。
 - 详细领域边界：`docs/domain/DEPLOYMENTS.md`；架构决策：ADR-0010、ADR-0011。
 
-## 2026-08-28 正式部署联调结果
-
-- 正式环境 ID：`cmtad1e1q000ef0abwmj62db1`；部署路径：`/www/wwwroot/aiforge`；代码源为 CNB `nsmiling.com/ai-template` 的 `main`。GitHub 与 CNB 已同步到 PM2 release 路径修复提交 `58b8921`。
-- 正式机只有约 1.7 GiB 内存。首次完整构建导致整机和 PostgreSQL 暂时失联；重启后已新增 `/www/deploy-build.swap` 2 GiB，并写入 `/etc/fstab`，当前总 Swap 为 3 GiB。项目本地私有 `.env` 使用 `DEPLOY_BUILD_MAX_OLD_SPACE_MB=640`、`DEPLOY_MIN_AVAILABLE_MEMORY_MB=1536`，不得把该私有文件提交。
-- 资源保护后的任务 `cmtbq7vpi001zf0ujnxftzhfs` 已成功完成资源门禁、依赖安装、Prisma Client、Admin/API/Web 构建、数据库迁移、原子切换和 PM2 重载，服务器没有再次失联。
-- 该任务最终在 API 健康检查失败并自动回退。直接原因是正式部署环境只保存了 Git、SSH 和数据库密钥，没有生产启动必需的五项密钥。五项密钥已通过部署环境接口生成并加密保存，明文未进入 Git 或文档；内置部署项目也已声明这些必填变量。
-- Nitro 端口映射已修复，Web 正式监听 3002。联调进一步发现 `pm2 startOrReload` 会保留旧 release 的 cwd 和脚本绝对路径；内置预设现改为只删除自身管理的 `aiforge-api` / `aiforge-web`，再从目标 release 启动，绝不影响服务器上的其他 PM2 应用。
-- 提交 `58b8921` 已完成两次成功三端发布。正式环境随后从 `20260828132454-h9lbdk` 成功回滚到 `20260828131859-178wmf`；回滚任务状态为 `rolled_back`，`current`、API cwd 和 Web cwd 均一致指向目标 release，3001/3002 监听且 API ready 返回 ok。
-- 临时本地 Deploy Worker 与 API 已停止。正式机的 `aiforge-api`、`aiforge-web` 继续由 PM2 运行；后续常驻 Worker 仍应在可信管理节点独立部署，不能加入其管理的业务部署单元。
-
 ## 已验证
 
 - 真实 PostgreSQL migration 成功。
 - Contracts、API、Admin 类型检查通过。
 - `pnpm ui:check` 通过。
-- API 22 个测试文件、65 项测试通过；包含租约、快照、日志脱敏、资源门禁、命令 quoting 和部署项目 DTO 校验。
-- 模板脚本 13 项测试通过。
-- 资源保护提交执行过完整 `pnpm check`，格式、UI 检查、Lint、类型、测试及 Admin/API/Web 生产构建全部通过。
+- API 测试覆盖身份会话、权限、租约、快照、日志脱敏、资源门禁、命令 quoting 和部署项目 DTO 校验。
+- 模板脚本测试与全新目录组合验证通过。
+- 完整 `pnpm check` 覆盖格式、UI 检查、Lint、类型、测试及 Admin/API/Web 生产构建。
 
-正式 Git、SSH、资源门禁、三端构建、数据库迁移、原子切换、PM2 目标 release 启动、健康检查和历史 release 回滚均已验收。真实凭据只在后台或私有环境文件填写，不能进入 Git、日志、截图或文档。npm 新版本仍需按发布 0.2 的组合矩阵完成后再发布。
+正式 Git、SSH、资源门禁、三端构建、数据库迁移、原子切换、PM2 目标 release 启动、健康检查和历史 release 回滚均已验收。真实凭据只在后台或私有环境文件填写，不能进入 Git、日志、截图或文档。
 
 ## 完成定义
 

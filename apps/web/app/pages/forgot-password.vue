@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PASSWORD_MIN_LENGTH } from '@template/contracts';
 const { resetPassword, sendVerification } = useCustomerSession();
 const { defaultChannel } = await useCustomerAuthSettings();
 const channel = ref(defaultChannel.value);
@@ -91,9 +92,17 @@ useSeoMeta({ title: '找回密码 · 澄序', robots: 'noindex,nofollow' });
             </button>
           </div></label
         ><label
-          >新密码<input v-model="form.newPassword" required type="password" minlength="8" /></label
+          >新密码<input
+            v-model="form.newPassword"
+            required
+            type="password"
+            :minlength="PASSWORD_MIN_LENGTH" /></label
         ><label
-          >确认密码<input v-model="form.confirmPassword" required type="password" minlength="8"
+          >确认密码<input
+            v-model="form.confirmPassword"
+            required
+            type="password"
+            :minlength="PASSWORD_MIN_LENGTH"
         /></label>
         <button class="button button-block full" :disabled="loading">
           {{ loading ? '处理中…' : '重置密码' }}

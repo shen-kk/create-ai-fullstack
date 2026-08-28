@@ -1,17 +1,27 @@
-import type { AuthUser, ChangePasswordRequest, UpdateProfileRequest } from '@template/contracts';
+import type {
+  AuthSessionDevice,
+  AuthUser,
+  ChangePasswordRequest,
+  UpdateProfileRequest,
+} from '@template/contracts';
 import { getAccessToken } from '../auth/session';
 import { apiBaseUrl } from './base';
 const base = apiBaseUrl;
-async function request<T>(path: string, method: 'PATCH' | 'POST', body: object): Promise<T> {
+async function request<T>(
+  path: string,
+  method: 'DELETE' | 'GET' | 'PATCH' | 'POST',
+  body?: object,
+): Promise<T> {
   const token = getAccessToken();
   const response = await fetch(`${base}${path}`, {
     method,
+    credentials: 'include',
     signal: AbortSignal.timeout(6000),
     headers: {
-      'Content-Type': 'application/json',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: JSON.stringify(body),
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
   if (!response.ok) throw new Error(`Profile request failed: ${response.status}`);
   if (response.status === 204) return undefined as T;
@@ -21,6 +31,10 @@ export const updateProfile = (input: UpdateProfileRequest): Promise<AuthUser> =>
   request('/auth/profile', 'PATCH', input);
 export const changePassword = (input: ChangePasswordRequest): Promise<void> =>
   request('/auth/password', 'POST', input);
+export const listAuthSessions = (): Promise<AuthSessionDevice[]> =>
+  request('/auth/sessions', 'GET');
+export const revokeOtherAuthSessions = (): Promise<void> =>
+  request('/auth/sessions/others', 'DELETE');
 export async function uploadAvatar(file: File): Promise<AuthUser> {
   const token = getAccessToken();
   const body = new FormData();

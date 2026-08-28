@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PASSWORD_MIN_LENGTH } from '@template/contracts';
 const { login, loginWithCode, sendVerification } = useCustomerSession();
 const { defaultChannel } = await useCustomerAuthSettings();
 const channel = ref(defaultChannel.value);
@@ -89,7 +90,7 @@ useSeoMeta({ title: '登录 · 澄序', description: '登录你的账号。' });
             required
             type="password"
             autocomplete="current-password"
-            minlength="8"
+            :minlength="PASSWORD_MIN_LENGTH"
             placeholder="请输入密码" /></label
         ><label v-else
           >{{ channel === 'sms' ? '短信验证码' : '邮件验证码' }}

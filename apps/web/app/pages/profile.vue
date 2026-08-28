@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { project } from '../generated/project';
-import type { CustomerSessionDevice } from '@template/contracts';
+import { PASSWORD_MIN_LENGTH, type CustomerSessionDevice } from '@template/contracts';
 definePageMeta({ middleware: 'customer-auth' });
 const {
   customer,
@@ -386,7 +386,7 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
                   required
                   type="password"
                   autocomplete="current-password"
-                  minlength="8"
+                  :minlength="PASSWORD_MIN_LENGTH"
                   placeholder="输入当前密码"
               /></label>
               <label
@@ -395,8 +395,8 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
                   required
                   type="password"
                   autocomplete="new-password"
-                  minlength="8"
-                  placeholder="至少 8 位"
+                  :minlength="PASSWORD_MIN_LENGTH"
+                  :placeholder="`至少 ${PASSWORD_MIN_LENGTH} 位`"
               /></label>
               <label
                 >确认新密码<input
@@ -404,7 +404,7 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
                   required
                   type="password"
                   autocomplete="new-password"
-                  minlength="8"
+                  :minlength="PASSWORD_MIN_LENGTH"
                   placeholder="再次输入"
               /></label>
               <div class="password-advice full"><i />建议包含大小写字母、数字和特殊符号。</div>

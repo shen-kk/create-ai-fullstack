@@ -40,7 +40,7 @@ if (config) {
     add(
       actual === renderProjectContext(config) ? 'PASS' : 'FAIL',
       'AI 项目记忆',
-      actual === renderProjectContext(config) ? '与项目声明一致' : '请运行 pnpm template:sync',
+      actual === renderProjectContext(config) ? '与项目声明一致' : '请运行 pnpm run template:sync',
     );
   } catch {
     add('FAIL', 'AI 项目记忆', '缺少 docs/ai/PROJECT.md');
@@ -58,7 +58,7 @@ if (config) {
       add(
         actual === expected ? 'PASS' : 'FAIL',
         `运行时能力 ${path}`,
-        actual === expected ? '已同步' : '请运行 pnpm template:sync',
+        actual === expected ? '已同步' : '请运行 pnpm run template:sync',
       );
     } catch {
       add('FAIL', `运行时能力 ${path}`, '文件缺失');
@@ -73,7 +73,7 @@ if (config) {
       add(
         actual === expectedContent ? 'PASS' : 'FAIL',
         `功能入口 ${path}`,
-        actual === expectedContent ? '已同步' : '请运行 pnpm template:sync',
+        actual === expectedContent ? '已同步' : '请运行 pnpm run template:sync',
       );
     } catch {
       add('FAIL', `功能入口 ${path}`, '文件缺失');
@@ -128,9 +128,9 @@ try {
     env.DEV_ADMIN_PHONE || '未配置',
   );
   add(
-    (env.DEV_ADMIN_PASSWORD?.length ?? 0) >= 12 ? 'PASS' : 'FAIL',
+    (env.DEV_ADMIN_PASSWORD?.length ?? 0) >= 6 ? 'PASS' : 'FAIL',
     '初始管理员密码',
-    '必须至少 12 个字符',
+    '必须至少 6 个字符',
   );
 } catch {
   add('FAIL', '本地环境变量', '缺少 .env，请先运行 pnpm run setup');
