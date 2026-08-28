@@ -17,6 +17,7 @@ import {
   listDeploymentRuns,
   rollbackDeploymentRelease,
 } from '../api/deployments';
+import DeploymentWorkerStatusPanel from '../components/DeploymentWorkerStatus.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -33,6 +34,7 @@ const releases = ref<Record<string, DeploymentReleaseSummary[]>>({});
 const workerStatus = ref<DeploymentWorkerStatus>();
 const rollbackChoice = ref<{ environmentId: string; releaseId: string }>();
 const loading = ref(true),
+  refreshingWorker = ref(false),
   error = ref(''),
   notice = ref(''),
   workingId = ref('');
@@ -73,6 +75,20 @@ async function load(): Promise<void> {
     error.value = cause instanceof Error ? cause.message : '部署环境加载失败';
   } finally {
     loading.value = false;
+  }
+}
+async function refreshWorkerStatus(): Promise<void> {
+  refreshingWorker.value = true;
+  notice.value = '';
+  try {
+    workerStatus.value = await getDeploymentWorkerStatus();
+    notice.value = workerStatus.value.online
+      ? 'Deploy Worker 已恢复在线。'
+      : '检测完成，Deploy Worker 仍然离线。';
+  } catch (cause) {
+    notice.value = cause instanceof Error ? cause.message : 'Worker 状态检测失败';
+  } finally {
+    refreshingWorker.value = false;
   }
 }
 async function check(item: DeploymentEnvironmentSummary): Promise<void> {
@@ -163,14 +179,17 @@ onMounted(load);
         </button>
       </div>
     </section>
-    <p v-if="workerStatus && !workerStatus.online" class="operation-notice" role="alert">
-      Deploy Worker 当前离线，配置检查仍可使用，但部署和回滚已暂停。
-    </p>
+    <DeploymentWorkerStatusPanel
+      v-if="workerStatus"
+      :status="workerStatus"
+      :refreshing="refreshingWorker"
+      @refresh="refreshWorkerStatus"
+    />
     <pre
       v-if="notice"
       :key="notice"
       class="operation-notice deployment-notice"
-      :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'"
+      :role="/失败|错误|不能|请检查|离线/.test(notice) ? 'alert' : 'status'"
       >{{ notice }}</pre>
     <div v-if="loading" class="panel table-state">
       <span class="loading-ring" />正在加载部署环境…

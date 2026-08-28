@@ -3,11 +3,13 @@ import type { DeploymentProjectSummary, DeploymentWorkerStatus } from '@template
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { getDeploymentWorkerStatus, listDeploymentProjects } from '../api/deployments';
+import DeploymentWorkerStatusPanel from '../components/DeploymentWorkerStatus.vue';
 
 const router = useRouter();
 const projects = ref<DeploymentProjectSummary[]>([]);
 const workerStatus = ref<DeploymentWorkerStatus>();
 const loading = ref(true);
+const refreshingWorker = ref(false);
 const error = ref('');
 
 async function load(): Promise<void> {
@@ -22,6 +24,17 @@ async function load(): Promise<void> {
     error.value = cause instanceof Error ? cause.message : '部署项目加载失败';
   } finally {
     loading.value = false;
+  }
+}
+async function refreshWorkerStatus(): Promise<void> {
+  refreshingWorker.value = true;
+  error.value = '';
+  try {
+    workerStatus.value = await getDeploymentWorkerStatus();
+  } catch (cause) {
+    error.value = cause instanceof Error ? cause.message : 'Worker 状态检测失败';
+  } finally {
+    refreshingWorker.value = false;
   }
 }
 onMounted(load);
@@ -43,25 +56,12 @@ onMounted(load);
         新增项目
       </button>
     </section>
-    <section
+    <DeploymentWorkerStatusPanel
       v-if="workerStatus"
-      class="panel worker-status"
-      :class="{ offline: !workerStatus.online }"
-      role="status"
-    >
-      <span class="worker-indicator" />
-      <div>
-        <strong>{{ workerStatus.online ? 'Deploy Worker 在线' : 'Deploy Worker 离线' }}</strong>
-        <p v-if="workerStatus.online">
-          {{ workerStatus.activeWorkers }} 个执行器在线，{{
-            workerStatus.runningRuns
-          }}
-          个任务执行中，{{ workerStatus.queuedRuns }}
-          个任务排队。
-        </p>
-        <p v-else>当前没有执行器上报心跳。请先启动独立 Worker，避免部署任务长期排队。</p>
-      </div>
-    </section>
+      :status="workerStatus"
+      :refreshing="refreshingWorker"
+      @refresh="refreshWorkerStatus"
+    />
     <p v-if="error" class="operation-notice" role="alert">{{ error }}</p>
     <div v-if="loading" class="panel table-state"><span class="loading-ring" />正在加载…</div>
     <section v-else-if="projects.length" class="deployment-project-grid">
@@ -125,33 +125,6 @@ onMounted(load);
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
   gap: 20px;
-}
-.worker-status {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  padding: 16px 18px;
-  border-color: #b9e3ca;
-  background: #f4fbf6;
-}
-.worker-status.offline {
-  border-color: #f0c9c6;
-  background: #fff7f6;
-}
-.worker-status p {
-  margin: 4px 0 0;
-  color: var(--muted);
-}
-.worker-indicator {
-  width: 10px;
-  height: 10px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #24945c;
-}
-.offline .worker-indicator {
-  background: #c44b43;
 }
 .deployment-project-card {
   display: grid;

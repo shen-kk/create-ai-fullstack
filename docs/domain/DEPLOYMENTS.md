@@ -31,13 +31,15 @@ SQL 资源生成 `DATABASE_URL`，Redis 资源生成 `REDIS_URL`，并与项目�
 
 ## Deploy Worker 与自部署
 
-API 只创建任务和保存不可变执行快照，不在 HTTP 服务进程中执行 SSH、Git 或 PM2 命令。Deploy Worker 使用 `pnpm dev:worker`（开发）或 `pnpm --filter @template/api start:worker`（构建后）作为独立进程运行，只需要 `DATABASE_URL` 与 `CONFIG_ENCRYPTION_KEY`。
+API 只创建任务和保存不可变执行快照，不在 HTTP 服务进程中执行 SSH、Git 或 PM2 命令。Deploy Worker 使用 `pnpm run dev:worker`（开发）或 `pnpm --filter @template/api run start:worker`（构建后）作为独立进程运行，只需要 `DATABASE_URL` 与 `CONFIG_ENCRYPTION_KEY`。
 
 Worker 通过数据库租约领取任务。任务记录 Worker 标识、领取时间、心跳时间和租约过期时间；执行期间必须持续续租。只有租约已过期的活动任务才能被恢复为失败，不能仅根据任务开始时间判断 Worker 中断。Worker 在更新步骤、完成任务或记录失败前必须再次确认自己仍持有租约。
 
 成功发布会把执行快照同时固化到发布记录；以后回滚只能使用该历史快照中的重启和健康检查规则，不读取已被修改的当前项目命令。迁移前没有快照的历史发布在创建回滚任务时生成一次兼容快照并随任务保存。
 
 Deploy Worker 不属于任何业务部署项目的部署单元。部署 AIForge 自身时只更新 Admin、API、Web，正在工作的 Worker 不被替换；Worker 自身升级采用独立运维流程。首次安装必须先在可信管理节点启动一个 Worker，之后后台发起的任务均可远程执行。
+
+后台在 Worker 离线时提供“重新检测”和“启动说明”。重新检测只刷新数据库心跳状态，不由 API 进程直接启动 Worker；启动说明分别给出本地开发、生产运行和 PM2 常驻命令，并继续遵守 Worker 与 HTTP API 进程隔离的安全边界。
 
 ## 安全边界
 
