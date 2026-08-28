@@ -75,7 +75,10 @@ test('plans generate, deploy and seed for prisma mode', () => {
   assert.equal(commands.length, 4);
   assert.equal(commands[0][1], '@demo-project/contracts');
   assert.equal(commands[1][1], '@demo-project/api');
+  assert.deepEqual(commands[0].slice(-2), ['run', 'build']);
+  assert.deepEqual(commands[1].slice(-2), ['run', 'db:generate']);
   assert.deepEqual(commands[2].slice(-3), ['prisma', 'migrate', 'deploy']);
+  assert.deepEqual(commands[3].slice(-2), ['run', 'db:seed']);
 });
 test('renders a secret-free runtime module', () => {
   const output = renderRuntimeProject(valid);

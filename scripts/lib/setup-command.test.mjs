@@ -38,3 +38,13 @@ test('setup writes the collected local environment without a redundant final con
   assert.doesNotMatch(source, /确认写入本地环境配置/);
   assert.match(source, /await writeFile\(new URL\('\.env', root\), env, 'utf8'\)/);
 });
+
+test('setup always invokes database provisioning as an explicit pnpm script', async () => {
+  const setup = await read('scripts/project-setup.mjs');
+  const provision = await read('scripts/template-provision.mjs');
+
+  assert.match(setup, /\['run', 'template:provision', '--', '--yes'\]/);
+  assert.match(setup, /includes\('pnpm'\)/);
+  assert.match(provision, /includes\('pnpm'\)/);
+  assert.doesNotMatch(setup, /\['template:provision', '--', '--yes'\]/);
+});

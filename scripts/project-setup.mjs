@@ -41,7 +41,9 @@ const validPort = (value) =>
 const run = (message, args) => {
   const spinner = prompts.spinner();
   spinner.start(message);
-  const pnpmEntry = process.env.npm_execpath;
+  const pnpmEntry = process.env.npm_execpath?.toLowerCase().includes('pnpm')
+    ? process.env.npm_execpath
+    : undefined;
   const executable = pnpmEntry
     ? process.execPath
     : process.platform === 'win32'
@@ -230,7 +232,7 @@ const provision = defaultsMode
         initialValue: true,
       }),
     );
-if (provision) run('初始化数据库', ['template:provision', '--', '--yes']);
+if (provision) run('初始化数据库', ['run', 'template:provision', '--', '--yes']);
 prompts.note(
   `管理员手机号：${adminPhone}\n初始密码保存在 .env 的 DEV_ADMIN_PASSWORD，首次登录后请修改。`,
   '初始化结果',

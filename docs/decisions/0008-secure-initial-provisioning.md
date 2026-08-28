@@ -12,7 +12,7 @@
 
 - 交互式初始化始终显式选择是否启用用户端。
 - PostgreSQL 按主机、端口、库名、用户名和密码分项输入，再生成只存在于 `.env` 的 `DATABASE_URL`。
-- 数据库使用 Prisma 已提交迁移和幂等种子初始化；使用者可以在向导末尾明确选择立即执行，也可以稍后运行 `template:provision`。
+- 数据库使用 Prisma 已提交迁移和幂等种子初始化；使用者可以在向导末尾明确选择立即执行，也可以稍后运行 `pnpm run template:provision`。
 - 外部服务配置写入 Git 忽略的 `.template-bootstrap.json`，只作为初始化进程之间的一次性秘密载体。
 - 种子程序使用 `CONFIG_ENCRYPTION_KEY` 将秘密值以 AES-256-GCM 加密写入 `IntegrationConfig`。全部成功后删除一次性文件，失败时保留以供修复后重试。
 - PostgreSQL 由迁移命令验证连接；初始化时填写的 Redis 在入库前执行带鉴权的 PING。其他服务仍需在后台使用真实测试功能验收。

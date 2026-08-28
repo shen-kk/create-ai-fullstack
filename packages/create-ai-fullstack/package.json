@@ -1,6 +1,6 @@
 {
   "name": "create-aiforge",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "交互式创建包含 Admin、Web 与 API 的 AI 友好全栈项目",
   "type": "module",
   "bin": {

@@ -143,10 +143,10 @@ export function provisionCommands(config) {
     throw new Error('当前只支持 PostgreSQL + Prisma 自动部署');
   const scope = config.project.packageScope;
   return [
-    ['--filter', `${scope}/contracts`, 'build'],
-    ['--filter', `${scope}/api`, 'db:generate'],
+    ['--filter', `${scope}/contracts`, 'run', 'build'],
+    ['--filter', `${scope}/api`, 'run', 'db:generate'],
     ['--filter', `${scope}/api`, 'exec', 'prisma', 'migrate', 'deploy'],
-    ['--filter', `${scope}/api`, 'db:seed'],
+    ['--filter', `${scope}/api`, 'run', 'db:seed'],
   ];
 }
 

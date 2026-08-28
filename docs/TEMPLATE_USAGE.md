@@ -48,7 +48,7 @@ pnpm run setup
 3. 将多消费者代码登记为共享能力；
 4. 让 `modules` 从功能目录生成；
 5. 增加关闭、单独启用和完整组合测试；
-6. 运行 `pnpm feature:check` 与 `pnpm template:verify`。
+6. 运行 `pnpm run feature:check` 与 `pnpm run template:verify`。
 
 详细规则见 `docs/architecture/FEATURE_COMPOSITION.md` 和 ADR-0013。
 

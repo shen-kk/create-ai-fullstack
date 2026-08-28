@@ -137,7 +137,7 @@ try {
 }
 
 if (await exists('.template-bootstrap.json'))
-  add('WARN', '一次性服务密钥', '等待 pnpm template:provision 加密入库');
+  add('WARN', '一次性服务密钥', '等待 pnpm run template:provision 加密入库');
 for (const item of checks) console.log(`[${item.status}] ${item.name} - ${item.detail}`);
 const failed = checks.filter((item) => item.status === 'FAIL').length;
 const warned = checks.filter((item) => item.status === 'WARN').length;

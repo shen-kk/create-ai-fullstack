@@ -10,7 +10,9 @@ const rootPath = decodeURIComponent(root.pathname.replace(/^\/(?=[A-Za-z]:)/, ''
 const args = new Set(process.argv.slice(2));
 const dryRun = args.has('--dry-run');
 const confirmed = args.has('--yes');
-const pnpmEntry = process.env.npm_execpath;
+const pnpmEntry = process.env.npm_execpath?.toLowerCase().includes('pnpm')
+  ? process.env.npm_execpath
+  : undefined;
 const executable = pnpmEntry
   ? process.execPath
   : process.platform === 'win32'

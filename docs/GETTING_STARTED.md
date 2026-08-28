@@ -47,7 +47,7 @@ pnpm dev
 ```bash
 pnpm doctor          # 检查项目声明、生成文件和环境
 pnpm feature:check   # 检查功能依赖、唯一归属和应用裁剪
-pnpm template:provision -- --dry-run
+pnpm run template:provision -- --dry-run
 pnpm check
 ```
 
