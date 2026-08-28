@@ -63,6 +63,26 @@ describe('admin session', () => {
     expect(sessionStorage.getItem('template_auth_user')).not.toContain('Admin@123456');
   });
 
+  it('notifies the admin shell immediately after the first login', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(session), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      ),
+    );
+    const { login, onSessionChanged } = await import('../src/auth/session.js');
+    const listener = vi.fn();
+    const unsubscribe = onSessionChanged(listener);
+
+    await login({ phone: '13800000000', password: 'Admin@123456' });
+
+    expect(listener).toHaveBeenCalledWith(session.user);
+    unsubscribe();
+  });
+
   it('clears local state even when the logout API is unavailable', async () => {
     sessionStorage.setItem('template_access_token', session.accessToken);
     sessionStorage.setItem('template_auth_user', JSON.stringify(session.user));

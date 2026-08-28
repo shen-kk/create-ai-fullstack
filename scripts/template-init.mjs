@@ -25,8 +25,6 @@ const packageScope = argument('scope') ?? `@${name}`;
 const requestedFeatures = (argument('features') ?? '').split(',').filter(Boolean);
 const features = resolveFeatures(requestedFeatures);
 const dryRun = process.argv.includes('--dry-run');
-const writeJson = async (path, value) =>
-  writeFile(new URL(path, root), `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 const removeComposeService = async (path, service) => {
   const url = new URL(path, root);
   const source = await readFile(url, 'utf8');
@@ -78,7 +76,7 @@ const config = {
   },
   features,
   modules: modulesForFeatures(features),
-  providers: { objectStorage: features.includes('customerAvatar') ? 'resource_library' : 'none' },
+  providers: { objectStorage: 'resource_library' },
 };
 const errors = validateProjectConfig(config);
 if (errors.length) throw new Error(`项目配置无效：${errors.join('；')}`);
@@ -128,16 +126,5 @@ for (const feature of featureCatalog) {
 }
 if (!features.includes('customerWeb'))
   await removeComposeService('docker-compose.production.yml', 'web');
-if (!features.includes('deploymentCenter')) {
-  const rootPackage = JSON.parse(await readFile(new URL('package.json', root), 'utf8'));
-  delete rootPackage.scripts['dev:worker'];
-  await writeJson('package.json', rootPackage);
-  const apiPackage = JSON.parse(await readFile(new URL('apps/api/package.json', root), 'utf8'));
-  delete apiPackage.scripts['start:worker'];
-  delete apiPackage.scripts['dev:worker'];
-  delete apiPackage.dependencies.ssh2;
-  delete apiPackage.devDependencies['@types/ssh2'];
-  await writeJson('apps/api/package.json', apiPackage);
-}
 await replaceWorkspaceScope(packageScope);
-console.log(`[DONE] 已组合功能：${features.join(', ') || '仅核心功能'}`);
+console.log(`[DONE] 已组合功能：${features.join(', ') || '基础平台（未启用用户端）'}`);

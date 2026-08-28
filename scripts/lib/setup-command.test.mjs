@@ -18,3 +18,22 @@ test('CLI and diagnostics use pnpm run setup instead of the pnpm built-in comman
   }
   for (const source of userGuides) assert.match(source, /pnpm run setup/);
 });
+
+test('CLI only asks about the customer app and falls back to the CNB mirror', async () => {
+  const source = await read('packages/create-ai-fullstack/bin/create.mjs');
+  assert.match(source, /是否启用用户端/);
+  assert.doesNotMatch(source, /prompts\.multiselect/);
+  assert.match(source, /initialValue: projectName/);
+  assert.doesNotMatch(source, /defaultValue: projectName/);
+  assert.match(source, /建议使用默认名称/);
+  assert.match(source, /github\.com\/shen-kk\/create-ai-fullstack/);
+  assert.match(source, /cnb\.cool\/nsmiling\.com\/ai-template/);
+  assert.match(source, /所有模板源均不可用/);
+});
+
+test('setup writes the collected local environment without a redundant final confirmation', async () => {
+  const source = await read('scripts/project-setup.mjs');
+
+  assert.doesNotMatch(source, /确认写入本地环境配置/);
+  assert.match(source, /await writeFile\(new URL\('\.env', root\), env, 'utf8'\)/);
+});

@@ -140,7 +140,16 @@ onMounted(load);
       <div class="heading-actions">
         <button v-if="projectId" class="secondary-button" @click="router.push('/deployments')">
           返回项目</button
-        ><button class="secondary-button" @click="router.push('/deployments/history')">
+        ><button
+          class="secondary-button"
+          @click="
+            router.push(
+              projectId
+                ? { path: '/deployments/history', query: { projectId } }
+                : '/deployments/history',
+            )
+          "
+        >
           部署记录</button
         ><button
           class="primary-button"

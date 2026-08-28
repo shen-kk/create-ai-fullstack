@@ -4,6 +4,8 @@ export const coreModules = Object.freeze({
   rolesAndPermissions: true,
   auditLogs: true,
   serviceConfig: true,
+  deploymentCenter: true,
+  objectStorage: true,
 });
 
 export const coreOwnership = Object.freeze({
@@ -14,6 +16,8 @@ export const coreOwnership = Object.freeze({
     'AuditModule',
     'HealthModule',
     'IntegrationsModule',
+    'DeploymentsModule',
+    'DeploymentWorkerModule',
   ],
   prismaModels: [
     'User',
@@ -27,6 +31,12 @@ export const coreOwnership = Object.freeze({
     'ServiceResource',
     'ServiceFeatureBinding',
     'MessageTemplate',
+    'DeployProject',
+    'DeployEnvironment',
+    'DeployRun',
+    'DeployStep',
+    'DeployLog',
+    'DeployRelease',
   ],
   permissions: [
     'menu.dashboard',
@@ -35,6 +45,11 @@ export const coreOwnership = Object.freeze({
     'menu.audit',
     'menu.system',
     'menu.integrations',
+    'menu.deployments',
+    'deployments.read',
+    'deployments.manage',
+    'deployments.execute',
+    'deployments.rollback',
   ],
   environment: [
     'DATABASE_URL',
@@ -43,6 +58,7 @@ export const coreOwnership = Object.freeze({
     'CONFIG_ENCRYPTION_KEY',
     'DEV_ADMIN_PHONE',
     'DEV_ADMIN_PASSWORD',
+    'DEPLOY_WORKER_ENABLED',
   ],
 });
 
@@ -56,6 +72,7 @@ export const featureCatalog = Object.freeze([
     modules: {
       userWeb: true,
       customerAuthentication: true,
+      objectStorage: true,
       redis: true,
       email: true,
       sms: true,
@@ -85,6 +102,7 @@ export const featureCatalog = Object.freeze([
         'verification.read',
       ],
       environment: ['CUSTOMER_JWT_ACCESS_SECRET', 'CUSTOMER_JWT_REFRESH_SECRET'],
+      apiCapabilities: ['customer-avatar-upload'],
       featureBindings: [
         'customer.login.email',
         'customer.login.sms',
@@ -92,58 +110,8 @@ export const featureCatalog = Object.freeze([
         'customer.password.sms',
         'customer.contact.email',
         'customer.contact.sms',
+        'customer.avatar',
       ],
-    },
-  },
-  {
-    id: 'customerAvatar',
-    label: '用户头像上传',
-    hint: '用户端头像上传和对象存储绑定',
-    group: '用户端',
-    requires: ['customerWeb'],
-    modules: { objectStorage: true },
-    sharedCapabilities: ['objectStorage'],
-    ownership: {
-      apiCapabilities: ['customer-avatar-upload'],
-      featureBindings: ['customer.avatar'],
-    },
-  },
-  {
-    id: 'deploymentCenter',
-    label: '部署中心',
-    hint: '部署项目、环境、Worker、实时日志和回滚',
-    group: '平台能力',
-    requires: [],
-    modules: { deploymentCenter: true },
-    ownedPaths: [
-      'ecosystem.config.cjs',
-      'apps/api/src/deployments',
-      'apps/api/src/worker-main.ts',
-      'apps/admin/src/api/deployments.ts',
-      'apps/admin/src/views/DeploymentProjectsView.vue',
-      'apps/admin/src/views/DeploymentProjectFormView.vue',
-      'apps/admin/src/views/DeploymentsView.vue',
-      'apps/admin/src/views/DeploymentEnvironmentFormView.vue',
-      'apps/admin/src/views/DeploymentHistoryView.vue',
-      'apps/admin/src/views/DeploymentRunView.vue',
-    ],
-    ownership: {
-      apiModules: ['DeploymentsModule', 'DeploymentWorkerModule'],
-      prismaModels: [
-        'DeployProject',
-        'DeployEnvironment',
-        'DeployRun',
-        'DeployStep',
-        'DeployLog',
-        'DeployRelease',
-      ],
-      permissions: [
-        'menu.deployments',
-        'deployments.read',
-        'deployments.manage',
-        'deployments.execute',
-      ],
-      environment: ['DEPLOY_WORKER_ENABLED'],
     },
   },
 ]);
@@ -169,12 +137,12 @@ export function modulesForFeatures(selectedIds) {
     ...coreModules,
     customerAuthentication: false,
     userWeb: false,
-    objectStorage: false,
+    objectStorage: true,
     redis: false,
     sms: false,
     email: false,
     payment: false,
-    deploymentCenter: false,
+    deploymentCenter: true,
   };
   for (const id of resolveFeatures(selectedIds))
     Object.assign(modules, byId.get(id)?.modules ?? {});

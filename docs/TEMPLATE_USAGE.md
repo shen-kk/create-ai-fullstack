@@ -17,12 +17,12 @@ pnpm run setup  配置开发环境和初始化数据库
 npm create aiforge@latest my-project
 ```
 
-向导通过方向键、空格和回车进行终端多选。可选功能由 `packages/create-ai-fullstack/lib/features.mjs` 唯一声明；依赖会自动加入。CLI 不允许把 `email`、`sms`、`redis` 或 `objectStorage` 当作独立业务功能。
+向导只询问是否启用用户端。启用后自动包含用户账号、验证码、头像和对应共享适配能力；部署中心、对象存储资源库、Git 和服务器资源始终保留。
 
 自动化环境可以显式传入功能：
 
 ```bash
-npm create aiforge@latest my-project -- --features=customerWeb,customerAvatar
+npm create aiforge@latest my-project -- --features=customerWeb
 ```
 
 只生成核心后台：
@@ -37,7 +37,7 @@ npm create aiforge@latest my-project -- --features=
 pnpm run setup
 ```
 
-该命令只配置当前项目启用应用的端口、PostgreSQL、项目密钥和初始管理员。重新执行前会备份现有 `.env`，已有项目密钥默认保留。数据库密码使用隐藏输入，不进入命令参数、项目声明或 AI 文档。
+该命令只配置当前项目启用应用的端口、PostgreSQL、项目密钥和初始管理员。完成问题后会直接写入 Git 忽略的 `.env`，不再额外询问一次是否写入；需要放弃初始化时，可在写入前按 `Ctrl+C` 取消。重新执行前会备份现有 `.env`，已有项目密钥默认保留。数据库密码使用隐藏输入，不进入命令参数、项目声明或 AI 文档。
 
 ## 功能归属
 
@@ -54,4 +54,4 @@ pnpm run setup
 
 ## 模板发布
 
-模板完整源码来自 GitHub，npm 包只保存创建器和功能目录。发布前必须验证仅核心、用户端、验证码、部署中心和完整功能组合，且不得包含 `.env`、数据库连接串、服务密钥、日志或构建产物。
+模板源码优先来自 GitHub，失败时 CLI 自动回退到 CNB 镜像；npm 包只保存创建器和功能目录。发布前必须验证基础平台、基础平台 + 用户端两种组合，且不得包含 `.env`、数据库连接串、服务密钥、日志或构建产物。

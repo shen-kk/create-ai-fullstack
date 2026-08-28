@@ -62,5 +62,5 @@ if (errors.length) {
   process.exitCode = 1;
 } else
   console.log(
-    `[PASS] 功能清单有效：${resolved.join(', ') || '仅核心功能'}；${owners.size} 个路径和 ${semanticOwners.size} 个语义项具有唯一归属。`,
+    `[PASS] 功能清单有效：${resolved.join(', ') || '基础平台（未启用用户端）'}；${owners.size} 个路径和 ${semanticOwners.size} 个语义项具有唯一归属。`,
   );

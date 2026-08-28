@@ -151,14 +151,6 @@ const adminName = await askText(
 const adminPassword = existing.DEV_ADMIN_PASSWORD || `Adm!${randomBytes(18).toString('base64url')}`;
 const databaseUrl = `postgresql://${encodeURIComponent(databaseUsername)}:${encodeURIComponent(databasePassword)}@${databaseHost}:${databasePort}/${encodeURIComponent(databaseName)}?schema=public`;
 
-const shouldWrite =
-  dryRun || defaultsMode
-    ? true
-    : cancelled(await prompts.confirm({ message: '确认写入本地环境配置？', initialValue: true }));
-if (!shouldWrite) {
-  prompts.cancel('已取消初始化。');
-  process.exit(0);
-}
 try {
   await access(new URL('.env', root), constants.F_OK);
   await copyFile(new URL('.env', root), new URL(`.env.backup-${Date.now()}`, root));

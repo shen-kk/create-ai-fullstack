@@ -94,7 +94,7 @@
     "features": {
       "type": "array",
       "items": {
-        "enum": ["customerWeb", "customerAvatar", "deploymentCenter"]
+        "enum": ["customerWeb"]
       },
       "uniqueItems": true
     },

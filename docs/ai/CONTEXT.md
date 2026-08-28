@@ -24,7 +24,7 @@
 - Admin 管理员成功完成密码登录后更新 `User.lastActiveAt`，用户管理列表的“最近活跃”展示该真实时间；认证失败不得更新。后台 `.page-content` 不设置桌面端最大宽度，在高分辨率屏幕上使用侧边栏以外的全部可用空间。
 - Admin 的全部 API 请求统一使用 `src/api/base.ts` 解析地址：优先采用部署时的 `VITE_API_BASE_URL`，否则读取初始化生成的 `project.runtime.apiPort`。禁止在会话或业务 API 文件中硬编码 `3001`，避免自定义端口被浏览器误报为 CORS 错误。
 
-- `create-aiforge` 只选择业务功能并组合代码，不再提供 quick、standard、custom，也不询问邮件、短信、Redis、对象存储或数据库凭据。`project.config.json.features` 是业务选择事实来源，`modules` 必须由共享功能目录推导。未启用用户端时物理移除 `apps/web`，并继续收敛关联 API、权限和 Prisma 的细粒度组合。
+- `create-aiforge` 只询问是否启用用户端，不再提供 quick、standard、custom，也不询问头像、部署中心、邮件、短信、Redis、对象存储或数据库凭据。头像随用户端自动启用；部署中心和对象存储资源库始终保留。`project.config.json.features` 只记录真正可裁剪的 `customerWeb`，`modules` 必须由共享功能目录推导。未启用用户端时物理移除 `apps/web`，并继续收敛关联 API、权限和 Prisma 的细粒度组合。
 
 - 完整模板与 CLI 生成项目统一使用可视化 `pnpm run setup` 配置端口、PostgreSQL、项目密钥和初始管理员，可选择立即执行迁移和种子。pnpm 11 的 `pnpm setup` 是包管理器内置命令，不会运行项目 script，因此用户入口必须显式包含 `run`。模板维护者与普通使用者的区别仅是 GitHub 完整源码与 CLI 裁剪源码。
 
@@ -74,7 +74,7 @@
 - 后台身份以手机号作为必填唯一登录标识，邮箱降为可选联系资料；登录、管理员创建/编辑、Prisma 仓库和种子均按手机号执行。迁移 `20260802000600_admin_phone_identity` 负责既有数据过渡。
 - `/integrations` 管理对象存储、SQL、Redis、短信、邮件和支付配置；字段定义由代码注册，密钥采用 AES-256-GCM 加密。普通列表只返回已配置字段名；持有独立 `secrets.read` 权限时可通过眼睛按钮临时读取明文，读取动作必须审计且前端不得持久化。密码哈希永不回显。决策见 ADR-0014。
 - 服务配置字段支持平台/类型枚举选择；头像通过 `POST /api/auth/avatar` 直接上传到已启用的对象存储，当前适配腾讯云 COS。模板明确不提供本地文件存储或本地兜底，未配置、配置不完整或适配器不可用时返回稳定错误码并由 Admin 引导前往服务配置。
-- 最终用户入口为 `npm create aiforge@latest <project-name>`；CLI 使用终端多选界面选择业务功能，在下载后按功能依赖图组合代码、安装依赖、执行 `feature:check`、移除模板 Git 历史并初始化新仓库。随后统一运行 `pnpm run setup` 生成 Git 忽略的 `.env`，校验 PostgreSQL并按确认执行迁移和管理员种子。
+- 最终用户入口为 `npm create aiforge@latest <project-name>`；CLI 只确认是否启用用户端，优先从 GitHub 下载，失败时自动回退 CNB 镜像，再按功能依赖图组合代码、安装依赖、执行 `feature:check`、移除模板 Git 历史并初始化新仓库。随后统一运行 `pnpm run setup` 生成 Git 忽略的 `.env`，校验 PostgreSQL并按确认执行迁移和管理员种子。
 - 项目通过显式的 `pnpm template:provision` 执行 Prisma Client 生成、`prisma migrate deploy` 与管理员种子；默认要求输入 `YES`，支持 `--dry-run`，且不输出数据库连接串。
 - 内部组合器与 `template:sync` 会为现存应用生成无密钥运行时功能文件；项目显示名称用于后台品牌与 Swagger。业务功能从 `features` 推导模块，共享服务适配器不能由散落布尔值独立选择；Doctor 检查生成文件与声明一致性。
 - 服务配置 API 按字段定义执行嵌套白名单、字符串类型、平台枚举和启用时必填校验；未知字段、错误平台和不完整配置使用稳定错误码拒绝。对象存储 endpoint 为兼容 S3 等平台的可选字段，腾讯云 COS 不强制填写。
@@ -85,7 +85,7 @@
 - 模板唯一主仓库为 `https://github.com/shen-kk/create-ai-fullstack`。
 - 已增加 PostgreSQL CI 服务、迁移/种子/Prisma E2E、Admin Nginx 镜像、API Node 生产镜像、生产 Compose 及部署备份文档；当前机器没有 Docker，镜像实际构建需由 CI 或有 Docker 的环境最终确认。
 
-- 部署中心是 `deploymentCenter` 可选模块，使用通用 Git、Linux SSH、版本目录、PM2 重载命令、PostgreSQL 持久化任务和 SSE 日志；不依赖 CNB。Git 与服务器检查均成功后环境才可部署；应用回滚不自动回滚数据库。详细边界见 `docs/domain/DEPLOYMENTS.md` 与 ADR-0010、ADR-0011、ADR-0015。
+- 部署中心是所有生成项目保留的基础平台模块，使用通用 Git、Linux SSH、版本目录、PM2 重启命令、PostgreSQL 持久化任务和 SSE 日志；模板获取可以回退 CNB，但部署运行时不依赖特定 Git 平台。Git 与服务器检查均成功后环境才可部署；应用回滚不自动回滚数据库。详细边界见 `docs/domain/DEPLOYMENTS.md` 与 ADR-0010、ADR-0011、ADR-0015。
 
 ## 按任务读取
 

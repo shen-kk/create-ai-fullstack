@@ -127,7 +127,7 @@ ${disabled}
 
 ## 已选择业务功能
 
-${(config.features ?? []).map((name) => `- \`${name}\``).join('\n') || '- 仅核心功能'}
+${(config.features ?? []).map((name) => `- \`${name}\``).join('\n') || '- 基础平台（未启用用户端）'}
 
 ## AI 实现约束
 
@@ -161,10 +161,8 @@ export function renderApiFeatureModules(config) {
     imports.push("import { CustomerAuthModule } from '../customer-auth/customer-auth.module.js';");
     modules.push('CustomerAuthModule');
   }
-  if (config.features.includes('deploymentCenter')) {
-    imports.push("import { DeploymentsModule } from '../deployments/deployments.module.js';");
-    modules.push('DeploymentsModule');
-  }
+  imports.push("import { DeploymentsModule } from '../deployments/deployments.module.js';");
+  modules.push('DeploymentsModule');
   return `// 此文件由项目组合器 / template:sync 自动生成，请勿手工修改。\n${imports.join('\n')}${imports.length ? '\n\n' : ''}export const featureModules = [${modules.join(', ')}];\n`;
 }
 
@@ -182,51 +180,44 @@ export function renderAdminFeatureRoutes(config) {
     meta: { title: '验证码记录', permissions: ['menu.verification', 'verification.read'] },
   },`);
   }
-  if (config.features.includes('deploymentCenter')) {
-    routes.push(`  {
+  routes.push(`  {
     path: '/deployments',
     component: () => import('../views/DeploymentProjectsView.vue'),
     meta: { title: '部署中心', permissions: ['menu.deployments', 'deployments.read'] },
   },`);
-    routes.push(`  {
+  routes.push(`  {
     path: '/deployments/projects',
     redirect: '/deployments',
     meta: { title: '部署项目', permissions: ['menu.deployments', 'deployments.read'] },
   },`);
-    for (const route of [
-      [
-        '/deployments/projects/new',
-        'DeploymentProjectFormView.vue',
-        '新增部署项目',
-        'deployments.manage',
-      ],
-      [
-        '/deployments/projects/:id/edit',
-        'DeploymentProjectFormView.vue',
-        '编辑部署项目',
-        'deployments.manage',
-      ],
-      ['/deployments/projects/:projectId', 'DeploymentsView.vue', '项目环境', 'deployments.read'],
-      [
-        '/deployments/new',
-        'DeploymentEnvironmentFormView.vue',
-        '新增部署环境',
-        'deployments.manage',
-      ],
-      ['/deployments/history', 'DeploymentHistoryView.vue', '部署记录', 'deployments.read'],
-      [
-        '/deployments/:id/edit',
-        'DeploymentEnvironmentFormView.vue',
-        '编辑部署环境',
-        'deployments.manage',
-      ],
-      ['/deployments/runs/:runId', 'DeploymentRunView.vue', '部署进度', 'deployments.read'],
-    ])
-      routes.push(`  {
+  for (const route of [
+    [
+      '/deployments/projects/new',
+      'DeploymentProjectFormView.vue',
+      '新增部署项目',
+      'deployments.manage',
+    ],
+    [
+      '/deployments/projects/:id/edit',
+      'DeploymentProjectFormView.vue',
+      '编辑部署项目',
+      'deployments.manage',
+    ],
+    ['/deployments/projects/:projectId', 'DeploymentsView.vue', '项目环境', 'deployments.read'],
+    ['/deployments/new', 'DeploymentEnvironmentFormView.vue', '新增部署环境', 'deployments.manage'],
+    ['/deployments/history', 'DeploymentHistoryView.vue', '部署记录', 'deployments.read'],
+    [
+      '/deployments/:id/edit',
+      'DeploymentEnvironmentFormView.vue',
+      '编辑部署环境',
+      'deployments.manage',
+    ],
+    ['/deployments/runs/:runId', 'DeploymentRunView.vue', '部署进度', 'deployments.read'],
+  ])
+    routes.push(`  {
     path: '${route[0]}',
     component: () => import('../views/${route[1]}'),
     meta: { title: '${route[2]}', permissions: ['menu.deployments', '${route[3]}'] },
   },`);
-  }
   return `// 此文件由项目组合器 / template:sync 自动生成，请勿手工修改。\nimport type { RouteRecordRaw } from 'vue-router';\n\nexport const featureRoutes: RouteRecordRaw[] = [\n${routes.join('\n')}\n];\n`;
 }

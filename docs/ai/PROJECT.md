@@ -48,8 +48,6 @@
 ## 已选择业务功能
 
 - `customerWeb`
-- `customerAvatar`
-- `deploymentCenter`
 
 ## AI 实现约束
 

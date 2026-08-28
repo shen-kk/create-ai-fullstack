@@ -1,18 +1,25 @@
 <script setup lang="ts">
-import type { DeploymentLogEntry, DeploymentRunSummary } from '@template/contracts';
+import type {
+  DeploymentEnvironmentSummary,
+  DeploymentLogEntry,
+  DeploymentRunSummary,
+} from '@template/contracts';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   cancelDeploymentRun,
+  getDeploymentEnvironment,
   getDeploymentRun,
   listDeploymentLogs,
   streamDeploymentRun,
 } from '../api/deployments';
+import { deploymentProjectPath } from '../deployments/view-model';
 
 const route = useRoute(),
   router = useRouter();
 const runId = String(route.params.runId ?? '');
 const run = ref<DeploymentRunSummary>(),
+  environment = ref<DeploymentEnvironmentSummary>(),
   logs = ref<DeploymentLogEntry[]>([]),
   loading = ref(true),
   error = ref(''),
@@ -54,6 +61,9 @@ async function load(): Promise<void> {
     ]);
     run.value = current;
     logs.value = entries;
+    environment.value = await getDeploymentEnvironment(current.environmentId).catch(
+      () => undefined,
+    );
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '部署任务加载失败';
   } finally {
@@ -79,6 +89,9 @@ async function cancel(): Promise<void> {
     error.value = cause instanceof Error ? cause.message : '取消部署失败';
   }
 }
+function backToEnvironment(): void {
+  void router.push(deploymentProjectPath(environment.value?.projectId));
+}
 onMounted(async () => {
   await load();
   void connect();
@@ -95,7 +108,7 @@ onBeforeUnmount(() => controller.abort());
         <p v-if="run">{{ run.gitRef }} · {{ run.createdAt }}</p>
       </div>
       <div class="heading-actions">
-        <button class="secondary-button" @click="router.push('/deployments')">返回部署中心</button
+        <button class="secondary-button" @click="backToEnvironment">返回环境列表</button
         ><button v-if="active" class="danger-button" @click="cancel">取消部署</button>
       </div>
     </section>

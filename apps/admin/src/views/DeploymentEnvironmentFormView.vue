@@ -17,6 +17,7 @@ import {
 import AppPasswordInput from '../components/AppPasswordInput.vue';
 import AppSelect from '../components/AppSelect.vue';
 import { getServiceResources } from '../api/integrations';
+import { deploymentVariableSecretValue } from '../deployments/view-model';
 
 const route = useRoute(),
   router = useRouter();
@@ -96,7 +97,7 @@ watch(
 );
 function variableValue(variable: DeploymentVariableDefinition): string {
   return variable.secret
-    ? (form.value.secrets.variables?.[variable.key] ?? '')
+    ? deploymentVariableSecretValue(variable.key, form.value.secrets)
     : (form.value.values?.[variable.key] ?? '');
 }
 function updateVariable(variable: DeploymentVariableDefinition, value: string): void {

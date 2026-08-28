@@ -69,7 +69,7 @@ try {
     console.log('[FULL] 在初始化前安装锁定依赖，模拟文档推荐的新项目流程。');
     runCommand(pnpm, pnpmArgs(['install', '--frozen-lockfile']));
   }
-  const selectedFeatures = userWeb ? 'customerWeb,customerAvatar' : '';
+  const selectedFeatures = userWeb ? 'customerWeb' : '';
   run('template-init.mjs', [
     '--name=admin-project',
     '--display-name=验收项目',

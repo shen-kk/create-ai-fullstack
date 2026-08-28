@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import type { DeploymentEnvironmentSummary, DeploymentRunSummary } from '@template/contracts';
 import { computed, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { listDeploymentEnvironments, listDeploymentRuns } from '../api/deployments';
 import AppSelect from '../components/AppSelect.vue';
+import { deploymentProjectPath } from '../deployments/view-model';
 
 const router = useRouter();
+const route = useRoute();
+const sourceProjectId = computed(() =>
+  typeof route.query.projectId === 'string' ? route.query.projectId : '',
+);
 const environments = ref<DeploymentEnvironmentSummary[]>([]);
 const runs = ref<{ run: DeploymentRunSummary; environment: DeploymentEnvironmentSummary }[]>([]);
 const loading = ref(true);
@@ -61,7 +66,12 @@ onMounted(load);
         <h1>部署记录</h1>
         <p>统一查看所有环境的部署任务、版本和执行详情。</p>
       </div>
-      <button class="secondary-button" @click="router.push('/deployments')">返回环境</button>
+      <button
+        class="secondary-button"
+        @click="router.push(deploymentProjectPath(sourceProjectId || undefined))"
+      >
+        {{ sourceProjectId ? '返回环境' : '返回项目列表' }}
+      </button>
     </section>
     <section class="panel history-filter">
       <label

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import type { AuthUser } from '@template/contracts';
-import { getCurrentUser, logout } from './auth/session';
+import { getCurrentUser, logout, onSessionChanged } from './auth/session';
 import AppIcon from './components/AppIcon.vue';
 import { project } from './generated/project';
 
@@ -10,6 +10,10 @@ const sidebarOpen = ref(false);
 const route = useRoute();
 const router = useRouter();
 const currentUser = ref<AuthUser | null>(getCurrentUser());
+const stopSessionListener = onSessionChanged((user) => {
+  currentUser.value = user;
+});
+onBeforeUnmount(stopSessionListener);
 const pageTitle = computed(() => String(route.meta.title ?? '管理后台'));
 const initials = computed(() => currentUser.value?.name.slice(0, 2).toUpperCase() || 'AD');
 watch(

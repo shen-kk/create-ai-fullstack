@@ -37,7 +37,7 @@ const valid = {
   },
   features: [],
   modules: modulesForFeatures([]),
-  providers: { objectStorage: 'none' },
+  providers: { objectStorage: 'resource_library' },
 };
 test('accepts a valid core project', () => assert.deepEqual(validateProjectConfig(valid), []));
 test('rejects conflicting ports', () =>
@@ -59,7 +59,7 @@ test('parses values containing equals signs', () =>
 test('renders AI context without secrets', () => {
   const output = renderProjectContext(valid);
   assert.match(output, /demo-project/);
-  assert.match(output, /仅核心功能/);
+  assert.match(output, /基础平台/);
   assert.doesNotMatch(output, /DATABASE_URL|JWT_ACCESS_SECRET/);
 });
 test('rejects the removed memory mode', () =>
@@ -85,14 +85,16 @@ test('renders a secret-free runtime module', () => {
   assert.match(output, /"apiPort": 3001/);
   assert.doesNotMatch(output, /DATABASE_URL|password/i);
 });
-test('core composition has no optional API imports or Admin routes', () => {
-  assert.doesNotMatch(renderApiFeatureModules(valid), /CustomerAuth|Deployments/);
-  assert.doesNotMatch(renderAdminFeatureRoutes(valid), /customers|deployments/);
+test('基础平台始终包含部署中心但不包含用户端路由', () => {
+  assert.doesNotMatch(renderApiFeatureModules(valid), /CustomerAuth/);
+  assert.match(renderApiFeatureModules(valid), /DeploymentsModule/);
+  assert.doesNotMatch(renderAdminFeatureRoutes(valid), /customers/);
+  assert.match(renderAdminFeatureRoutes(valid), /deployments\/runs/);
 });
-test('full composition generates optional API imports and Admin routes', () => {
+test('启用用户端后生成用户身份模块和后台路由', () => {
   const full = {
     ...valid,
-    features: ['customerWeb', 'customerAvatar', 'deploymentCenter'],
+    features: ['customerWeb'],
   };
   assert.match(renderApiFeatureModules(full), /CustomerAuthModule/);
   assert.match(renderApiFeatureModules(full), /DeploymentsModule/);

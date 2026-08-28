@@ -55,7 +55,7 @@ AI 不得编造“已完成”的功能，不得用假数据掩盖接口未接�
 ## 6. Git、模板与发布
 
 - GitHub `https://github.com/shen-kk/create-ai-fullstack` 是唯一主仓库。
-- 新项目通过 `npm create aiforge@latest <project-name>` 可视化选择业务功能并组合代码，再通过 `pnpm run setup` 配置运行环境。邮件、短信、Redis、对象存储和具体服务商不得作为 CLI 业务功能；共享能力由功能依赖图自动保留。
+- 新项目通过 `npm create aiforge@latest <project-name>` 选择是否启用用户端并组合代码，再通过 `pnpm run setup` 配置运行环境。头像随用户端启用；部署中心与对象存储资源库始终保留。邮件、短信、Redis 和具体服务商不得作为 CLI 业务功能；共享能力由功能依赖图自动保留。
 - 模板维护者与普通项目使用相同的 `pnpm run setup`、迁移、Doctor 和启动流程，不得增加维护者专用环境文件。
 - 新增可裁剪功能前必须登记唯一功能 ID、依赖和归属路径，并通过 `pnpm feature:check`；禁止在多个功能中重复拥有同一路径。
 - 业务项目生成后不得把真实密钥、真实数据库或部署凭据反向提交到模板仓库。

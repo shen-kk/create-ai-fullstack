@@ -7,6 +7,17 @@ const versionKey = 'template_session_version';
 const expiryKey = 'template_access_expires_at';
 const currentSessionVersion = '4';
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+const sessionListeners = new Set<(user: AuthUser | null) => void>();
+
+function notifySessionChanged(): void {
+  const user = getCurrentUser();
+  for (const listener of sessionListeners) listener(user);
+}
+
+export function onSessionChanged(listener: (user: AuthUser | null) => void): () => void {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
+}
 
 export const getAccessToken = (): string | null => sessionStorage.getItem(tokenKey);
 export function getCurrentUser(): AuthUser | null {
@@ -26,6 +37,7 @@ export function clearSession(): void {
   sessionStorage.removeItem(userKey);
   sessionStorage.removeItem(versionKey);
   sessionStorage.removeItem(expiryKey);
+  notifySessionChanged();
 }
 function saveSession(session: AuthSession): void {
   sessionStorage.setItem(tokenKey, session.accessToken);
@@ -33,6 +45,7 @@ function saveSession(session: AuthSession): void {
   sessionStorage.setItem(versionKey, currentSessionVersion);
   const expiresAt = Date.now() + Math.max(60, session.expiresIn - 60) * 1000;
   sessionStorage.setItem(expiryKey, String(Date.now() + session.expiresIn * 1000));
+  notifySessionChanged();
   if (refreshTimer !== undefined) globalThis.clearTimeout(refreshTimer);
   refreshTimer = globalThis.setTimeout(
     () => {
@@ -43,6 +56,7 @@ function saveSession(session: AuthSession): void {
 }
 export function saveCurrentUser(user: AuthUser): void {
   sessionStorage.setItem(userKey, JSON.stringify(user));
+  notifySessionChanged();
 }
 
 export async function login(input: LoginRequest): Promise<AuthUser> {
@@ -73,6 +87,7 @@ export async function restoreSession(): Promise<boolean> {
       });
       if (me.ok && expiresAt > Date.now()) {
         sessionStorage.setItem(userKey, JSON.stringify((await me.json()) as AuthUser));
+        notifySessionChanged();
         return true;
       }
       clearSession();

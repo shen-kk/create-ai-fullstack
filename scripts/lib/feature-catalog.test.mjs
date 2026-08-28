@@ -5,8 +5,10 @@ import {
   resolveFeatures,
 } from '../../packages/create-ai-fullstack/lib/features.mjs';
 
-test('头像上传自动包含用户端', () => {
-  assert.deepEqual(resolveFeatures(['customerAvatar']), ['customerWeb', 'customerAvatar']);
+test('CLI 只暴露用户端这一项可裁剪功能', () => {
+  assert.deepEqual(resolveFeatures(['customerWeb']), ['customerWeb']);
+  assert.throws(() => resolveFeatures(['customerAvatar']), /未知功能/);
+  assert.throws(() => resolveFeatures(['deploymentCenter']), /未知功能/);
 });
 
 test('用户端自动推导验证码所需共享基础模块', () => {
@@ -21,4 +23,7 @@ test('用户端自动推导验证码所需共享基础模块', () => {
 test('基础设施不是用户可独立选择的功能', () => {
   assert.throws(() => resolveFeatures(['email']), /未知功能/);
   assert.throws(() => resolveFeatures(['redis']), /未知功能/);
+  const core = modulesForFeatures([]);
+  assert.equal(core.deploymentCenter, true);
+  assert.equal(core.objectStorage, true);
 });

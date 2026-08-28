@@ -37,11 +37,7 @@
       "designStandard": "apple-linear-vercel"
     }
   },
-  "features": [
-    "customerWeb",
-    "customerAvatar",
-    "deploymentCenter"
-  ],
+  "features": ["customerWeb"],
   "modules": {
     "authentication": true,
     "customerAuthentication": true,

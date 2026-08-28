@@ -30,9 +30,7 @@ export const project = {
     }
   },
   "features": [
-    "customerWeb",
-    "customerAvatar",
-    "deploymentCenter"
+    "customerWeb"
   ],
   "modules": {
     "authentication": true,
