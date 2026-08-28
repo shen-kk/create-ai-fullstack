@@ -942,6 +942,10 @@ tbody tr:hover {
   place-items: center;
   padding: 20px;
   background: #18203870;
+  overscroll-behavior: contain;
+}
+body.dialog-open {
+  overflow: hidden;
 }
 .user-dialog {
   width: min(440px, 100%);
@@ -2224,6 +2228,12 @@ td {
 .app-dialog--lg {
   width: min(720px, calc(100vw - 32px));
 }
+.app-dialog--xl {
+  width: min(1040px, calc(100vw - 32px));
+}
+.app-dialog:focus {
+  outline: none;
+}
 .app-dialog__header,
 .app-dialog__footer {
   display: flex;
@@ -2270,45 +2280,17 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
   color: #d14343;
   font-weight: 700;
 }
-.permission-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 22px;
+.permission-toggle {
+  padding: 3px 7px;
+  color: #5965d8;
+  font-size: 11px;
+  background: #f0f2ff;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
 }
-.role-dialog fieldset {
-  display: grid;
-  box-sizing: border-box;
-  width: 100%;
-  max-height: 310px;
-  min-width: 0;
-  margin: 0;
-  padding: 16px;
-  vertical-align: top;
-  border-color: #dde2eb;
-  border-radius: 13px;
-}
-.role-dialog > footer {
-  bottom: 0;
-  margin-bottom: 0 !important;
-  padding-bottom: 24px;
-}
-.role-dialog fieldset + fieldset {
-  margin-left: 0;
-}
-.role-dialog legend {
-  padding: 0 8px;
-  font-size: 13px;
-}
-.role-dialog .permission-option {
-  min-height: 52px;
-  padding: 10px 11px;
-  border: 1px solid transparent;
-  border-radius: 9px;
-}
-.role-dialog .permission-option:hover {
-  border-color: #e1e5f6;
-  background: #f7f8ff;
+.permission-toggle:hover {
+  background: #e2e5ff;
 }
 .permission-option input,
 .role-options input {
@@ -2323,9 +2305,140 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
   font-size: 10px;
 }
 .permission-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 20px;
   padding: 12px 14px;
   border-radius: 10px;
   font-size: 11px;
+  line-height: 1.6;
+  color: #59657b;
+  background: #f5f7fb;
+}
+.permission-help strong {
+  flex: 0 0 auto;
+  color: #364154;
+}
+.role-permission-form {
+  display: grid;
+  gap: 18px;
+}
+.role-permission-form > label {
+  display: grid;
+  gap: 8px;
+  color: #465166;
+  font-size: 13px;
+  font-weight: 600;
+}
+.role-permission-form > label input {
+  min-height: 44px;
+  padding: 10px 13px;
+  border: 1px solid #dfe2ee;
+  border-radius: 9px;
+}
+.role-permission-form > label small {
+  color: #777f94;
+  font-weight: 400;
+}
+.permission-section {
+  display: grid;
+  gap: 14px;
+  margin-top: 4px;
+}
+.permission-section__header,
+.permission-module > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.permission-section__header h3,
+.permission-section__header p {
+  margin: 0;
+}
+.permission-section__header h3 {
+  color: #20293b;
+  font-size: 15px;
+}
+.permission-section__header p {
+  margin-top: 4px;
+  color: #748097;
+  font-size: 12px;
+}
+.permission-section__header > span {
+  flex: 0 0 auto;
+  padding: 5px 9px;
+  color: #4e5bc8;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f0f2ff;
+  border-radius: 999px;
+}
+.permission-module-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.permission-module {
+  overflow: hidden;
+  border: 1px solid #e1e5ed;
+  border-radius: 12px;
+  background: #fff;
+}
+.permission-module > header {
+  padding: 13px 14px;
+  background: #f8f9fc;
+  border-bottom: 1px solid #e8ebf1;
+}
+.permission-module > header > div {
+  display: grid;
+  gap: 2px;
+}
+.permission-module > header strong {
+  color: #263044;
+  font-size: 13px;
+}
+.permission-module > header small {
+  color: #8992a4;
+  font-size: 10px;
+}
+.permission-menu-row,
+.permission-actions {
+  padding: 12px 14px;
+}
+.permission-menu-row {
+  background: #fafbff;
+  border-bottom: 1px solid #edf0f5;
+}
+.permission-actions {
+  display: grid;
+  gap: 9px;
+}
+.permission-actions > p {
+  margin: 0 0 2px;
+  color: #8992a4;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.permission-module .app-checkbox {
+  align-items: flex-start;
+  margin: 0;
+}
+.permission-module .app-checkbox > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+.permission-module .app-checkbox strong {
+  color: #3c475b;
+  font-size: 12px;
+}
+.permission-module .app-checkbox small,
+.permission-empty {
+  color: #8992a4;
+  font-size: 10px;
+  font-weight: 400;
 }
 .role-options {
   gap: 12px;
@@ -2409,6 +2522,9 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
     bottom: -24px;
     margin: 24px -20px -24px;
     padding: 16px 20px;
+  }
+  .permission-module-grid {
+    grid-template-columns: 1fr;
   }
 }
 .app-icon {

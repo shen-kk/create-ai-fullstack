@@ -3,6 +3,8 @@ import type { PermissionOption, RoleOption } from '@template/contracts';
 import { computed, onMounted, ref } from 'vue';
 import { createRole, getPermissions, updateRole } from '../api/roles';
 import { getRoleOptions } from '../api/users';
+import AppCheckbox from '../components/AppCheckbox.vue';
+import AppDialog from '../components/AppDialog.vue';
 
 const roles = ref<RoleOption[]>([]);
 const permissions = ref<PermissionOption[]>([]);
@@ -13,12 +15,58 @@ const notice = ref('');
 const dialogOpen = ref(false);
 const editingCode = ref('');
 const form = ref({ code: '', name: '', description: '', permissions: [] as string[] });
-const menuPermissions = computed(() =>
-  permissions.value.filter((permission) => permission.type === 'menu'),
-);
-const actionPermissions = computed(() =>
-  permissions.value.filter((permission) => permission.type === 'action'),
-);
+const groupNames: Record<string, string> = {
+  dashboard: '工作台',
+  users: '管理员',
+  customers: '用户端用户',
+  roles: '角色权限',
+  audit: '操作日志',
+  verification: '验证码记录',
+  system: '系统信息',
+  integrations: '服务配置',
+  security: '敏感信息',
+  deployments: '部署中心',
+};
+const permissionGroups = computed(() => {
+  const groups = new Map<
+    string,
+    { code: string; menu?: PermissionOption; actions: PermissionOption[] }
+  >();
+  permissions.value.forEach((permission) => {
+    const group = groups.get(permission.groupCode) ?? {
+      code: permission.groupCode,
+      actions: [],
+    };
+    if (permission.type === 'menu') group.menu = permission;
+    else group.actions.push(permission);
+    groups.set(permission.groupCode, group);
+  });
+  return [...groups.values()];
+});
+function togglePermissionItems(items: PermissionOption[], checked: boolean): void {
+  const next = new Set(form.value.permissions);
+  items.forEach((permission) =>
+    checked ? next.add(permission.code) : next.delete(permission.code),
+  );
+  form.value.permissions = [...next];
+}
+function allSelected(items: PermissionOption[]): boolean {
+  return (
+    items.length > 0 &&
+    items.every((permission) => form.value.permissions.includes(permission.code))
+  );
+}
+function isSelected(code: string): boolean {
+  return form.value.permissions.includes(code);
+}
+function togglePermission(code: string, checked: boolean): void {
+  const next = new Set(form.value.permissions);
+  checked ? next.add(code) : next.delete(code);
+  form.value.permissions = [...next];
+}
+function groupItems(group: (typeof permissionGroups.value)[number]): PermissionOption[] {
+  return [...(group.menu ? [group.menu] : []), ...group.actions];
+}
 async function load(): Promise<void> {
   loading.value = true;
   error.value = '';
@@ -129,17 +177,14 @@ onMounted(load);
         <p v-else class="system-role-tip">系统角色受保护，不允许修改</p>
       </article>
     </div>
-    <div v-if="dialogOpen" class="dialog-backdrop">
-      <form class="user-dialog role-dialog" @submit.prevent="submit">
-        <header>
-          <div>
-            <p class="eyebrow">角色权限</p>
-            <h2>{{ editingCode ? '编辑角色' : '新增角色' }}</h2>
-          </div>
-          <button type="button" class="dialog-close" aria-label="关闭" @click="dialogOpen = false">
-            ×
-          </button>
-        </header>
+    <AppDialog
+      :open="dialogOpen"
+      :title="editingCode ? '编辑角色' : '新增角色'"
+      eyebrow="角色权限"
+      size="xl"
+      @close="dialogOpen = false"
+    >
+      <form id="role-permission-form" class="role-permission-form" @submit.prevent="submit">
         <label
           ><span>角色代码</span
           ><input
@@ -156,43 +201,70 @@ onMounted(load);
         ><label
           ><span>角色说明</span><input v-model.trim="form.description" maxlength="240"
         /></label>
-        <div class="permission-grid">
-          <fieldset>
-            <legend>功能菜单权限</legend>
-            <label
-              v-for="permission in menuPermissions"
-              :key="permission.code"
-              class="permission-option"
-              ><input v-model="form.permissions" type="checkbox" :value="permission.code" /><span
-                ><strong>{{ permission.description }}</strong
-                ><small>{{ permission.code }}</small></span
-              ></label
-            >
-          </fieldset>
-          <fieldset>
-            <legend>操作权限</legend>
-            <label
-              v-for="permission in actionPermissions"
-              :key="permission.code"
-              class="permission-option"
-              ><input v-model="form.permissions" type="checkbox" :value="permission.code" /><span
-                ><strong>{{ permission.description }}</strong
-                ><small>{{ permission.code }}</small></span
-              ></label
-            >
-          </fieldset>
+        <section class="permission-section" aria-labelledby="permission-section-title">
+          <header class="permission-section__header">
+            <div>
+              <h3 id="permission-section-title">功能与操作权限</h3>
+              <p>按模块配置入口和操作，避免菜单权限与操作权限相互脱节。</p>
+            </div>
+            <span>{{ form.permissions.length }} / {{ permissions.length }} 项</span>
+          </header>
+          <div class="permission-module-grid">
+            <article v-for="group in permissionGroups" :key="group.code" class="permission-module">
+              <header>
+                <div>
+                  <strong>{{ groupNames[group.code] || group.code }}</strong>
+                  <small>{{ group.actions.length }} 项操作</small>
+                </div>
+                <button
+                  type="button"
+                  class="permission-toggle"
+                  @click="togglePermissionItems(groupItems(group), !allSelected(groupItems(group)))"
+                >
+                  {{ allSelected(groupItems(group)) ? '取消本组' : '选择本组' }}
+                </button>
+              </header>
+              <div v-if="group.menu" class="permission-menu-row">
+                <AppCheckbox
+                  :model-value="isSelected(group.menu.code)"
+                  @update:model-value="togglePermission(group.menu.code, $event)"
+                >
+                  <strong>显示菜单入口</strong>
+                  <small>{{ group.menu.description }}</small>
+                </AppCheckbox>
+              </div>
+              <div class="permission-actions">
+                <p>允许的操作</p>
+                <AppCheckbox
+                  v-for="permission in group.actions"
+                  :key="permission.code"
+                  :model-value="isSelected(permission.code)"
+                  @update:model-value="togglePermission(permission.code, $event)"
+                >
+                  <strong>{{ permission.description }}</strong>
+                  <small>{{ permission.code }}</small>
+                </AppCheckbox>
+                <small v-if="!group.actions.length" class="permission-empty"
+                  >此模块没有独立操作权限</small
+                >
+              </div>
+            </article>
+          </div>
+        </section>
+        <div class="permission-help">
+          <strong>配置提示</strong>
+          <span
+            >菜单入口影响后台可见性，操作权限决定 API
+            能力。通常应整组选择，再按职责取消不需要的操作。</span
+          >
         </div>
-        <p class="permission-help">
-          菜单权限决定入口与路由可见性；操作权限由 API
-          守卫执行。新增功能的权限代码由共享契约登记并随版本发布，不在后台动态创建。
-        </p>
-        <footer>
-          <button type="button" class="secondary-button" @click="dialogOpen = false">取消</button
-          ><button class="primary-button" :disabled="saving">
-            {{ saving ? '正在保存…' : '保存角色' }}
-          </button>
-        </footer>
       </form>
-    </div>
+      <template #footer>
+        <button type="button" class="secondary-button" @click="dialogOpen = false">取消</button>
+        <button type="submit" form="role-permission-form" class="primary-button" :disabled="saving">
+          {{ saving ? '正在保存…' : '保存角色' }}
+        </button>
+      </template>
+    </AppDialog>
   </div>
 </template>
