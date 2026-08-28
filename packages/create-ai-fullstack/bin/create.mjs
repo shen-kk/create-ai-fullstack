@@ -32,12 +32,7 @@ const positional = args.filter((item) => !item.startsWith('--'));
 const destination = resolve(positional[0] || 'my-ai-project');
 const projectName = basename(destination);
 const explicitRepo = args.find((item) => item.startsWith('--repo='))?.slice(7);
-const repositories = explicitRepo
-  ? [explicitRepo]
-  : [
-      'https://github.com/shen-kk/create-ai-fullstack.git',
-      'https://cnb.cool/nsmiling.com/ai-template.git',
-    ];
+const repository = explicitRepo || 'https://github.com/shen-kk/create-ai-fullstack.git';
 const ref = args.find((item) => item.startsWith('--ref='))?.slice(6) || 'main';
 const defaultsMode = args.includes('--defaults');
 const featureOption = args.find((item) => item.startsWith('--features='));
@@ -69,24 +64,19 @@ const run = (step, command, commandArgs, options = {}) => {
 const cloneTemplate = () => {
   const spinner = prompts.spinner();
   spinner.start('获取模板源码');
-  const failures = [];
-  for (const [index, repository] of repositories.entries()) {
-    const result = spawnSync(
-      'git',
-      ['clone', '--branch', ref, '--single-branch', repository, destination],
-      { encoding: 'utf8', shell: process.platform === 'win32' },
-    );
-    if (result.status === 0 && !result.error) {
-      spinner.stop(index === 0 ? '获取模板源码完成' : 'GitHub 不可用，已从 CNB 镜像获取模板');
-      return;
-    }
-    failures.push(
-      `${repository}：${result.error?.message || result.stderr?.trim() || `退出码 ${result.status ?? 1}`}`,
-    );
-    rmSync(destination, { recursive: true, force: true });
+  const result = spawnSync(
+    'git',
+    ['clone', '--branch', ref, '--single-branch', repository, destination],
+    { encoding: 'utf8', shell: process.platform === 'win32' },
+  );
+  if (result.status === 0 && !result.error) {
+    spinner.stop('获取模板源码完成');
+    return;
   }
+  const reason = result.error?.message || result.stderr?.trim() || `退出码 ${result.status ?? 1}`;
+  rmSync(destination, { recursive: true, force: true });
   spinner.stop('获取模板源码失败');
-  throw new Error(`所有模板源均不可用：\n${failures.join('\n')}`);
+  throw new Error(`无法从 GitHub 获取模板源码（${repository}，ref: ${ref}）：\n${reason}`);
 };
 
 if (existsSync(destination)) {
