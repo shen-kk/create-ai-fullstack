@@ -26,9 +26,9 @@
 
 - `create-aiforge` 只选择业务功能并组合代码，不再提供 quick、standard、custom，也不询问邮件、短信、Redis、对象存储或数据库凭据。`project.config.json.features` 是业务选择事实来源，`modules` 必须由共享功能目录推导。未启用用户端时物理移除 `apps/web`，并继续收敛关联 API、权限和 Prisma 的细粒度组合。
 
-- 完整模板与 CLI 生成项目统一使用可视化 `pnpm setup` 配置端口、PostgreSQL、项目密钥和初始管理员，可选择立即执行迁移和种子。模板维护者与普通使用者的区别仅是 GitHub 完整源码与 CLI 裁剪源码。
+- 完整模板与 CLI 生成项目统一使用可视化 `pnpm run setup` 配置端口、PostgreSQL、项目密钥和初始管理员，可选择立即执行迁移和种子。pnpm 11 的 `pnpm setup` 是包管理器内置命令，不会运行项目 script，因此用户入口必须显式包含 `run`。模板维护者与普通使用者的区别仅是 GitHub 完整源码与 CLI 裁剪源码。
 
-- 新组合器已覆盖“仅核心”和“用户端 + 头像”的干净临时目录结构验收；用户端账号将验证码、消息模板和邮件/短信适配作为共享依赖自动保留，不再向用户提供容易误裁剪的验证码独立开关。发布 0.2 前仍需完成锁定依赖安装、`pnpm setup`、Doctor、Prisma Client、格式/Lint/类型/测试及生产构建的完整组合矩阵。
+- 新组合器已覆盖“仅核心”和“用户端 + 头像”的干净临时目录结构验收；用户端账号将验证码、消息模板和邮件/短信适配作为共享依赖自动保留，不再向用户提供容易误裁剪的验证码独立开关。发布 0.2 前仍需完成锁定依赖安装、`pnpm run setup`、Doctor、Prisma Client、格式/Lint/类型/测试及生产构建的完整组合矩阵。
 - 用户端 `/profile` 使用左侧分组设置导航，分为个人资料、联系方式、安全设置和登录设备；顶部账号区通过鼠标移入、键盘聚焦或点击展开个人中心/退出菜单。用户头像只能通过 `POST /api/customer-auth/avatar` 上传 JPG、PNG 或 WebP（最大 2 MB）到已配置的对象存储；不接受手工 URL 且不提供本地文件兜底，未配置时返回稳定错误码并显示中文提示。
 - 用户端现有账户 API 已全部收口到 `useCustomerSession`：注册、密码/验证码登录、找回密码、会话恢复与退出、资料编辑、邮箱绑定、修改密码和设备会话管理均使用共享契约的类型化方法。请求默认 12 秒超时，稳定错误码映射为中文；Access Token 过期时仅发起一次并发刷新并重试原请求。撤销设备会话后，API 对后续 Access Token 请求同步校验会话有效性。
 - 验证码首次登录创建的用户端账号没有可用密码；个人中心首次设置密码不要求当前密码，设置或找回成功后记录 `passwordConfiguredAt`，后续修改必须验证当前密码。
@@ -74,7 +74,7 @@
 - 后台身份以手机号作为必填唯一登录标识，邮箱降为可选联系资料；登录、管理员创建/编辑、Prisma 仓库和种子均按手机号执行。迁移 `20260802000600_admin_phone_identity` 负责既有数据过渡。
 - `/integrations` 管理对象存储、SQL、Redis、短信、邮件和支付配置；字段定义由代码注册，密钥采用 AES-256-GCM 加密。普通列表只返回已配置字段名；持有独立 `secrets.read` 权限时可通过眼睛按钮临时读取明文，读取动作必须审计且前端不得持久化。密码哈希永不回显。决策见 ADR-0014。
 - 服务配置字段支持平台/类型枚举选择；头像通过 `POST /api/auth/avatar` 直接上传到已启用的对象存储，当前适配腾讯云 COS。模板明确不提供本地文件存储或本地兜底，未配置、配置不完整或适配器不可用时返回稳定错误码并由 Admin 引导前往服务配置。
-- 最终用户入口为 `npm create aiforge@latest <project-name>`；CLI 使用终端多选界面选择业务功能，在下载后按功能依赖图组合代码、安装依赖、执行 `feature:check`、移除模板 Git 历史并初始化新仓库。随后统一运行 `pnpm setup` 生成 Git 忽略的 `.env`，校验 PostgreSQL并按确认执行迁移和管理员种子。
+- 最终用户入口为 `npm create aiforge@latest <project-name>`；CLI 使用终端多选界面选择业务功能，在下载后按功能依赖图组合代码、安装依赖、执行 `feature:check`、移除模板 Git 历史并初始化新仓库。随后统一运行 `pnpm run setup` 生成 Git 忽略的 `.env`，校验 PostgreSQL并按确认执行迁移和管理员种子。
 - 项目通过显式的 `pnpm template:provision` 执行 Prisma Client 生成、`prisma migrate deploy` 与管理员种子；默认要求输入 `YES`，支持 `--dry-run`，且不输出数据库连接串。
 - 内部组合器与 `template:sync` 会为现存应用生成无密钥运行时功能文件；项目显示名称用于后台品牌与 Swagger。业务功能从 `features` 推导模块，共享服务适配器不能由散落布尔值独立选择；Doctor 检查生成文件与声明一致性。
 - 服务配置 API 按字段定义执行嵌套白名单、字符串类型、平台枚举和启用时必填校验；未知字段、错误平台和不完整配置使用稳定错误码拒绝。对象存储 endpoint 为兼容 S3 等平台的可选字段，腾讯云 COS 不强制填写。
@@ -105,4 +105,4 @@
 - 用户查询、认证/权限加载和刷新会话均具备 Prisma 数据源实现，但本机尚未进行 PostgreSQL 集成验证。
 - 部署平台和可观测性供应商尚未确定。
 
-> 运行约束：模板统一使用 PostgreSQL + Prisma，禁止新增或恢复 memory 数据源、内存默认值或静默假数据回退。所有开发环境都通过 `pnpm setup` 生成的 `.env` 提供真实 `DATABASE_URL`。
+> 运行约束：模板统一使用 PostgreSQL + Prisma，禁止新增或恢复 memory 数据源、内存默认值或静默假数据回退。所有开发环境都通过 `pnpm run setup` 生成的 `.env` 提供真实 `DATABASE_URL`。

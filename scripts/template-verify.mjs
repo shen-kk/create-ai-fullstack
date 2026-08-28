@@ -103,7 +103,8 @@ try {
   if (full) {
     console.log('[FULL] 刷新新命名空间的工作区链接。');
     runCommand(pnpm, pnpmArgs(['install', '--frozen-lockfile']));
-    run('project-setup.mjs', ['--defaults']);
+    console.log('[FULL] 通过公开命令运行项目初始化。');
+    runCommand(pnpm, pnpmArgs(['run', 'setup', '--', '--defaults']));
     run('template-doctor.mjs');
     console.log('[FULL] 生成 Prisma Client。');
     runCommand(pnpm, pnpmArgs(['db:generate']));

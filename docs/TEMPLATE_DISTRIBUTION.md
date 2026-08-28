@@ -14,7 +14,7 @@ cd my-project
 pnpm dev:local
 ```
 
-CLI 会自动完成业务功能选择、Git 获取、代码组合、依赖安装、功能一致性检查，并移除模板仓库历史后初始化新的 Git 仓库。用户随后统一运行 `pnpm setup` 配置 PostgreSQL、项目密钥和管理员。
+CLI 会自动完成业务功能选择、Git 获取、代码组合、依赖安装、功能一致性检查，并移除模板仓库历史后初始化新的 Git 仓库。用户随后统一运行 `pnpm run setup` 配置 PostgreSQL、项目密钥和管理员；不能省略 `run`，否则 pnpm 11 会执行自己的同名命令。
 
 也可以固定模板版本：
 
@@ -31,4 +31,4 @@ pnpm --filter create-aiforge pack
 pnpm --filter create-aiforge publish
 ```
 
-模板源码通过 Git Tag 发布，npm 包只包含创建器与同版本功能目录。模板维护者拉取完整源码后也运行 `pnpm setup`，与 CLI 项目共用初始化逻辑。真实环境配置只能放在 Git 忽略的 `.env`、后台加密资源或部署平台密钥中。
+模板源码通过 Git Tag 发布，npm 包只包含创建器与同版本功能目录。模板维护者拉取完整源码后也运行 `pnpm run setup`，与 CLI 项目共用初始化逻辑。真实环境配置只能放在 Git 忽略的 `.env`、后台加密资源或部署平台密钥中。

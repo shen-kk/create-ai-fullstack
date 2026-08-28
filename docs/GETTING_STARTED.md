@@ -12,13 +12,13 @@
 ```bash
 npm create aiforge@latest my-project
 cd my-project
-pnpm setup
+pnpm run setup
 pnpm dev
 ```
 
 创建向导只选择业务功能，包括用户端、头像上传和部署中心。用户端账号默认包含邮箱/手机号验证码流程；邮件、短信、Redis、对象存储、Git、服务器及具体服务商不作为业务选项，它们由功能依赖自动保留，项目运行后在后台服务配置中添加。
 
-`pnpm setup` 使用可视化终端向导收集：
+`pnpm run setup` 使用可视化终端向导收集。必须保留 `run`，避免调用 pnpm 11 的同名内置命令：
 
 1. 当前项目包含的应用端口；
 2. PostgreSQL 主机、端口、数据库、用户名和密码；
@@ -34,7 +34,7 @@ pnpm dev
 git clone https://github.com/shen-kk/create-ai-fullstack.git
 cd create-ai-fullstack
 pnpm install
-pnpm setup
+pnpm run setup
 pnpm dev
 ```
 

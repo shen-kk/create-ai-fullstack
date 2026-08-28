@@ -23,7 +23,7 @@ try {
   if (errors.length) throw new Error(errors.join('；'));
 
   const envFile = parseEnv(await readFile(new URL('.env', root), 'utf8'));
-  if (!envFile.DATABASE_URL) throw new Error('缺少 DATABASE_URL，请先运行 pnpm setup');
+  if (!envFile.DATABASE_URL) throw new Error('缺少 DATABASE_URL，请先运行 pnpm run setup');
 
   const commands = provisionCommands(config);
   if (process.env.SKIP_PRISMA_GENERATE === '1') {

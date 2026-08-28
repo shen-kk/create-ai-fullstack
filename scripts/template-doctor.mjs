@@ -133,7 +133,7 @@ try {
     '必须至少 12 个字符',
   );
 } catch {
-  add('FAIL', '本地环境变量', '缺少 .env，请先运行 pnpm setup');
+  add('FAIL', '本地环境变量', '缺少 .env，请先运行 pnpm run setup');
 }
 
 if (await exists('.template-bootstrap.json'))

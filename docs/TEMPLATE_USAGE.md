@@ -6,7 +6,7 @@ AIForge 明确区分代码组合与运行环境配置：
 
 ```text
 create-aiforge  选择业务功能并生成代码
-pnpm setup      配置开发环境和初始化数据库
+pnpm run setup  配置开发环境和初始化数据库
 后台服务配置     添加邮件、短信、Redis、对象存储等资源
 部署中心         配置生产部署资源与发布
 ```
@@ -34,7 +34,7 @@ npm create aiforge@latest my-project -- --features=
 ## 环境初始化
 
 ```bash
-pnpm setup
+pnpm run setup
 ```
 
 该命令只配置当前项目启用应用的端口、PostgreSQL、项目密钥和初始管理员。重新执行前会备份现有 `.env`，已有项目密钥默认保留。数据库密码使用隐藏输入，不进入命令参数、项目声明或 AI 文档。

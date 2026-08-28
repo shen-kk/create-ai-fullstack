@@ -2638,6 +2638,11 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
   padding: 0 14px;
   font-size: 14px;
 }
+.settings-form .password-input input {
+  box-sizing: border-box;
+  width: 100%;
+  padding-right: 52px;
+}
 .settings-form footer {
   display: flex;
   justify-content: flex-end;

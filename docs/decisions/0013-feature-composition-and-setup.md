@@ -12,7 +12,7 @@
 
 - `create-aiforge` 只选择业务功能并组合代码，不收集运行凭据。
 - 删除 quick、standard、custom 预设。
-- PostgreSQL、端口、项目密钥和管理员由统一的 `pnpm setup` 配置。
+- PostgreSQL、端口、项目密钥和管理员由统一的 `pnpm run setup` 配置。
 - 用户端账号整体包含验证码登录、找回密码与联系方式流程；邮件、短信、Redis、对象存储、Git、SSH 和具体服务商不作为 CLI 业务选项。
 - 业务功能通过唯一功能目录声明依赖，`modules` 由依赖图生成。
 - 模板维护者与普通用户使用相同的 setup、迁移、Doctor 和启动命令；区别仅是完整 Git 源码与 CLI 裁剪源码。
@@ -20,6 +20,6 @@
 
 ## 影响
 
-- 新项目流程变为 `npm create aiforge` → `pnpm setup` → `pnpm dev`。
+- 新项目流程变为 `npm create aiforge` → `pnpm run setup` → `pnpm dev`。
 - 服务资源可在项目启动后配置；功能未绑定资源时必须明确提示，不得默认选择第一条资源。
 - 新功能不能通过散落的布尔判断接入，必须先登记功能 ID、依赖、归属路径和验证组合。

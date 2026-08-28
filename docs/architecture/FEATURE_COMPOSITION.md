@@ -4,7 +4,7 @@ AIForge 将“业务功能选择”和“运行环境配置”分成两个阶段
 
 ```text
 npm create aiforge → 选择业务功能、组合代码
-pnpm setup         → 配置端口、PostgreSQL、项目密钥和管理员
+pnpm run setup     → 配置端口、PostgreSQL、项目密钥和管理员
 后台服务配置        → 配置邮件、短信、Redis、对象存储、Git 和服务器
 ```
 
@@ -43,4 +43,4 @@ SMTP、腾讯云 SES、腾讯云短信、COS、Redis、Git 和 Linux 服务器�
 
 ## 维护者与使用者
 
-模板维护者从 GitHub 获取完整代码，普通用户通过 CLI 获取裁剪代码。两者之后统一执行 `pnpm install`、`pnpm setup`、`pnpm doctor` 和 `pnpm dev`，不维护专用环境文件或第二套初始化逻辑。
+模板维护者从 GitHub 获取完整代码，普通用户通过 CLI 获取裁剪代码。两者之后统一执行 `pnpm install`、`pnpm run setup`、`pnpm doctor` 和 `pnpm dev`，不维护专用环境文件或第二套初始化逻辑。

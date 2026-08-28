@@ -150,7 +150,7 @@ try {
   });
   rmSync(join(destination, '.git'), { recursive: true, force: true });
   run('初始化项目 Git 仓库', 'git', ['init'], { cwd: destination });
-  prompts.outro(`项目已创建：${destination}\n下一步：cd ${projectName} && pnpm setup`);
+  prompts.outro(`项目已创建：${destination}\n下一步：cd ${projectName} && pnpm run setup`);
 } catch (error) {
   prompts.cancel(error instanceof Error ? error.message : '创建项目失败');
   process.exitCode = 1;

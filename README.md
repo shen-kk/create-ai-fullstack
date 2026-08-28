@@ -2,7 +2,7 @@
 
 > 第一次创建项目请按照 [中文分步使用手册](docs/GETTING_STARTED.md)，从环境准备、交互选择、启动一路操作到验收。
 
-最终使用者先通过 `npm create aiforge@latest my-project` 可视化选择业务功能并生成代码，再运行 `pnpm setup` 配置数据库和开发环境。邮件、短信、Redis、对象存储及具体服务商不在 CLI 中选择，由所选业务功能自动保留并在后台按需绑定。
+最终使用者先通过 `npm create aiforge@latest my-project` 可视化选择业务功能并生成代码，再运行 `pnpm run setup` 配置数据库和开发环境。邮件、短信、Redis、对象存储及具体服务商不在 CLI 中选择，由所选业务功能自动保留并在后台按需绑定。
 
 面向 AI 协作开发的后台管理端、用户端与服务端 Monorepo 模板。后台管理员和用户端账号使用独立身份边界，模板不预置行业业务。
 
@@ -18,11 +18,11 @@
 ```bash
 npm create aiforge@latest my-project
 cd my-project
-pnpm setup
+pnpm run setup
 pnpm dev:local
 ```
 
-CLI 已完成依赖安装和工作区刷新。`pnpm setup` 会生成本地 `.env`，并可在确认后立即校验 PostgreSQL、执行迁移和创建管理员。
+CLI 已完成依赖安装和工作区刷新。`pnpm run setup` 会生成本地 `.env`，并可在确认后立即校验 PostgreSQL、执行迁移和创建管理员。不要省略 `run`：pnpm 11 的内置 `pnpm setup` 命令不会运行项目初始化脚本。
 
 初始化向导会单独询问是否启用用户端。选择启用后，Web、独立用户身份 API、用户端权限以及后台“用户端用户”管理会一起生效；选择停用时这些运行时能力和菜单不会出现，Web 也不会进入默认开发、检查与构建任务。
 
@@ -51,4 +51,4 @@ AI 应依次读取：
 
 ## 推荐初始化方式
 
-新项目统一使用 npm CLI：`npm create aiforge@latest my-project`，然后执行 `pnpm setup`。模板维护者从 GitHub 拉取完整源码后也执行相同命令。完整分发说明见 [`docs/TEMPLATE_DISTRIBUTION.md`](docs/TEMPLATE_DISTRIBUTION.md)。
+新项目统一使用 npm CLI：`npm create aiforge@latest my-project`，然后执行 `pnpm run setup`。模板维护者从 GitHub 拉取完整源码后也执行相同命令。完整分发说明见 [`docs/TEMPLATE_DISTRIBUTION.md`](docs/TEMPLATE_DISTRIBUTION.md)。
