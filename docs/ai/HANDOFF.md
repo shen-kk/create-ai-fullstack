@@ -60,15 +60,15 @@ CLI 只选择业务功能并组合代码，不收集数据库或服务密钥。�
 - 生产 Compose 不创建本地 PostgreSQL，要求通过运行环境提供真实 `DATABASE_URL`，并包含 Admin/API/Web 三个独立服务。
 - 详细领域边界：`docs/domain/DEPLOYMENTS.md`；架构决策：ADR-0010、ADR-0011。
 
-## 2026-08-28 正式部署联调进度
+## 2026-08-28 正式部署联调结果
 
-- 正式环境 ID：`cmtad1e1q000ef0abwmj62db1`；部署路径：`/www/wwwroot/aiforge`；代码源为 CNB `nsmiling.com/ai-template` 的 `main`。GitHub 与 CNB 已同步到资源保护提交 `ec57890`。
+- 正式环境 ID：`cmtad1e1q000ef0abwmj62db1`；部署路径：`/www/wwwroot/aiforge`；代码源为 CNB `nsmiling.com/ai-template` 的 `main`。GitHub 与 CNB 已同步到 PM2 release 路径修复提交 `58b8921`。
 - 正式机只有约 1.7 GiB 内存。首次完整构建导致整机和 PostgreSQL 暂时失联；重启后已新增 `/www/deploy-build.swap` 2 GiB，并写入 `/etc/fstab`，当前总 Swap 为 3 GiB。项目本地私有 `.env` 使用 `DEPLOY_BUILD_MAX_OLD_SPACE_MB=640`、`DEPLOY_MIN_AVAILABLE_MEMORY_MB=1536`，不得把该私有文件提交。
 - 资源保护后的任务 `cmtbq7vpi001zf0ujnxftzhfs` 已成功完成资源门禁、依赖安装、Prisma Client、Admin/API/Web 构建、数据库迁移、原子切换和 PM2 重载，服务器没有再次失联。
-- 该任务最终在 API 健康检查失败并自动回退。直接原因是正式部署环境只保存了 Git、SSH 和数据库密钥，没有生产启动必需的五项密钥：`JWT_ACCESS_SECRET`、`JWT_REFRESH_SECRET`、`CUSTOMER_JWT_ACCESS_SECRET`、`CUSTOMER_JWT_REFRESH_SECRET`、`CONFIG_ENCRYPTION_KEY`。API 日志明确报 `JWT_ACCESS_SECRET must contain at least 32 characters in production`。
-- 同时发现 Nitro 不读取 `WEB_PORT`，导致 Web 默认监听 3000。本次运行参数修复已在 `ecosystem.config.cjs` 把 Web 的 `WEB_PORT` 映射为 `PORT`，并在 AIForge 内置部署项目中声明上述五项必填秘密变量。
-- 失败环境此前没有成功 release，因此自动恢复后删除了 `current` 符号链接。PM2 中 `aiforge-api`、`aiforge-web` 仍可能以失败 release 的真实目录运行；API 实际未监听 3001，Web 可能监听 3000。服务器上的其他既有 PM2 应用未被部署中心修改。
-- 临时 Deploy Worker 已停止。继续前先提交并同步当前运行参数修复，然后通过部署环境更新接口补齐五项生产密钥；不得把明文写入 Git 或交接文档。再启动构建后的 Worker，新建完整三端部署并验证 3001 ready、Web 3002、`current`、PM2 cwd 和发布记录。
+- 该任务最终在 API 健康检查失败并自动回退。直接原因是正式部署环境只保存了 Git、SSH 和数据库密钥，没有生产启动必需的五项密钥。五项密钥已通过部署环境接口生成并加密保存，明文未进入 Git 或文档；内置部署项目也已声明这些必填变量。
+- Nitro 端口映射已修复，Web 正式监听 3002。联调进一步发现 `pm2 startOrReload` 会保留旧 release 的 cwd 和脚本绝对路径；内置预设现改为只删除自身管理的 `aiforge-api` / `aiforge-web`，再从目标 release 启动，绝不影响服务器上的其他 PM2 应用。
+- 提交 `58b8921` 已完成两次成功三端发布。正式环境随后从 `20260828132454-h9lbdk` 成功回滚到 `20260828131859-178wmf`；回滚任务状态为 `rolled_back`，`current`、API cwd 和 Web cwd 均一致指向目标 release，3001/3002 监听且 API ready 返回 ok。
+- 临时本地 Deploy Worker 与 API 已停止。正式机的 `aiforge-api`、`aiforge-web` 继续由 PM2 运行；后续常驻 Worker 仍应在可信管理节点独立部署，不能加入其管理的业务部署单元。
 
 ## 已验证
 
@@ -79,7 +79,7 @@ CLI 只选择业务功能并组合代码，不收集数据库或服务密钥。�
 - 模板脚本 13 项测试通过。
 - 资源保护提交执行过完整 `pnpm check`，格式、UI 检查、Lint、类型、测试及 Admin/API/Web 生产构建全部通过。
 
-最终仍需补齐现有正式环境的五项生产密钥，完成一次健康检查成功的三端发布，再验证历史 release 回滚。真实凭据只在后台或私有环境文件填写，不能进入 Git、日志、截图或文档。联调完成前不要发布 npm 新版本。
+正式 Git、SSH、资源门禁、三端构建、数据库迁移、原子切换、PM2 目标 release 启动、健康检查和历史 release 回滚均已验收。真实凭据只在后台或私有环境文件填写，不能进入 Git、日志、截图或文档。npm 新版本仍需按发布 0.2 的组合矩阵完成后再发布。
 
 ## 完成定义
 

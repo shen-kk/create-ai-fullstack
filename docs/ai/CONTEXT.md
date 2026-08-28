@@ -2,7 +2,7 @@
 
 > 新接手的 AI 请先阅读 `docs/ai/HANDOFF.md`，再按任务读取本文件中的详细事实。
 
-最后核对：2026-08-27
+最后核对：2026-08-28
 
 ## 当前事实
 
@@ -10,6 +10,7 @@
 - 部署命令不在 API HTTP 进程内执行。独立 Deploy Worker 通过 `pnpm dev:worker` 或构建后的 `start:worker` 领取数据库任务；Worker 不得加入它管理的业务部署项目，避免 AIForge 自部署时中断当前任务。生产 Worker 至少需要与 API 相同的 `DATABASE_URL`、`CONFIG_ENCRYPTION_KEY` 和出站 SSH/Git 网络权限。
 - Deploy Worker 使用数据库租约、心跳和每环境活动任务唯一约束；Admin/API 会显示并校验 Worker 在线状态，离线时不接受部署或回滚任务。执行快照使用共享的 V2 契约并在 Worker 边界运行时校验，未知版本或损坏数据直接失败。决策见 ADR-0016。
 - 远端发布在拉取前执行可用内存与 Swap 门禁；安装、Prisma Client 生成和构建以低优先级、受限 Node 堆运行，资源限制不传递给迁移、重启或应用运行时。阈值由 Worker 环境变量配置，详见 ADR-0015。
+- PM2 reload 会沿用旧 release 的 cwd 和脚本绝对路径。AIForge 内置部署预设必须只删除自身管理的 `aiforge-api` / `aiforge-web` 后从目标 release 重新启动；正式发布与历史回滚已验证 `current`、进程 cwd、3001/3002 和 ready 一致。
 
 - 用户端验证码有效时间与再次发送间隔由后台“服务配置 → 功能绑定 → 用户端认证”配置；验证码按钮使用服务端返回值倒计时。全局 Toast 由成功/异常分支显式指定语义，禁止按中文文案猜测状态。
 
