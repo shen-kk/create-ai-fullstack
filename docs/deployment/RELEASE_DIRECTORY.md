@@ -36,11 +36,11 @@ Web 的 PM2 配置会把 `WEB_PORT` 映射为 Nitro 使用的 `PORT`，避免与
 部署中心切换 `current` 后分别执行：
 
 ```bash
-pm2 startOrReload ecosystem.config.cjs --only aiforge-api --update-env
-pm2 startOrReload ecosystem.config.cjs --only aiforge-web --update-env
+{ pm2 delete aiforge-api >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-api --update-env
+{ pm2 delete aiforge-web >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-web --update-env
 ```
 
-`startOrReload` 兼容首次启动和后续重载，因此第一次发布前不需要手工创建这两个进程。
+PM2 的 reload 会保留旧进程的 `cwd` 与脚本绝对路径，无法把进程切换到新的不可变 release。因此重启命令必须先删除平台管理的同名进程，再从当前 release 的 ecosystem 配置启动；第一次发布前仍不需要手工创建这两个进程。该操作只删除 `aiforge-api` 或 `aiforge-web`，不得使用 `pm2 delete all`。
 
 ## 3. 配置开机启动
 
@@ -76,8 +76,8 @@ pm2 describe aiforge-api
 - Admin 构建：`pnpm --filter @template/admin build`，重启命令为 `true`
 - API 构建：`pnpm --filter @template/api build`
 - API 迁移：`pnpm --filter @template/api exec prisma migrate deploy`
-- API 重载：`pm2 startOrReload ecosystem.config.cjs --only aiforge-api --update-env`
+- API 重载：`{ pm2 delete aiforge-api >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-api --update-env`
 - Web 构建：`pnpm --filter @template/web build`
-- Web 重载：`pm2 startOrReload ecosystem.config.cjs --only aiforge-web --update-env`
+- Web 重载：`{ pm2 delete aiforge-web >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-web --update-env`
 
 健康检查建议填写 API 的完整 ready 地址，例如 `https://example.com/api/health/ready`。没有健康检查只能确认目录已切换，不能证明应用可用。

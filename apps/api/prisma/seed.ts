@@ -122,7 +122,8 @@ async function seedDeploymentEnvironment(): Promise<void> {
           name: 'API 服务',
           buildCommand: 'pnpm --filter @template/api build',
           migrationCommand: 'pnpm --filter @template/api exec prisma migrate deploy',
-          restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-api --update-env',
+          restartCommand:
+            '{ pm2 delete aiforge-api >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-api --update-env',
           healthCheckUrl: null,
         },
         {
@@ -130,7 +131,8 @@ async function seedDeploymentEnvironment(): Promise<void> {
           name: '用户端',
           buildCommand: 'pnpm --filter @template/web build',
           migrationCommand: null,
-          restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-web --update-env',
+          restartCommand:
+            '{ pm2 delete aiforge-web >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-web --update-env',
           healthCheckUrl: null,
         },
       ],
@@ -193,7 +195,8 @@ async function seedDeploymentEnvironment(): Promise<void> {
           name: 'API 服务',
           buildCommand: 'pnpm --filter @template/api build',
           migrationCommand: 'pnpm --filter @template/api exec prisma migrate deploy',
-          restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-api --update-env',
+          restartCommand:
+            '{ pm2 delete aiforge-api >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-api --update-env',
           healthCheckUrl: null,
         },
         {
@@ -201,7 +204,8 @@ async function seedDeploymentEnvironment(): Promise<void> {
           name: '用户端',
           buildCommand: 'pnpm --filter @template/web build',
           migrationCommand: null,
-          restartCommand: 'pm2 startOrReload ecosystem.config.cjs --only aiforge-web --update-env',
+          restartCommand:
+            '{ pm2 delete aiforge-web >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-web --update-env',
           healthCheckUrl: null,
         },
       ],
