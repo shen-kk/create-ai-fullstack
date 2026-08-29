@@ -64,7 +64,14 @@ async function visit(directory) {
   }
 }
 
-for (const root of roots) await visit(root);
+for (const root of roots) {
+  try {
+    await access(root);
+  } catch {
+    continue;
+  }
+  await visit(root);
+}
 
 if (violations.length) {
   console.error(`UI 一致性检查失败：\n${violations.map((item) => `- ${item}`).join('\n')}`);
