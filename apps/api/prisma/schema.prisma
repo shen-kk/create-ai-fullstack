@@ -53,7 +53,7 @@ enum DeployStepStatus {
 model User {
   id              String           @id @default(cuid())
   phone           String           @unique
-  email           String?
+  email           String?          @unique
   name            String
   avatarUrl       String?
   passwordHash    String

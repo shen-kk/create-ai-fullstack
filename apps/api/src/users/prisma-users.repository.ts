@@ -81,8 +81,12 @@ export class PrismaUsersRepository implements UsersRepository {
       });
       return this.toSummary(user);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
-        throw new ConflictException('PHONE_ALREADY_EXISTS');
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const target = Array.isArray(error.meta?.target) ? error.meta.target.map(String) : [];
+        throw new ConflictException(
+          target.includes('email') ? 'EMAIL_ALREADY_EXISTS' : 'PHONE_ALREADY_EXISTS',
+        );
+      }
       throw error;
     }
   }
@@ -102,8 +106,12 @@ export class PrismaUsersRepository implements UsersRepository {
       });
       return this.toSummary(user);
     } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002')
-        throw new ConflictException('PHONE_ALREADY_EXISTS');
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        const target = Array.isArray(error.meta?.target) ? error.meta.target.map(String) : [];
+        throw new ConflictException(
+          target.includes('email') ? 'EMAIL_ALREADY_EXISTS' : 'PHONE_ALREADY_EXISTS',
+        );
+      }
       throw error;
     }
   }

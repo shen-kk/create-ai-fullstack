@@ -133,12 +133,15 @@ async function submitEdit(): Promise<void> {
   saving.value = true;
   notice.value = '';
   try {
-    await updateUser(editTargetId.value, editForm.value);
+    await updateUser(editTargetId.value, {
+      ...editForm.value,
+      email: editForm.value.email.trim() || undefined,
+    });
     editOpen.value = false;
     notice.value = '用户基本资料已更新。';
     await loadUsers();
   } catch {
-    notice.value = '更新失败，请检查邮箱是否与其他用户重复。';
+    notice.value = '更新失败，请检查手机号、邮箱或稍后重试。';
   } finally {
     saving.value = false;
   }
