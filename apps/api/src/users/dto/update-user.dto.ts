@@ -5,6 +5,11 @@ import { Transform } from 'class-transformer';
 export class UpdateUserDto implements UpdateUserRequest {
   @IsString() @MinLength(2) @MaxLength(80) name!: string;
   @IsString() @Matches(/^\+?[1-9]\d{6,14}$/) phone!: string;
-  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
-  @IsOptional() @IsEmail() @MaxLength(254) email?: string;
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' && value.trim() === '' ? undefined : value,
+  )
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(254)
+  email?: string;
 }
