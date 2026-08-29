@@ -1,10 +1,18 @@
 param(
-  [int[]]$Ports = @(3000, 3001, 3002)
+  [int[]]$Ports
 )
 
 $ErrorActionPreference = 'Stop'
 $workspace = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..')).TrimEnd('\')
 $workspacePattern = [regex]::Escape($workspace)
+if (-not $Ports -or $Ports.Count -eq 0) {
+  $projectConfig = Get-Content (Join-Path $workspace 'project.config.json') -Raw -Encoding utf8 | ConvertFrom-Json
+  $Ports = @(
+    [int]$projectConfig.runtime.adminPort,
+    [int]$projectConfig.runtime.apiPort,
+    [int]$projectConfig.runtime.webPort
+  )
+}
 
 function Get-ListeningProcessIds([int]$Port) {
   $matches = netstat -ano -p TCP | Select-String -Pattern "^\s*TCP\s+\S+:$Port\s+\S+\s+LISTENING\s+(\d+)\s*$"
