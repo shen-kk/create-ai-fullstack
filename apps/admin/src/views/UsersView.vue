@@ -133,9 +133,11 @@ async function submitEdit(): Promise<void> {
   saving.value = true;
   notice.value = '';
   try {
+    const email = editForm.value.email.trim();
     await updateUser(editTargetId.value, {
-      ...editForm.value,
-      email: editForm.value.email.trim() || undefined,
+      name: editForm.value.name,
+      phone: editForm.value.phone,
+      ...(email ? { email } : {}),
     });
     editOpen.value = false;
     notice.value = '用户基本资料已更新。';
