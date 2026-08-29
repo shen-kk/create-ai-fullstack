@@ -71,14 +71,27 @@ try {
   for (const command of commands) {
     console.log(`[RUN] pnpm ${command.join(' ')}`);
     const commandArgs = pnpmEntry ? [pnpmEntry, ...command] : command;
-    const result = spawnSync(executable, commandArgs, {
+    const spawnExecutable = process.platform === 'win32' && !pnpmEntry
+      ? process.env.ComSpec ?? 'cmd.exe'
+      : executable;
+    const spawnArgs = process.platform === 'win32' && !pnpmEntry
+      ? ['/d', '/s', '/c', executable, ...commandArgs]
+      : commandArgs;
+    const result = spawnSync(spawnExecutable, spawnArgs, {
       cwd: rootPath,
       env: childEnv,
       stdio: 'inherit',
       shell: false,
     });
     if (result.error) throw result.error;
-    if (result.status !== 0) throw new Error(`命令执行失败，退出码 ${result.status ?? 'unknown'}`);
+    if (result.status !== 0) {
+      if (command.includes('db:generate') && process.platform === 'win32') {
+        throw new Error(
+          'Prisma Client 生成失败：Windows 正在占用 Prisma 引擎文件。请先停止 pnpm dev、API 或其他 Node 进程，再重新运行初始化。',
+        );
+      }
+      throw new Error(`命令执行失败，退出码 ${result.status ?? 'unknown'}`);
+    }
   }
 
   if (childEnv.TEMPLATE_BOOTSTRAP_FILE) {

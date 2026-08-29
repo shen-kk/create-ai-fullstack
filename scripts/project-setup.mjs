@@ -49,7 +49,16 @@ const run = (message, args) => {
     : process.platform === 'win32'
       ? 'pnpm.cmd'
       : 'pnpm';
-  const result = spawnSync(executable, pnpmEntry ? [pnpmEntry, ...args] : args, {
+  const commandArgs = pnpmEntry ? [pnpmEntry, ...args] : args;
+  // Windows cannot reliably execute .cmd shims through spawnSync directly
+  // (it may fail with EINVAL). Route the command through cmd.exe instead.
+  const spawnExecutable = process.platform === 'win32' && !pnpmEntry
+    ? process.env.ComSpec ?? 'cmd.exe'
+    : executable;
+  const spawnArgs = process.platform === 'win32' && !pnpmEntry
+    ? ['/d', '/s', '/c', executable, ...commandArgs]
+    : commandArgs;
+  const result = spawnSync(spawnExecutable, spawnArgs, {
     cwd: new URL('../', import.meta.url),
     stdio: 'pipe',
     encoding: 'utf8',
