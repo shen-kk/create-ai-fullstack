@@ -10,7 +10,7 @@
 - 部署命令不在 API HTTP 进程内执行。独立 Deploy Worker 通过 `pnpm run dev:worker` 或 `pnpm --filter @template/api run start:worker` 领取数据库任务；Worker 不得加入它管理的业务部署项目，避免 AIForge 自部署时中断当前任务。生产 Worker 至少需要与 API 相同的 `DATABASE_URL`、`CONFIG_ENCRYPTION_KEY` 和出站 SSH/Git 网络权限。
 - Deploy Worker 使用数据库租约、心跳和每环境活动任务唯一约束；Admin/API 会显示并校验 Worker 在线状态，离线时不接受部署或回滚任务，并提供重新检测与独立启动说明。执行快照使用共享的 V2 契约并在 Worker 边界运行时校验，未知版本或损坏数据直接失败。决策见 ADR-0016。
 - 远端发布在拉取前执行可用内存与 Swap 门禁；安装、Prisma Client 生成和构建以低优先级、受限 Node 堆运行，资源限制不传递给迁移、重启或应用运行时。阈值由 Worker 环境变量配置，详见 ADR-0015。
-- PM2 reload 会沿用旧 release 的 cwd 和脚本绝对路径。AIForge 内置部署预设必须只删除自身管理的 `aiforge-api` / `aiforge-web` 后从目标 release 重新启动；正式发布与历史回滚已验证 `current`、进程 cwd、3001/3002 和 ready 一致。
+- PM2 reload 会沿用旧 release 的 cwd 和脚本绝对路径。内置部署预设必须使用初始化项目标识生成 `<project>-api` / `<project>-web` 进程名，只删除自身管理的进程后从目标 release 重新启动。
 
 - 用户端验证码有效时间与再次发送间隔由后台“服务配置 → 功能绑定 → 用户端认证”配置；验证码按钮使用服务端返回值倒计时。全局 Toast 由成功/异常分支显式指定语义，禁止按中文文案猜测状态。
 
@@ -22,7 +22,7 @@
 
 - Admin 登录页不预填固定演示账号或 `Admin@123456`；初始化管理员使用 `.env` 中每个项目独立生成的 `DEV_ADMIN_PHONE` / `DEV_ADMIN_PASSWORD`。初始化结束只显示手机号和密码所在字段，不回显随机密码；登录接口成功状态为 HTTP 200。
 - Admin 管理员成功完成密码登录后更新 `User.lastActiveAt`，用户管理列表的“最近活跃”展示该真实时间；认证失败不得更新。后台个人中心可查看有效登录设备并保留当前设备退出其他会话，后台 Access Token 绑定 Refresh Session，撤销后立即失效。后台 `.page-content` 不设置桌面端最大宽度，在高分辨率屏幕上使用侧边栏以外的全部可用空间。
-- Admin 的全部 API 请求统一使用 `src/api/base.ts` 解析地址：优先采用部署时的 `VITE_API_BASE_URL`，否则读取初始化生成的 `project.runtime.apiPort`。禁止在会话或业务 API 文件中硬编码 `3001`，避免自定义端口被浏览器误报为 CORS 错误。
+- Admin/Web 浏览器请求默认统一使用同源 `/api`：本地由 Vite/Nuxt 按初始化的 API 端口代理，线上由 Nginx 等入口代理；只有明确的跨域部署才覆盖 `VITE_API_BASE_URL` / `PUBLIC_API_BASE_URL`。应用开发端口由初始化生成的 `.env` 驱动，不得在 package scripts 中写死。
 
 - `create-aiforge` 只询问是否启用用户端，不再提供 quick、standard、custom，也不询问头像、部署中心、邮件、短信、Redis、对象存储或数据库凭据。头像随用户端自动启用；部署中心和对象存储资源库始终保留。`project.config.json.features` 只记录真正可裁剪的 `customerWeb`，`modules` 必须由共享功能目录推导。未启用用户端时物理移除 `apps/web`，并继续收敛关联 API、权限和 Prisma 的细粒度组合。
 

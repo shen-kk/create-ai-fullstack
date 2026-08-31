@@ -98,6 +98,15 @@ try {
   const productionCompose = await readFile(join(target, 'docker-compose.production.yml'), 'utf8');
   if (!userWeb && productionCompose.includes('apps/web/Dockerfile'))
     throw new Error('未选择用户端，但生产 Compose 仍引用用户端镜像');
+  const rootPackage = JSON.parse(await readFile(join(target, 'package.json'), 'utf8'));
+  const ecosystem = await readFile(join(target, 'ecosystem.config.cjs'), 'utf8');
+  if (!userWeb && rootPackage.scripts['dev:web'])
+    throw new Error('未选择用户端，但根命令仍暴露 dev:web');
+  const exampleEnvironment = await readFile(join(target, '.env.example'), 'utf8');
+  if (!userWeb && /^(?:WEB_PORT|WEB_ORIGIN|CUSTOMER_JWT_)/m.test(exampleEnvironment))
+    throw new Error('未选择用户端，但环境变量示例仍包含用户端配置');
+  if (!ecosystem.includes('`${project.name}-api`'))
+    throw new Error('PM2 进程名未从初始化项目名称生成');
   run('feature-check.mjs');
   console.log('[PASS] 全新目录功能组合、配置检查和敏感信息隔离验证通过。');
   if (full) {

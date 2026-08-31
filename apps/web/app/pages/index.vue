@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { HealthResponse } from '@template/contracts';
+import { project } from '../generated/project';
 
 const config = useRuntimeConfig();
 const { data: health } = await useFetch<HealthResponse>('/health', {
@@ -17,25 +18,25 @@ const applications = [
     '01',
     '后台管理 Admin',
     '管理员、角色权限、审计日志、服务资源和部署环境。',
-    'http://localhost:3000',
+    `http://localhost:${project.runtime.adminPort}`,
   ],
   [
     '02',
     'API 服务',
     '鉴权、业务规则、Prisma 数据访问与统一错误响应。',
-    'http://localhost:3001/api',
+    `http://localhost:${project.runtime.apiPort}/api`,
   ],
   [
     '03',
     '用户端 Web',
     '首次登录自动开户、个人中心、SSR 与响应式设计基础。',
-    'http://localhost:3002',
+    `http://localhost:${project.runtime.webPort}`,
   ],
 ];
 const steps = [
   ['创建项目', '运行创建命令，进入交互式初始化向导。'],
   ['填写数据库', '提供项目启动必需的 PostgreSQL 信息。'],
-  ['选择应用', '按需要启用用户端与部署中心，Admin 和 API 是基础能力。'],
+  ['选择应用', '按需要启用用户端；Admin、API 与部署中心是基础能力。'],
   ['启动开发', '安装依赖并启动项目，开始三端联调。'],
 ];
 const resources = [

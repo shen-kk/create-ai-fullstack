@@ -102,150 +102,100 @@ async function seedIntegrationConfigs(): Promise<void> {
 }
 
 async function seedDeploymentEnvironment(): Promise<void> {
-  const project = await prisma.deployProject.upsert({
-    where: { code: 'aiforge-fullstack' },
+  const apiProcessName = `${project.name}-api`;
+  const webProcessName = `${project.name}-web`;
+  const packageScope = project.packageScope;
+  const deploymentProjectCode = `${project.name}-fullstack`;
+  const variables = [
+    {
+      key: 'JWT_ACCESS_SECRET',
+      label: '后台 Access Token 密钥',
+      required: true,
+      secret: true,
+      resourceKind: null,
+    },
+    {
+      key: 'JWT_REFRESH_SECRET',
+      label: '后台 Refresh Token 密钥',
+      required: true,
+      secret: true,
+      resourceKind: null,
+    },
+    ...(project.modules.userWeb
+      ? [
+          {
+            key: 'CUSTOMER_JWT_ACCESS_SECRET',
+            label: '用户端 Access Token 密钥',
+            required: true,
+            secret: true,
+            resourceKind: null,
+          },
+          {
+            key: 'CUSTOMER_JWT_REFRESH_SECRET',
+            label: '用户端 Refresh Token 密钥',
+            required: true,
+            secret: true,
+            resourceKind: null,
+          },
+        ]
+      : []),
+    {
+      key: 'CONFIG_ENCRYPTION_KEY',
+      label: '配置加密密钥',
+      required: true,
+      secret: true,
+      resourceKind: null,
+    },
+  ];
+  const units = [
+    {
+      key: 'admin',
+      name: '后台管理',
+      buildCommand: `pnpm --filter ${packageScope}/admin build`,
+      migrationCommand: null,
+      restartCommand: 'true',
+      healthCheckUrl: null,
+    },
+    {
+      key: 'api',
+      name: 'API 服务',
+      buildCommand: `pnpm --filter ${packageScope}/api build`,
+      migrationCommand: `pnpm --filter ${packageScope}/api exec prisma migrate deploy`,
+      restartCommand: `{ pm2 delete ${apiProcessName} >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only ${apiProcessName} --update-env`,
+      healthCheckUrl: null,
+    },
+    ...(project.modules.userWeb
+      ? [
+          {
+            key: 'web',
+            name: '用户端',
+            buildCommand: `pnpm --filter ${packageScope}/web build`,
+            migrationCommand: null,
+            restartCommand: `{ pm2 delete ${webProcessName} >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only ${webProcessName} --update-env`,
+            healthCheckUrl: null,
+          },
+        ]
+      : []),
+  ];
+  const deploymentProject = await prisma.deployProject.upsert({
+    where: { code: deploymentProjectCode },
     update: {
+      name: `${project.displayName} 全栈项目`,
       description: '基于不可变版本目录、current 软链接与 PM2 进程管理的 AIForge 发布预设。',
       type: 'release-directory',
       installCommand: 'pnpm install --frozen-lockfile --child-concurrency=1',
-      units: [
-        {
-          key: 'admin',
-          name: '后台管理',
-          buildCommand: 'pnpm --filter @template/admin build',
-          migrationCommand: null,
-          restartCommand: 'true',
-          healthCheckUrl: null,
-        },
-        {
-          key: 'api',
-          name: 'API 服务',
-          buildCommand: 'pnpm --filter @template/api build',
-          migrationCommand: 'pnpm --filter @template/api exec prisma migrate deploy',
-          restartCommand:
-            '{ pm2 delete aiforge-api >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-api --update-env',
-          healthCheckUrl: null,
-        },
-        {
-          key: 'web',
-          name: '用户端',
-          buildCommand: 'pnpm --filter @template/web build',
-          migrationCommand: null,
-          restartCommand:
-            '{ pm2 delete aiforge-web >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-web --update-env',
-          healthCheckUrl: null,
-        },
-      ],
-      variables: [
-        {
-          key: 'JWT_ACCESS_SECRET',
-          label: '后台 Access Token 密钥',
-          required: true,
-          secret: true,
-          resourceKind: null,
-        },
-        {
-          key: 'JWT_REFRESH_SECRET',
-          label: '后台 Refresh Token 密钥',
-          required: true,
-          secret: true,
-          resourceKind: null,
-        },
-        {
-          key: 'CUSTOMER_JWT_ACCESS_SECRET',
-          label: '用户端 Access Token 密钥',
-          required: true,
-          secret: true,
-          resourceKind: null,
-        },
-        {
-          key: 'CUSTOMER_JWT_REFRESH_SECRET',
-          label: '用户端 Refresh Token 密钥',
-          required: true,
-          secret: true,
-          resourceKind: null,
-        },
-        {
-          key: 'CONFIG_ENCRYPTION_KEY',
-          label: '配置加密密钥',
-          required: true,
-          secret: true,
-          resourceKind: null,
-        },
-      ],
+      units,
+      variables,
       system: true,
     },
     create: {
-      name: 'AIForge 全栈项目',
-      code: 'aiforge-fullstack',
+      name: `${project.displayName} 全栈项目`,
+      code: deploymentProjectCode,
       description: '基于不可变版本目录、current 软链接与 PM2 进程管理的 AIForge 发布预设。',
       type: 'release-directory',
       installCommand: 'pnpm install --frozen-lockfile --child-concurrency=1',
-      units: [
-        {
-          key: 'admin',
-          name: '后台管理',
-          buildCommand: 'pnpm --filter @template/admin build',
-          migrationCommand: null,
-          restartCommand: 'true',
-          healthCheckUrl: null,
-        },
-        {
-          key: 'api',
-          name: 'API 服务',
-          buildCommand: 'pnpm --filter @template/api build',
-          migrationCommand: 'pnpm --filter @template/api exec prisma migrate deploy',
-          restartCommand:
-            '{ pm2 delete aiforge-api >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-api --update-env',
-          healthCheckUrl: null,
-        },
-        {
-          key: 'web',
-          name: '用户端',
-          buildCommand: 'pnpm --filter @template/web build',
-          migrationCommand: null,
-          restartCommand:
-            '{ pm2 delete aiforge-web >/dev/null 2>&1 || true; } && pm2 start ecosystem.config.cjs --only aiforge-web --update-env',
-          healthCheckUrl: null,
-        },
-      ],
-      variables: [
-        {
-          key: 'JWT_ACCESS_SECRET',
-          label: '后台 Access Token 密钥',
-          required: true,
-          secret: true,
-          resourceKind: null,
-        },
-        {
-          key: 'JWT_REFRESH_SECRET',
-          label: '后台 Refresh Token 密钥',
-          required: true,
-          secret: true,
-          resourceKind: null,
-        },
-        {
-          key: 'CUSTOMER_JWT_ACCESS_SECRET',
-          label: '用户端 Access Token 密钥',
-          required: true,
-          secret: true,
-          resourceKind: null,
-        },
-        {
-          key: 'CUSTOMER_JWT_REFRESH_SECRET',
-          label: '用户端 Refresh Token 密钥',
-          required: true,
-          secret: true,
-          resourceKind: null,
-        },
-        {
-          key: 'CONFIG_ENCRYPTION_KEY',
-          label: '配置加密密钥',
-          required: true,
-          secret: true,
-          resourceKind: null,
-        },
-      ],
+      units,
+      variables,
       system: true,
     },
   });
@@ -270,7 +220,7 @@ async function seedDeploymentEnvironment(): Promise<void> {
     create: {
       name: item.name,
       kind: item.kind as DeployEnvironmentKind,
-      projectId: project.id,
+      projectId: deploymentProject.id,
       applications: item.applications,
       environmentValues: {},
       gitProvider: item.gitProvider,

@@ -6,20 +6,27 @@ interface ToastMessage {
   tone: ToastTone;
 }
 
+let nextToastId = 0;
+let dismissTimer: number | undefined;
+
 export function useAppToast() {
   const toast = useState<ToastMessage | null>('app-toast', () => null);
 
   function showToast(message: string, tone: ToastTone = 'info'): void {
-    toast.value = { id: Date.now(), message, tone };
+    toast.value = { id: ++nextToastId, message, tone };
     if (import.meta.client) {
+      if (dismissTimer) window.clearTimeout(dismissTimer);
       const id = toast.value.id;
-      window.setTimeout(() => {
+      dismissTimer = window.setTimeout(() => {
         if (toast.value?.id === id) toast.value = null;
+        dismissTimer = undefined;
       }, 3200);
     }
   }
 
   function dismissToast(): void {
+    if (import.meta.client && dismissTimer) window.clearTimeout(dismissTimer);
+    dismissTimer = undefined;
     toast.value = null;
   }
 

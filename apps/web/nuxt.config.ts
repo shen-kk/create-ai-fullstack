@@ -14,9 +14,17 @@ export default defineNuxtConfig({
   vite: {
     plugins: [tailwindcss()],
   },
+  devServer: {
+    port: Number(process.env.WEB_PORT || 3002),
+  },
+  nitro: {
+    devProxy: {
+      '/api': `http://127.0.0.1:${process.env.API_PORT || 3001}/api`,
+    },
+  },
   runtimeConfig: {
     public: {
-      apiBaseUrl: process.env.PUBLIC_API_BASE_URL ?? 'http://localhost:3001/api',
+      apiBaseUrl: process.env.PUBLIC_API_BASE_URL || '/api',
     },
   },
   typescript: { strict: true, typeCheck: true },

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "nuxt dev --port 3002",
+    "dev": "nuxt dev",
     "build": "nuxt build",
     "lint": "eslint nuxt.config.ts --max-warnings=0",
     "typecheck": "nuxt typecheck",

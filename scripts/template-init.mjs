@@ -31,6 +31,21 @@ const removeComposeService = async (path, service) => {
   const pattern = new RegExp(`\\n  ${service}:\\r?\\n[\\s\\S]*?(?=\\n  [A-Za-z0-9_-]+:\\r?\\n|$)`);
   await writeFile(url, source.replace(pattern, ''), 'utf8');
 };
+const removePackageScript = async (name) => {
+  const url = new URL('package.json', root);
+  const manifest = JSON.parse(await readFile(url, 'utf8'));
+  delete manifest.scripts?.[name];
+  await writeFile(url, `${JSON.stringify(manifest, null, 2)}\n`, 'utf8');
+};
+const removeExampleEnvironment = async (names) => {
+  const url = new URL('.env.example', root);
+  const source = await readFile(url, 'utf8');
+  const next = source
+    .split(/\r?\n/)
+    .filter((line) => !names.some((name) => line.startsWith(`${name}=`)))
+    .join('\n');
+  await writeFile(url, `${next.replace(/\n+$/, '')}\n`, 'utf8');
+};
 
 const replaceWorkspaceScope = async (nextScope) => {
   const contractsPackage = JSON.parse(
@@ -124,7 +139,15 @@ for (const feature of featureCatalog) {
     console.log(`[CUT] ${feature.label}：${path}`);
   }
 }
-if (!features.includes('customerWeb'))
+if (!features.includes('customerWeb')) {
   await removeComposeService('docker-compose.production.yml', 'web');
+  await removePackageScript('dev:web');
+  await removeExampleEnvironment([
+    'WEB_PORT',
+    'WEB_ORIGIN',
+    'CUSTOMER_JWT_ACCESS_SECRET',
+    'CUSTOMER_JWT_REFRESH_SECRET',
+  ]);
+}
 await replaceWorkspaceScope(packageScope);
 console.log(`[DONE] 已组合功能：${features.join(', ') || '基础平台（未启用用户端）'}`);
