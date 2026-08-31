@@ -6,7 +6,7 @@
 
 ## 当前事实
 
-- 部署中心不要求仓库提交部署清单，也不把部署单元固定为 Admin/API/Web。部署项目保存依赖安装和各单元的构建、迁移、重启、健康检查命令；Worker 在不可变 release 目录构建，原子切换 `current`，由 PM2 托管 Node.js 进程，失败时恢复旧目录并重载。环境必须绑定 Git、服务器及项目声明所需的 SQL/Redis 资源。决策见 ADR-0011、ADR-0012、ADR-0015。
+- 部署中心不要求仓库提交部署清单，也不把部署单元固定为 Admin/API/Web。部署项目保存依赖安装和各单元的构建、迁移、重启、健康检查命令；Worker 在不可变 release 目录构建，原子切换 `current`，由 PM2 托管 Node.js 进程，失败时恢复旧目录并重载。环境必须绑定 Git、服务器及项目声明所需的 SQL/Redis 资源；内置 AIForge 预设必须将必填 `DATABASE_URL` 声明为 SQL 资源依赖，不自动把初始化开发数据库绑定到正式环境。决策见 ADR-0011、ADR-0012、ADR-0015。
 - 部署命令不在 API HTTP 进程内执行。独立 Deploy Worker 通过 `pnpm run dev:worker` 或 `pnpm --filter @template/api run start:worker` 领取数据库任务；Worker 不得加入它管理的业务部署项目，避免 AIForge 自部署时中断当前任务。生产 Worker 至少需要与 API 相同的 `DATABASE_URL`、`CONFIG_ENCRYPTION_KEY` 和出站 SSH/Git 网络权限。
 - Deploy Worker 使用数据库租约、心跳和每环境活动任务唯一约束；Admin/API 会显示并校验 Worker 在线状态，离线时不接受部署或回滚任务，并提供重新检测与独立启动说明。执行快照使用共享的 V2 契约并在 Worker 边界运行时校验，未知版本或损坏数据直接失败。决策见 ADR-0016。
 - 远端发布在拉取前执行可用内存与 Swap 门禁；安装、Prisma Client 生成和构建以低优先级、受限 Node 堆运行，资源限制不传递给迁移、重启或应用运行时。阈值由 Worker 环境变量配置，详见 ADR-0015。

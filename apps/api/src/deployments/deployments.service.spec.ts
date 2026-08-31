@@ -36,4 +36,33 @@ describe('DeploymentsService worker availability', () => {
       'DEPLOYMENT_WORKER_OFFLINE',
     );
   });
+
+  it('rejects an existing environment when its project requires an unbound SQL resource', async () => {
+    const service = createService({
+      deployWorker: { findFirst: () => Promise.resolve({ id: 'worker-1' }) },
+      deployEnvironment: {
+        findUnique: () =>
+          Promise.resolve({
+            id: 'environment-1',
+            sqlResourceId: null,
+            redisResourceId: null,
+            project: {
+              variables: [
+                {
+                  key: 'DATABASE_URL',
+                  label: '数据库连接',
+                  required: true,
+                  secret: true,
+                  resourceKind: 'sql',
+                },
+              ],
+            },
+          }),
+      },
+    });
+
+    await expect(service.createRun('environment-1', {}, { actorId: 'admin-1' })).rejects.toThrow(
+      'DEPLOYMENT_SQL_RESOURCE_REQUIRED',
+    );
+  });
 });

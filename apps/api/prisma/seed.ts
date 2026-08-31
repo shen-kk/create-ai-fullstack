@@ -108,6 +108,13 @@ async function seedDeploymentEnvironment(): Promise<void> {
   const deploymentProjectCode = `${project.name}-fullstack`;
   const variables = [
     {
+      key: 'DATABASE_URL',
+      label: '数据库连接',
+      required: true,
+      secret: true,
+      resourceKind: 'sql',
+    },
+    {
       key: 'JWT_ACCESS_SECRET',
       label: '后台 Access Token 密钥',
       required: true,

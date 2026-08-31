@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { IntegrationKind } from '@template/contracts';
+import type { IntegrationKind, UpsertServiceResourceRequest } from '@template/contracts';
+import {
+  decryptDeploymentSecrets,
+  encryptDeploymentSecrets,
+} from '../deployments/deployment-secrets.js';
 import { IntegrationsService } from './integrations.service.js';
 
 const sqlValues = {
@@ -59,6 +63,187 @@ describe('IntegrationsService', () => {
     expect(saved.values).not.toHaveProperty('password');
     expect(JSON.stringify(saved)).not.toContain('top-secret');
   });
+
+  it('synchronizes updated Git resources to bound deployment environments', async () => {
+    const environmentUpdates: Array<Record<string, unknown>> = [];
+    const updatedAt = new Date();
+    const resource = {
+      id: 'git-1',
+      name: 'Git',
+      kind: 'git',
+      provider: 'git',
+      enabled: true,
+      values: {
+        repositoryUrl: 'https://example.com/old.git',
+        defaultRef: 'main',
+        authMode: 'token',
+      },
+      encryptedSecrets: null,
+      createdAt: updatedAt,
+      updatedAt,
+    };
+    const prisma = {
+      serviceResource: {
+        findUnique: () => Promise.resolve(resource),
+        findMany: () => Promise.resolve([resource]),
+      },
+      $transaction: async (work: (transaction: object) => Promise<void>) =>
+        work({
+          serviceResource: {
+            update: ({ data }: { data: Record<string, unknown> }) => {
+              Object.assign(resource, data, { updatedAt });
+              return Promise.resolve(resource);
+            },
+          },
+          deployEnvironment: {
+            findMany: () =>
+              Promise.resolve([
+                {
+                  id: 'environment-1',
+                  encryptedSecrets: encryptDeploymentSecrets({ sshPassword: 'server-secret' }),
+                },
+              ]),
+            update: ({ data }: { data: Record<string, unknown> }) => {
+              environmentUpdates.push(data);
+              return Promise.resolve(data);
+            },
+          },
+        }),
+    };
+    const service = new IntegrationsService(
+      prisma as never,
+      { record: () => Promise.resolve() } as never,
+    );
+
+    await service.updateResource('git-1', {
+      name: 'Git',
+      kind: 'git',
+      provider: 'git',
+      enabled: true,
+      values: {
+        repositoryUrl: 'https://example.com/new.git',
+        defaultRef: 'release',
+        authMode: 'token',
+      },
+      secrets: { token: 'new-token' },
+    });
+
+    expect(environmentUpdates[0]).toMatchObject({
+      repositoryUrl: 'https://example.com/new.git',
+      gitRef: 'release',
+      gitAuthMode: 'token',
+      status: 'DRAFT',
+      gitVerifiedAt: null,
+      lastVerifiedAt: null,
+    });
+    expect(decryptDeploymentSecrets(environmentUpdates[0]?.encryptedSecrets as string)).toEqual({
+      sshPassword: 'server-secret',
+      gitToken: 'new-token',
+    });
+  });
+
+  it.each([
+    {
+      kind: 'server',
+      values: {
+        host: 'server.example.com',
+        port: '2222',
+        username: 'deploy',
+        authMode: 'password',
+        deployRoot: '/srv/default',
+      },
+      secrets: { password: 'ssh-secret' },
+      binding: 'serverResourceId',
+      expectedData: {
+        host: 'server.example.com',
+        sshPort: 2222,
+        sshUser: 'deploy',
+        sshAuthMode: 'password',
+        serverVerifiedAt: null,
+      },
+      expectedSecrets: { sshPassword: 'ssh-secret' },
+    },
+    {
+      kind: 'sql',
+      values: sqlValues,
+      secrets: { password: 'database-secret' },
+      binding: 'sqlResourceId',
+      expectedData: { gitVerifiedAt: null, serverVerifiedAt: null },
+      expectedSecrets: {
+        databaseUrl: 'postgresql://demo:database-secret@localhost:5432/demo?schema=public',
+      },
+    },
+    {
+      kind: 'redis',
+      values: { provider: 'self_hosted', url: 'redis://cache.example.com:6379/0' },
+      secrets: { password: 'redis-secret' },
+      binding: 'redisResourceId',
+      expectedData: { gitVerifiedAt: null, serverVerifiedAt: null },
+      expectedSecrets: { redisUrl: 'redis://:redis-secret@cache.example.com:6379/0' },
+    },
+  ] as const)(
+    'synchronizes updated $kind resources to bound deployment environments',
+    async ({ kind, values, secrets, binding, expectedData, expectedSecrets }) => {
+      const environmentUpdates: Array<Record<string, unknown>> = [];
+      const now = new Date();
+      const resource = {
+        id: `${kind}-1`,
+        name: kind,
+        kind,
+        provider: kind,
+        enabled: true,
+        values,
+        encryptedSecrets: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      const deployEnvironment = {
+        findMany: ({ where }: { where: Record<string, string> }) => {
+          expect(where).toEqual({ [binding]: resource.id });
+          return Promise.resolve([
+            { id: 'environment-1', encryptedSecrets: encryptDeploymentSecrets({}) },
+          ]);
+        },
+        update: ({ data }: { data: Record<string, unknown> }) => {
+          environmentUpdates.push(data);
+          return Promise.resolve(data);
+        },
+      };
+      const prisma = {
+        serviceResource: {
+          findUnique: () => Promise.resolve(resource),
+          findMany: () => Promise.resolve([resource]),
+        },
+        $transaction: async (work: (transaction: object) => Promise<void>) =>
+          work({
+            serviceResource: { update: () => Promise.resolve(resource) },
+            deployEnvironment,
+          }),
+      };
+      const service = new IntegrationsService(
+        prisma as never,
+        { record: () => Promise.resolve() } as never,
+      );
+
+      await service.updateResource(resource.id, {
+        name: kind,
+        kind,
+        provider: kind,
+        enabled: true,
+        values,
+        secrets,
+      } as UpsertServiceResourceRequest);
+
+      expect(environmentUpdates[0]).toMatchObject({
+        ...expectedData,
+        status: 'DRAFT',
+        lastVerifiedAt: null,
+      });
+      expect(decryptDeploymentSecrets(environmentUpdates[0]?.encryptedSecrets as string)).toEqual(
+        expectedSecrets,
+      );
+    },
+  );
   it('lists the fixed service resource types independently of project modules', async () => {
     const service = createService();
     const items = await service.list();

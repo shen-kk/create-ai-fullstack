@@ -39,6 +39,17 @@ const loading = ref(true),
   notice = ref(''),
   workingId = ref('');
 const statusText = { draft: '待检查', verified: '可部署', unreachable: '连接失败' } as const;
+const deploymentErrorMessages: Record<string, string> = {
+  DEPLOYMENT_SQL_RESOURCE_REQUIRED:
+    '当前项目需要数据库，请编辑部署环境并绑定一个已启用的 SQL 资源。',
+  DEPLOYMENT_REDIS_RESOURCE_REQUIRED:
+    '当前项目需要 Redis，请编辑部署环境并绑定一个已启用的 Redis 资源。',
+  DEPLOYMENT_RESOURCE_BINDING_INVALID: '绑定的服务资源不存在、类型不匹配或已停用，请检查环境配置。',
+};
+const deploymentError = (cause: unknown, fallback: string): string => {
+  const code = cause instanceof Error ? cause.message : '';
+  return deploymentErrorMessages[code] ?? (code || fallback);
+};
 const kindText = {
   development: '开发环境',
   test: '测试环境',
@@ -102,7 +113,7 @@ async function check(item: DeploymentEnvironmentSummary): Promise<void> {
       .join('\n');
     await load();
   } catch (cause) {
-    notice.value = cause instanceof Error ? cause.message : '配置检查失败';
+    notice.value = deploymentError(cause, '配置检查失败');
   } finally {
     workingId.value = '';
   }
@@ -117,7 +128,7 @@ async function deploy(item: DeploymentEnvironmentSummary): Promise<void> {
     const run = await createDeploymentRun(item.id, {});
     await router.push(`/deployments/runs/${run.id}`);
   } catch (cause) {
-    notice.value = cause instanceof Error ? cause.message : '创建部署任务失败';
+    notice.value = deploymentError(cause, '创建部署任务失败');
   } finally {
     workingId.value = '';
   }

@@ -18,6 +18,10 @@ import type {
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
 import { PrismaService } from '../database/prisma.service.js';
 import { AuditService } from '../audit/audit.service.js';
+import {
+  encryptDeploymentSecrets,
+  safeDecryptDeploymentSecrets,
+} from '../deployments/deployment-secrets.js';
 
 const field = (
   key: string,
@@ -343,17 +347,127 @@ export class IntegrationsService {
       ...readableSecrets,
       ...Object.fromEntries(Object.entries(input.secrets).filter(([, value]) => value)),
     };
-    await this.prisma.serviceResource.update({
-      where: { id },
-      data: {
-        name: input.name.trim(),
-        provider: input.provider,
-        enabled: input.enabled,
-        values: input.values,
-        encryptedSecrets: this.encrypt(secrets),
-      },
+    await this.prisma.$transaction(async (transaction) => {
+      await transaction.serviceResource.update({
+        where: { id },
+        data: {
+          name: input.name.trim(),
+          provider: input.provider,
+          enabled: input.enabled,
+          values: input.values,
+          encryptedSecrets: this.encrypt(secrets),
+        },
+      });
+      if (input.kind === 'git') {
+        const environments = await transaction.deployEnvironment.findMany({
+          where: { gitResourceId: id },
+          select: { id: true, encryptedSecrets: true },
+        });
+        const values = input.values;
+        await Promise.all(
+          environments.map((environment) => {
+            const deploymentSecrets = safeDecryptDeploymentSecrets(environment.encryptedSecrets);
+            if (secrets.token) deploymentSecrets.gitToken = secrets.token;
+            else delete deploymentSecrets.gitToken;
+            if (secrets.privateKey) deploymentSecrets.gitSshPrivateKey = secrets.privateKey;
+            else delete deploymentSecrets.gitSshPrivateKey;
+            return transaction.deployEnvironment.update({
+              where: { id: environment.id },
+              data: {
+                ...(input.enabled
+                  ? {
+                      repositoryUrl: values.repositoryUrl ?? '',
+                      gitRef: values.defaultRef ?? '',
+                      gitAuthMode: values.authMode ?? '',
+                    }
+                  : {}),
+                encryptedSecrets: encryptDeploymentSecrets(deploymentSecrets),
+                status: 'DRAFT',
+                gitVerifiedAt: null,
+                lastVerifiedAt: null,
+              },
+            });
+          }),
+        );
+      }
+      if (input.kind === 'server') {
+        const environments = await transaction.deployEnvironment.findMany({
+          where: { serverResourceId: id },
+          select: { id: true, encryptedSecrets: true },
+        });
+        const values = input.values;
+        await Promise.all(
+          environments.map((environment) => {
+            const deploymentSecrets = safeDecryptDeploymentSecrets(environment.encryptedSecrets);
+            if (secrets.password) deploymentSecrets.sshPassword = secrets.password;
+            else delete deploymentSecrets.sshPassword;
+            if (secrets.privateKey) deploymentSecrets.sshPrivateKey = secrets.privateKey;
+            else delete deploymentSecrets.sshPrivateKey;
+            return transaction.deployEnvironment.update({
+              where: { id: environment.id },
+              data: {
+                ...(input.enabled
+                  ? {
+                      host: values.host ?? '',
+                      sshPort: Number(values.port || 22),
+                      sshUser: values.username ?? '',
+                      sshAuthMode: values.authMode ?? '',
+                    }
+                  : {}),
+                encryptedSecrets: encryptDeploymentSecrets(deploymentSecrets),
+                status: 'DRAFT',
+                serverVerifiedAt: null,
+                lastVerifiedAt: null,
+              },
+            });
+          }),
+        );
+      }
+      if (input.kind === 'sql' || input.kind === 'redis') {
+        const bindingField = input.kind === 'sql' ? 'sqlResourceId' : 'redisResourceId';
+        const environments = await transaction.deployEnvironment.findMany({
+          where: { [bindingField]: id },
+          select: { id: true, encryptedSecrets: true },
+        });
+        await Promise.all(
+          environments.map((environment) => {
+            const deploymentSecrets = safeDecryptDeploymentSecrets(environment.encryptedSecrets);
+            if (input.enabled && input.kind === 'sql') {
+              deploymentSecrets.databaseUrl = this.databaseUrl(input.values, secrets);
+            } else if (input.enabled) {
+              deploymentSecrets.redisUrl = this.redisUrl(input.values, secrets);
+            }
+            return transaction.deployEnvironment.update({
+              where: { id: environment.id },
+              data: {
+                encryptedSecrets: encryptDeploymentSecrets(deploymentSecrets),
+                status: 'DRAFT',
+                gitVerifiedAt: null,
+                serverVerifiedAt: null,
+                lastVerifiedAt: null,
+              },
+            });
+          }),
+        );
+      }
     });
     return (await this.listResources()).find((item) => item.id === id)!;
+  }
+  private databaseUrl(values: Record<string, string>, secrets: Record<string, string>): string {
+    if (values.url) return values.url;
+    const engine = values.engine === 'postgresql' ? 'postgresql' : values.engine;
+    return `${engine}://${encodeURIComponent(values.username ?? '')}:${encodeURIComponent(secrets.password ?? '')}@${values.host}:${values.port}/${encodeURIComponent(values.database ?? '')}?schema=${encodeURIComponent(values.schema || 'public')}`;
+  }
+  private redisUrl(values: Record<string, string>, secrets: Record<string, string>): string {
+    let target: URL;
+    try {
+      target = new URL(values.url ?? '');
+    } catch {
+      throw new BadRequestException('DEPLOYMENT_REDIS_URL_INVALID');
+    }
+    if (secrets.password) target.password = secrets.password;
+    else target.password = '';
+    return target.toString();
   }
   async getResourceSecrets(
     id: string,

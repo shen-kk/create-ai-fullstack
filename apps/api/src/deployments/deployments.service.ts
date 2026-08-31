@@ -307,6 +307,7 @@ export class DeploymentsService {
   }
   async checkGit(id: string): Promise<DeploymentCheckResult> {
     const row = await this.requireEnvironment(id);
+    await this.requireEnabledResource(row.gitResourceId, 'git');
     const result = await this.checker.checkGit(
       row.repositoryUrl,
       row.gitRef,
@@ -314,23 +315,26 @@ export class DeploymentsService {
     );
     const latest = await this.requireEnvironment(id);
     const now = result.success ? new Date() : null;
+    const bindingsReady = this.hasRequiredResourceBindings(latest.project, latest);
     await this.prisma.deployEnvironment.update({
       where: { id },
       data: {
         gitVerifiedAt: now,
         status:
-          result.success && latest.serverVerifiedAt
+          result.success && latest.serverVerifiedAt && bindingsReady
             ? PrismaEnvironmentStatus.VERIFIED
             : result.success
               ? PrismaEnvironmentStatus.DRAFT
               : PrismaEnvironmentStatus.UNREACHABLE,
-        lastVerifiedAt: result.success && latest.serverVerifiedAt ? new Date() : null,
+        lastVerifiedAt:
+          result.success && latest.serverVerifiedAt && bindingsReady ? new Date() : null,
       },
     });
     return result;
   }
   async checkServer(id: string): Promise<DeploymentCheckResult> {
     const row = await this.requireEnvironment(id);
+    await this.requireEnabledResource(row.serverResourceId, 'server');
     const result = await this.checker.checkServer(
       {
         host: row.host,
@@ -343,17 +347,18 @@ export class DeploymentsService {
     );
     const latest = await this.requireEnvironment(id);
     const now = result.success ? new Date() : null;
+    const bindingsReady = this.hasRequiredResourceBindings(latest.project, latest);
     await this.prisma.deployEnvironment.update({
       where: { id },
       data: {
         serverVerifiedAt: now,
         status:
-          result.success && latest.gitVerifiedAt
+          result.success && latest.gitVerifiedAt && bindingsReady
             ? PrismaEnvironmentStatus.VERIFIED
             : result.success
               ? PrismaEnvironmentStatus.DRAFT
               : PrismaEnvironmentStatus.UNREACHABLE,
-        lastVerifiedAt: result.success && latest.gitVerifiedAt ? new Date() : null,
+        lastVerifiedAt: result.success && latest.gitVerifiedAt && bindingsReady ? new Date() : null,
       },
     });
     return result;
@@ -398,9 +403,20 @@ export class DeploymentsService {
   ): Promise<DeploymentRunSummary> {
     await this.assertWorkerOnline();
     const environment = await this.requireEnvironment(environmentId);
+    const project = environment.project;
+    this.validateRequiredResourceBindings(project, environment);
+    await Promise.all([
+      this.requireEnabledResource(environment.gitResourceId, 'git'),
+      this.requireEnabledResource(environment.serverResourceId, 'server'),
+      ...(environment.sqlResourceId
+        ? [this.requireEnabledResource(environment.sqlResourceId, 'sql')]
+        : []),
+      ...(environment.redisResourceId
+        ? [this.requireEnabledResource(environment.redisResourceId, 'redis')]
+        : []),
+    ]);
     if (environment.status !== PrismaEnvironmentStatus.VERIFIED)
       throw new BadRequestException('DEPLOYMENT_ENVIRONMENT_NOT_VERIFIED');
-    const project = await this.requireProject(environment.projectId);
     const availableUnits = this.projectUnits(project).map((unit) => unit.key);
     const requested = [
       ...new Set(input.applications?.length ? input.applications : availableUnits),
@@ -593,15 +609,7 @@ export class DeploymentsService {
     if (!input.serverResourceId || !input.gitResourceId)
       throw new BadRequestException('DEPLOYMENT_RESOURCE_BINDING_REQUIRED');
     const project = await this.requireProject(input.projectId);
-    const requiredKinds = new Set(
-      this.projectVariables(project)
-        .map((variable) => variable.resourceKind)
-        .filter((kind): kind is 'sql' | 'redis' => kind === 'sql' || kind === 'redis'),
-    );
-    if (requiredKinds.has('sql') && !input.sqlResourceId)
-      throw new BadRequestException('DEPLOYMENT_SQL_RESOURCE_REQUIRED');
-    if (requiredKinds.has('redis') && !input.redisResourceId)
-      throw new BadRequestException('DEPLOYMENT_REDIS_RESOURCE_REQUIRED');
+    this.validateRequiredResourceBindings(project, input);
     try {
       new URL(input.repositoryUrl);
     } catch {
@@ -837,6 +845,14 @@ export class DeploymentsService {
     if (!project) throw new NotFoundException('DEPLOYMENT_PROJECT_NOT_FOUND');
     return project;
   }
+  private async requireEnabledResource(id: string | null, kind: string): Promise<void> {
+    if (!id) throw new BadRequestException('DEPLOYMENT_RESOURCE_BINDING_REQUIRED');
+    const resource = await this.prisma.serviceResource.findFirst({
+      where: { id, kind, enabled: true },
+      select: { id: true },
+    });
+    if (!resource) throw new BadRequestException('DEPLOYMENT_RESOURCE_BINDING_INVALID');
+  }
   private async assertWorkerOnline(): Promise<void> {
     const worker = await this.prisma.deployWorker.findFirst({
       where: { lastHeartbeatAt: { gte: new Date(Date.now() - 30_000) } },
@@ -891,6 +907,33 @@ export class DeploymentsService {
   }
   private projectVariables(project: DeployProject): DeploymentVariableDefinition[] {
     return project.variables as unknown as DeploymentVariableDefinition[];
+  }
+  private requiredResourceKinds(project: DeployProject): Set<'sql' | 'redis'> {
+    return new Set(
+      this.projectVariables(project)
+        .map((variable) => variable.resourceKind)
+        .filter((kind): kind is 'sql' | 'redis' => kind === 'sql' || kind === 'redis'),
+    );
+  }
+  private hasRequiredResourceBindings(
+    project: DeployProject,
+    environment: { sqlResourceId?: string | null; redisResourceId?: string | null },
+  ): boolean {
+    const requiredKinds = this.requiredResourceKinds(project);
+    return (
+      (!requiredKinds.has('sql') || Boolean(environment.sqlResourceId)) &&
+      (!requiredKinds.has('redis') || Boolean(environment.redisResourceId))
+    );
+  }
+  private validateRequiredResourceBindings(
+    project: DeployProject,
+    environment: { sqlResourceId?: string | null; redisResourceId?: string | null },
+  ): void {
+    const requiredKinds = this.requiredResourceKinds(project);
+    if (requiredKinds.has('sql') && !environment.sqlResourceId)
+      throw new BadRequestException('DEPLOYMENT_SQL_RESOURCE_REQUIRED');
+    if (requiredKinds.has('redis') && !environment.redisResourceId)
+      throw new BadRequestException('DEPLOYMENT_REDIS_RESOURCE_REQUIRED');
   }
   private projectSummary(
     project: DeployProject,
