@@ -1,7 +1,7 @@
 import { access, copyFile, readFile, writeFile } from 'node:fs/promises';
 import { constants } from 'node:fs';
 import { randomBytes } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import process from 'node:process';
 import * as prompts from '@clack/prompts';
 import {
@@ -38,7 +38,7 @@ const askPassword = async (message) =>
       );
 const validPort = (value) =>
   Number(value) >= 1024 && Number(value) <= 65535 ? undefined : '请输入 1024–65535';
-const run = (message, args) => {
+const run = async (message, args) => {
   const spinner = prompts.spinner();
   spinner.start(message);
   const pnpmEntry = process.env.npm_execpath?.toLowerCase().includes('pnpm')
@@ -50,20 +50,29 @@ const run = (message, args) => {
       ? 'pnpm.cmd'
       : 'pnpm';
   const commandArgs = pnpmEntry ? [pnpmEntry, ...args] : args;
-  // Windows cannot reliably execute .cmd shims through spawnSync directly
+  // Windows cannot reliably execute .cmd shims directly
   // (it may fail with EINVAL). Route the command through cmd.exe instead.
-  const spawnExecutable = process.platform === 'win32' && !pnpmEntry
-    ? process.env.ComSpec ?? 'cmd.exe'
-    : executable;
-  const spawnArgs = process.platform === 'win32' && !pnpmEntry
-    ? ['/d', '/s', '/c', executable, ...commandArgs]
-    : commandArgs;
-  const result = spawnSync(spawnExecutable, spawnArgs, {
-    cwd: new URL('../', import.meta.url),
-    stdio: 'pipe',
-    encoding: 'utf8',
-    env: process.env,
-    shell: false,
+  const spawnExecutable =
+    process.platform === 'win32' && !pnpmEntry ? (process.env.ComSpec ?? 'cmd.exe') : executable;
+  const spawnArgs =
+    process.platform === 'win32' && !pnpmEntry
+      ? ['/d', '/s', '/c', executable, ...commandArgs]
+      : commandArgs;
+  const result = await new Promise((resolve) => {
+    const child = spawn(spawnExecutable, spawnArgs, {
+      cwd: new URL('../', import.meta.url),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env,
+      shell: false,
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => (stdout += chunk));
+    child.stderr.on('data', (chunk) => (stderr += chunk));
+    child.once('error', (error) => resolve({ status: null, error, stdout, stderr }));
+    child.once('close', (status) => resolve({ status, stdout, stderr }));
   });
   if (result.status !== 0 || result.error) {
     spinner.stop(`${message}失败`);
@@ -245,7 +254,7 @@ const provision = defaultsMode
         initialValue: true,
       }),
     );
-if (provision) run('初始化数据库', ['run', 'template:provision', '--', '--yes']);
+if (provision) await run('初始化数据库', ['run', 'template:provision', '--', '--yes']);
 prompts.note(
   `管理员手机号：${adminPhone}\n初始密码保存在 .env 的 DEV_ADMIN_PASSWORD，首次登录后请修改。`,
   '初始化结果',

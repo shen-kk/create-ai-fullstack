@@ -56,3 +56,16 @@ test('CLI formats and checks the renamed workspace through explicit pnpm scripts
   assert.match(source, /\['run', 'feature:check'\]/);
   assert.doesNotMatch(source, /\['feature:check'\]/);
 });
+
+test('CLI and setup keep progress animation responsive during slow commands', async () => {
+  const [cli, setup] = await Promise.all([
+    read('packages/create-ai-fullstack/bin/create.mjs'),
+    read('scripts/project-setup.mjs'),
+  ]);
+
+  for (const source of [cli, setup]) {
+    assert.match(source, /prompts\.spinner\(\)/);
+    assert.match(source, /await (?:execute|new Promise)/);
+    assert.doesNotMatch(source, /spawnSync/);
+  }
+});

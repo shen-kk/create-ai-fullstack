@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import process from 'node:process';
 import * as prompts from '@clack/prompts';
 import { resolveFeatures } from '../lib/features.mjs';
@@ -45,14 +45,26 @@ const stopIfCancelled = (value) => {
   }
   return value;
 };
-const run = (step, command, commandArgs, options = {}) => {
+const execute = (command, commandArgs, options = {}) =>
+  new Promise((resolve) => {
+    const child = spawn(command, commandArgs, {
+      shell: process.platform === 'win32',
+      ...options,
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => (stdout += chunk));
+    child.stderr.on('data', (chunk) => (stderr += chunk));
+    child.once('error', (error) => resolve({ status: null, error, stdout, stderr }));
+    child.once('close', (status) => resolve({ status, stdout, stderr }));
+  });
+const run = async (step, command, commandArgs, options = {}) => {
   const spinner = prompts.spinner();
   spinner.start(step);
-  const result = spawnSync(command, commandArgs, {
-    encoding: 'utf8',
-    shell: process.platform === 'win32',
-    ...options,
-  });
+  const result = await execute(command, commandArgs, options);
   if (result.status !== 0 || result.error) {
     spinner.stop(`${step}失败`);
     if (result.stdout) process.stdout.write(result.stdout);
@@ -61,14 +73,17 @@ const run = (step, command, commandArgs, options = {}) => {
   }
   spinner.stop(`${step}完成`);
 };
-const cloneTemplate = () => {
+const cloneTemplate = async () => {
   const spinner = prompts.spinner();
   spinner.start('获取模板源码');
-  const result = spawnSync(
-    'git',
-    ['clone', '--branch', ref, '--single-branch', repository, destination],
-    { encoding: 'utf8', shell: process.platform === 'win32' },
-  );
+  const result = await execute('git', [
+    'clone',
+    '--branch',
+    ref,
+    '--single-branch',
+    repository,
+    destination,
+  ]);
   if (result.status === 0 && !result.error) {
     spinner.stop('获取模板源码完成');
     return;
@@ -139,9 +154,9 @@ if (!confirmed) {
 }
 
 try {
-  run('检查 pnpm', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['--version']);
-  cloneTemplate();
-  run(
+  await run('检查 pnpm', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['--version']);
+  await cloneTemplate();
+  await run(
     '组合所选功能',
     process.execPath,
     [
@@ -153,13 +168,16 @@ try {
     ],
     { cwd: destination, shell: false },
   );
-  run('安装项目依赖', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install'], {
+  await run('安装项目依赖', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['install'], {
     cwd: destination,
   });
-  run('格式化项目源码', process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm', ['run', 'format'], {
-    cwd: destination,
-  });
-  run(
+  await run(
+    '格式化项目源码',
+    process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
+    ['run', 'format'],
+    { cwd: destination },
+  );
+  await run(
     '检查项目结构',
     process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm',
     ['run', 'feature:check'],
@@ -168,7 +186,7 @@ try {
     },
   );
   rmSync(join(destination, '.git'), { recursive: true, force: true });
-  run('初始化项目 Git 仓库', 'git', ['init'], { cwd: destination });
+  await run('初始化项目 Git 仓库', 'git', ['init'], { cwd: destination });
   prompts.outro(`项目已创建：${destination}\n下一步：cd ${projectName} && pnpm run setup`);
 } catch (error) {
   prompts.cancel(error instanceof Error ? error.message : '创建项目失败');
