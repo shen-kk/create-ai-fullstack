@@ -39,6 +39,18 @@ test('setup writes the collected local environment without a redundant final con
   assert.match(source, /await writeFile\(new URL\('\.env', root\), env, 'utf8'\)/);
 });
 
+test('setup accepts an administrator password and generates one when left empty', async () => {
+  const source = await read('scripts/project-setup.mjs');
+
+  assert.match(source, /初始管理员密码（留空则随机生成）/);
+  assert.match(source, /再次输入初始管理员密码/);
+  assert.match(source, /密码至少需要 6 个字符/);
+  assert.match(
+    source,
+    /enteredAdminPassword \|\| existing\.DEV_ADMIN_PASSWORD \|\| generatedAdminPassword/,
+  );
+});
+
 test('setup always invokes database provisioning as an explicit pnpm script', async () => {
   const setup = await read('scripts/project-setup.mjs');
   const provision = await read('scripts/template-provision.mjs');

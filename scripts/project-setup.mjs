@@ -36,6 +36,34 @@ const askPassword = async (message) =>
           validate: (value) => (value.length ? undefined : '不能为空'),
         }),
       );
+const askOptionalAdminPassword = async (hasExistingPassword) => {
+  if (defaultsMode) return '';
+  const password = String(
+    cancelled(
+      await prompts.password({
+        message: hasExistingPassword
+          ? '初始管理员密码（留空保留现有密码）'
+          : '初始管理员密码（留空则随机生成）',
+        mask: '•',
+        validate: (value) => {
+          if (/[\r\n\0]/.test(value)) return '密码不能包含换行或空字符';
+          return value.length > 0 && value.length < 6 ? '密码至少需要 6 个字符' : undefined;
+        },
+      }),
+    ),
+  );
+  if (!password) return '';
+  const confirmation = String(
+    cancelled(
+      await prompts.password({
+        message: '再次输入初始管理员密码',
+        mask: '•',
+        validate: (value) => (value === password ? undefined : '两次输入的密码不一致'),
+      }),
+    ),
+  );
+  return confirmation;
+};
 const validPort = (value) =>
   Number(value) >= 1024 && Number(value) <= 65535 ? undefined : '请输入 1024–65535';
 const run = async (message, args) => {
@@ -168,7 +196,14 @@ const adminName = await askText(
   existing.DEV_ADMIN_NAME || '系统管理员',
   (value) => (value.trim() ? undefined : '不能为空'),
 );
-const adminPassword = existing.DEV_ADMIN_PASSWORD || `Adm!${randomBytes(18).toString('base64url')}`;
+const enteredAdminPassword = await askOptionalAdminPassword(Boolean(existing.DEV_ADMIN_PASSWORD));
+const generatedAdminPassword = `Adm!${randomBytes(18).toString('base64url')}`;
+const adminPassword = enteredAdminPassword || existing.DEV_ADMIN_PASSWORD || generatedAdminPassword;
+const adminPasswordSource = enteredAdminPassword
+  ? '已使用本次输入的密码'
+  : existing.DEV_ADMIN_PASSWORD
+    ? '已保留现有密码'
+    : '已随机生成密码';
 const databaseUrl = `postgresql://${encodeURIComponent(databaseUsername)}:${encodeURIComponent(databasePassword)}@${databaseHost}:${databasePort}/${encodeURIComponent(databaseName)}?schema=public`;
 
 try {
@@ -256,7 +291,7 @@ const provision = defaultsMode
     );
 if (provision) await run('初始化数据库', ['run', 'template:provision', '--', '--yes']);
 prompts.note(
-  `管理员手机号：${adminPhone}\n初始密码保存在 .env 的 DEV_ADMIN_PASSWORD，首次登录后请修改。`,
+  `管理员手机号：${adminPhone}\n${adminPasswordSource}，保存在 .env 的 DEV_ADMIN_PASSWORD，首次登录后请修改。`,
   '初始化结果',
 );
 prompts.outro('初始化完成。运行 pnpm dev 启动项目。');
