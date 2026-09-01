@@ -1,6 +1,6 @@
-const { project } = require('./project.config.json');
-const apiProcessName = `${project.name}-api`;
-const webProcessName = `${project.name}-web`;
+const config = require('./project.config.json');
+const apiProcessName = `${config.project.name}-api`;
+const webProcessName = `${config.project.name}-web`;
 
 module.exports = {
   apps: [
@@ -13,7 +13,7 @@ module.exports = {
       restart_delay: 3000,
       kill_timeout: 10000,
     },
-    ...(project.modules.userWeb
+    ...(config.modules.userWeb
       ? [
           {
             name: webProcessName,
@@ -21,7 +21,7 @@ module.exports = {
             script: 'apps/web/.output/server/index.mjs',
             node_args: '--env-file=.env',
             env: {
-              PORT: process.env.WEB_PORT || String(project.runtime.webPort),
+              PORT: process.env.WEB_PORT || String(config.runtime.webPort),
             },
             autorestart: true,
             restart_delay: 3000,

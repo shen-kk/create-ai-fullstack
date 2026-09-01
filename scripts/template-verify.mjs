@@ -105,7 +105,7 @@ try {
   const exampleEnvironment = await readFile(join(target, '.env.example'), 'utf8');
   if (!userWeb && /^(?:WEB_PORT|WEB_ORIGIN|CUSTOMER_JWT_)/m.test(exampleEnvironment))
     throw new Error('未选择用户端，但环境变量示例仍包含用户端配置');
-  if (!ecosystem.includes('`${project.name}-api`'))
+  if (!ecosystem.includes('`${config.project.name}-api`'))
     throw new Error('PM2 进程名未从初始化项目名称生成');
   run('feature-check.mjs');
   console.log('[PASS] 全新目录功能组合、配置检查和敏感信息隔离验证通过。');
