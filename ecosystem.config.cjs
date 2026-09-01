@@ -1,6 +1,20 @@
+const { existsSync } = require('node:fs');
+const { join } = require('node:path');
 const config = require('./project.config.json');
-const apiProcessName = `${config.project.name}-api`;
-const webProcessName = `${config.project.name}-web`;
+const project = config.project ?? config;
+const modules = config.modules ?? project.modules;
+const runtime = config.runtime ?? project.runtime;
+const userWebEnabled =
+  modules?.userWeb ??
+  (Array.isArray(config.features)
+    ? config.features.includes('customerWeb')
+    : existsSync(join(__dirname, 'apps/web/package.json')));
+const apiProcessName = `${project.name}-api`;
+const webProcessName = `${project.name}-web`;
+const webPort = process.env.WEB_PORT || runtime?.webPort;
+
+if (userWebEnabled && !webPort)
+  throw new Error('Web 已启用，但 project.config.json 未声明 runtime.webPort，且未设置 WEB_PORT');
 
 module.exports = {
   apps: [
@@ -13,7 +27,7 @@ module.exports = {
       restart_delay: 3000,
       kill_timeout: 10000,
     },
-    ...(config.modules.userWeb
+    ...(userWebEnabled
       ? [
           {
             name: webProcessName,
@@ -21,7 +35,7 @@ module.exports = {
             script: 'apps/web/.output/server/index.mjs',
             node_args: '--env-file=.env',
             env: {
-              PORT: process.env.WEB_PORT || String(config.runtime.webPort),
+              PORT: String(webPort),
             },
             autorestart: true,
             restart_delay: 3000,
