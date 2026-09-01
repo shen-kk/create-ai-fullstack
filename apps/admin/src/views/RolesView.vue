@@ -150,26 +150,39 @@ onMounted(load);
       <p>{{ error }}</p>
     </div>
     <div v-else class="role-grid">
-      <article v-for="role in roles" :key="role.code" class="panel role-card">
+      <article
+        v-for="role in roles"
+        :key="role.code"
+        class="panel role-card"
+        :class="{ 'role-card--system': role.system }"
+      >
         <header>
-          <div>
-            <h2>{{ role.name }}</h2>
-            <code>{{ role.code }}</code>
+          <div class="role-identity">
+            <span class="role-avatar">{{ role.name.slice(0, 1) }}</span>
+            <div>
+              <h2>{{ role.name }}</h2>
+              <code>{{ role.code }}</code>
+            </div>
           </div>
           <span v-if="role.system" class="template-badge">系统角色</span>
         </header>
         <p>{{ role.description || '暂无角色说明' }}</p>
+        <div class="role-permission-summary">
+          <span>已配置权限</span><strong>{{ role.permissions.length }}</strong>
+        </div>
         <div class="permission-list">
           <span
-            v-for="permission in role.permissions"
+            v-for="permission in role.permissions.slice(0, 6)"
             :key="permission"
             :class="{
               'menu-permission':
                 permissions.find((item) => item.code === permission)?.type === 'menu',
             }"
-            >{{ permissions.find((item) => item.code === permission)?.description || permission
-            }}<small>{{ permission }}</small></span
-          ><em v-if="!role.permissions.length">暂未分配权限</em>
+            >{{
+              permissions.find((item) => item.code === permission)?.description || permission
+            }}</span
+          ><em v-if="role.permissions.length > 6">另有 {{ role.permissions.length - 6 }} 项权限</em
+          ><em v-else-if="!role.permissions.length">暂未分配权限</em>
         </div>
         <button v-if="!role.system" class="secondary-button role-edit" @click="openEdit(role)">
           编辑角色
