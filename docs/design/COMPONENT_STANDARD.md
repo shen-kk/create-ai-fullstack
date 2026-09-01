@@ -30,7 +30,7 @@ UI_STANDARD_EXCEPTION: docs/decisions/xxxx-description.md
 | 选择器   | `apps/admin/src/components/AppSelect.vue` | `apps/web/app/components/ui/select`      | 原生 `<select>`、自制 listbox      |
 | 按钮     | 现有语义类，待收口为 `AppButton`          | `apps/web/app/components/ui/button`      | 新增无状态样式按钮                 |
 | 弹窗     | 待收口为 `AppDialog`                      | 待生成 shadcn-vue Dialog                 | 点击遮罩关闭、自制弹窗结构         |
-| 全局反馈 | 后台统一反馈入口待组件化                  | `apps/web/app/components/AppToast.vue`   | `alert()`、`confirm()`、只写控制台 |
+| 全局反馈 | `apps/admin/src/components/AppNotice.vue` | `apps/web/app/components/AppToast.vue`   | `alert()`、`confirm()`、只写控制台 |
 | 图标     | `apps/admin/src/components/AppIcon.vue`   | 当前组件内统一线性 SVG，后续收口图标入口 | emoji、混用填充与线性图标          |
 
 “待收口”代表模板当前存在技术债，不能被当作允许复制的示例。新增功能若需要该能力，应先完成公共组件，再开发页面。

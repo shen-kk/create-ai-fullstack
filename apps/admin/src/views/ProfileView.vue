@@ -12,6 +12,7 @@ import {
 import { getCurrentUser, saveCurrentUser } from '../auth/session';
 import AppPasswordInput from '../components/AppPasswordInput.vue';
 import AppIcon from '../components/AppIcon.vue';
+import { showAdminNotice } from '../components/admin-notice';
 
 const router = useRouter(),
   user = getCurrentUser();
@@ -21,8 +22,7 @@ const devices = ref<AuthSessionDevice[]>([]);
 const saving = ref(false),
   uploading = ref(false),
   loadingDevices = ref(false),
-  revokingDevices = ref(false),
-  notice = ref('');
+  revokingDevices = ref(false);
 const initials = (): string => profile.value.name.slice(0, 2).toUpperCase();
 const formatDate = (value: string): string => new Date(value).toLocaleString('zh-CN');
 
@@ -31,7 +31,7 @@ async function loadDevices(): Promise<void> {
   try {
     devices.value = await listAuthSessions();
   } catch {
-    notice.value = '登录设备加载失败，请稍后重试。';
+    showAdminNotice('error', '登录设备加载失败，请稍后重试。');
   } finally {
     loadingDevices.value = false;
   }
@@ -39,13 +39,12 @@ async function loadDevices(): Promise<void> {
 
 async function revokeOthers(): Promise<void> {
   revokingDevices.value = true;
-  notice.value = '';
   try {
     await revokeOtherAuthSessions();
     await loadDevices();
-    notice.value = '其他设备已全部退出。';
+    showAdminNotice('success', '其他设备已全部退出。');
   } catch {
-    notice.value = '退出其他设备失败，请稍后重试。';
+    showAdminNotice('error', '退出其他设备失败，请稍后重试。');
   } finally {
     revokingDevices.value = false;
   }
@@ -53,13 +52,12 @@ async function revokeOthers(): Promise<void> {
 
 async function saveProfile(): Promise<void> {
   saving.value = true;
-  notice.value = '';
   try {
     const updated = await updateProfile({ name: profile.value.name });
     saveCurrentUser(updated);
-    notice.value = '个人资料已更新。';
+    showAdminNotice('success', '个人资料已更新。');
   } catch {
-    notice.value = '资料更新失败，请检查输入内容。';
+    showAdminNotice('error', '资料更新失败，请检查输入内容。');
   } finally {
     saving.value = false;
   }
@@ -70,41 +68,44 @@ async function selectAvatar(event: Event): Promise<void> {
   input.value = '';
   if (!file) return;
   uploading.value = true;
-  notice.value = '';
   try {
     const updated = await uploadAvatar(file);
     profile.value.avatarUrl = updated.avatarUrl ?? '';
     saveCurrentUser(updated);
-    notice.value = '头像已上传到对象存储并更新。';
+    showAdminNotice('success', '头像已上传到对象存储并更新。');
   } catch (cause) {
     const code = cause instanceof Error ? cause.message : '';
-    notice.value =
+    showAdminNotice(
+      'error',
       code.includes('OBJECT_STORAGE_NOT_CONFIGURED') ||
-      code.includes('OBJECT_STORAGE_CONFIG_INCOMPLETE')
+        code.includes('OBJECT_STORAGE_CONFIG_INCOMPLETE')
         ? '请先在“服务配置”中完善并启用腾讯云 COS，再上传头像。'
         : code.includes('OBJECT_STORAGE_ADAPTER_UNAVAILABLE')
           ? '当前头像上传仅支持腾讯云 COS，请切换对象存储平台。'
-          : '头像上传失败，仅支持 2MB 内的 JPG、PNG 或 WebP 图片。';
+          : '头像上传失败，仅支持 2MB 内的 JPG、PNG 或 WebP 图片。',
+    );
   } finally {
     uploading.value = false;
   }
 }
 async function savePassword(): Promise<void> {
   if (password.value.newPassword !== password.value.confirmPassword) {
-    notice.value = '两次输入的新密码不一致。';
+    showAdminNotice('error', '两次输入的新密码不一致。');
     return;
   }
   saving.value = true;
-  notice.value = '';
   try {
     await changePassword({
       currentPassword: password.value.currentPassword,
       newPassword: password.value.newPassword,
     });
     password.value = { currentPassword: '', newPassword: '', confirmPassword: '' };
-    notice.value = '密码修改成功。';
+    showAdminNotice('success', '密码修改成功。');
   } catch {
-    notice.value = `密码修改失败，请确认当前密码正确且新密码不少于 ${PASSWORD_MIN_LENGTH} 位。`;
+    showAdminNotice(
+      'error',
+      `密码修改失败，请确认当前密码正确且新密码不少于 ${PASSWORD_MIN_LENGTH} 位。`,
+    );
   } finally {
     saving.value = false;
   }
@@ -121,14 +122,6 @@ onMounted(loadDevices);
         <p>管理当前登录账号的公开资料、登录密码与设备会话。</p>
       </div>
     </section>
-    <p
-      v-if="notice"
-      :key="notice"
-      class="operation-notice"
-      :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'"
-    >
-      {{ notice }}
-    </p>
     <div class="profile-layout">
       <section class="panel profile-card">
         <div class="profile-avatar">

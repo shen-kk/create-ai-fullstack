@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import type { AuthUser } from '@template/contracts';
 import { getCurrentUser, logout, onSessionChanged } from './auth/session';
 import AppIcon from './components/AppIcon.vue';
+import AppNotice from './components/AppNotice.vue';
 import { project } from './generated/project';
 
 const sidebarOpen = ref(false);
@@ -153,6 +154,7 @@ function isMenuActive(path: string): boolean {
 </script>
 
 <template>
+  <AppNotice />
   <router-view v-if="route.meta.public" />
   <div v-else class="admin-shell">
     <button

@@ -11,13 +11,16 @@
 | Button           | `AppButton`                            | 待收口，新增前优先完成公共组件 |
 | Dialog           | `AppDialog`                            | 待收口，不复制历史弹窗结构     |
 | Input/FormField  | `AppInput` / `AppFormField`            | 待收口                         |
-| Toast/Confirm    | `AppToast` / `AppConfirm`              | 待收口                         |
+| Toast            | `src/components/AppNotice.vue`         | 已建立，写操作反馈唯一入口     |
+| Confirm          | `AppConfirm`                           | 待收口                         |
 | Checkbox         | `src/components/AppCheckbox.vue`       | 已建立，唯一基础复选框入口     |
 | Pagination       | `src/components/AppPagination.vue`     | 已建立，默认每页 10 条         |
 | Table            | `AppTable`                             | 待收口                         |
 | Rich text editor | `src/components/AppRichTextEditor.vue` | 已建立，Tiptap 唯一富文本入口  |
 
 现有组件不能满足需求时，优先新增有语义的 variant；如果底层方案确实不合适，按 ADR 流程替换，不长期保留两个默认入口。
+
+写操作反馈必须通过 `showAdminNotice('success' | 'error', message)` 显式声明语义；不得按中文文案猜测状态。每次调用都生成新的提示事件，确保相同结果连续发生时仍可见。加载失败、空态等页面状态保留在内容流中，不使用短暂 Toast 代替。
 
 ## 标准列表页
 

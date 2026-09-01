@@ -19,6 +19,7 @@ import AppSelect from '../components/AppSelect.vue';
 import AppPagination from '../components/AppPagination.vue';
 import AppCheckbox from '../components/AppCheckbox.vue';
 import AppPasswordInput from '../components/AppPasswordInput.vue';
+import { showAdminNotice } from '../components/admin-notice';
 
 const keyword = ref('');
 const selectedStatus = ref<'' | UserStatus>('');
@@ -28,7 +29,6 @@ const pageSize = ref(10);
 const total = ref(0);
 const loading = ref(false);
 const error = ref('');
-const notice = ref('');
 const createOpen = ref(false);
 const saving = ref(false);
 const createForm = ref({ name: '', phone: '', email: '', password: '' });
@@ -96,16 +96,15 @@ function reset(): void {
 }
 async function submitCreate(): Promise<void> {
   saving.value = true;
-  notice.value = '';
   try {
     await createUser(createForm.value);
     createOpen.value = false;
     createForm.value = { name: '', phone: '', email: '', password: '' };
-    notice.value = '管理员已创建，当前状态为待激活。';
+    showAdminNotice('success', '管理员已创建，当前状态为待激活。');
     page.value = 1;
     await loadUsers();
   } catch {
-    notice.value = '创建失败，请检查邮箱是否重复及输入是否符合要求。';
+    showAdminNotice('error', '创建失败，请检查邮箱是否重复及输入是否符合要求。');
   } finally {
     saving.value = false;
   }
@@ -113,13 +112,12 @@ async function submitCreate(): Promise<void> {
 async function setStatus(user: UserSummary, status: UserStatus): Promise<void> {
   if (user.status === status || saving.value) return;
   saving.value = true;
-  notice.value = '';
   try {
     await changeUserStatus(user.id, { status });
-    notice.value = `已更新 ${user.name} 的状态。`;
+    showAdminNotice('success', `已更新 ${user.name} 的状态。`);
     await loadUsers();
   } catch {
-    notice.value = '状态更新失败，请重新登录或检查 API 服务。';
+    showAdminNotice('error', '状态更新失败，请重新登录或检查 API 服务。');
   } finally {
     saving.value = false;
   }
@@ -131,7 +129,6 @@ function openEdit(user: UserSummary): void {
 }
 async function submitEdit(): Promise<void> {
   saving.value = true;
-  notice.value = '';
   try {
     const email = editForm.value.email.trim();
     await updateUser(editTargetId.value, {
@@ -140,10 +137,10 @@ async function submitEdit(): Promise<void> {
       ...(email ? { email } : {}),
     });
     editOpen.value = false;
-    notice.value = '用户基本资料已更新。';
+    showAdminNotice('success', '用户基本资料已更新。');
     await loadUsers();
   } catch {
-    notice.value = '更新失败，请检查手机号、邮箱或稍后重试。';
+    showAdminNotice('error', '更新失败，请检查手机号、邮箱或稍后重试。');
   } finally {
     saving.value = false;
   }
@@ -155,21 +152,20 @@ async function openRoles(user: UserSummary): Promise<void> {
   try {
     roleOptions.value = await getRoleOptions();
   } catch {
-    notice.value = '角色列表加载失败，请重新登录。';
+    showAdminNotice('error', '角色列表加载失败，请重新登录。');
     rolesOpen.value = false;
   }
 }
 async function submitRoles(): Promise<void> {
   if (!rolesTarget.value) return;
   saving.value = true;
-  notice.value = '';
   try {
     await assignUserRoles(rolesTarget.value.id, { roleCodes: selectedRoleCodes.value });
     rolesOpen.value = false;
-    notice.value = '用户角色已更新。';
+    showAdminNotice('success', '用户角色已更新。');
     await loadUsers();
   } catch {
-    notice.value = '角色更新失败，请检查权限或角色是否仍然存在。';
+    showAdminNotice('error', '角色更新失败，请检查权限或角色是否仍然存在。');
   } finally {
     saving.value = false;
   }
@@ -193,14 +189,6 @@ onMounted(loadUsers);
       </div>
       <button class="primary-button" @click="createOpen = true">＋ 新增管理员</button>
     </section>
-    <p
-      v-if="notice"
-      :key="notice"
-      class="operation-notice"
-      :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'"
-    >
-      {{ notice }}
-    </p>
 
     <section class="panel filter-panel" aria-label="用户筛选">
       <form class="filter-form" @submit.prevent="search">

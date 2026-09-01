@@ -11,6 +11,7 @@ const props = defineProps<{
   modelValue: string;
   options: SelectOption[];
   ariaLabel?: string;
+  placeholder?: string;
   disabled?: boolean;
 }>();
 const emit = defineEmits<{ 'update:modelValue': [value: string]; change: [value: string] }>();
@@ -21,9 +22,7 @@ const attrs = useAttrs(),
   optionElements = ref<HTMLButtonElement[]>([]),
   activeIndex = ref(-1),
   listboxId = `app-select-${useId()}`;
-const selected = computed(
-  () => props.options.find((item) => item.value === props.modelValue) ?? props.options[0],
-);
+const selected = computed(() => props.options.find((item) => item.value === props.modelValue));
 const accessibleLabel = computed(() => props.ariaLabel ?? String(attrs['aria-label'] ?? '选择项'));
 const rootAttrs = computed(() => {
   const { 'aria-label': _ariaLabel, ...rest } = attrs;
@@ -98,7 +97,9 @@ onBeforeUnmount(() => document.removeEventListener('click', outside));
       @click.stop="open ? hide() : show()"
       @keydown="onTriggerKeydown"
     >
-      <span>{{ selected?.label }}</span
+      <span :class="{ 'app-select-placeholder': !selected }">{{
+        selected?.label ?? placeholder ?? '请选择'
+      }}</span
       ><AppIcon name="chevron" />
     </button>
     <div v-if="open" :id="listboxId" class="app-select-menu" role="listbox">

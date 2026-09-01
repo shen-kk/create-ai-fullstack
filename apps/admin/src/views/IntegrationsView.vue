@@ -9,7 +9,7 @@ import type {
   MessageTemplateChannel,
   VerificationPurpose,
 } from '@template/contracts';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import {
   createServiceResource,
@@ -32,6 +32,7 @@ import AppSelect from '../components/AppSelect.vue';
 import AppPasswordInput from '../components/AppPasswordInput.vue';
 import AppDialog from '../components/AppDialog.vue';
 import AppRichTextEditor from '../components/AppRichTextEditor.vue';
+import { showAdminNotice } from '../components/admin-notice';
 import { project } from '../generated/project';
 
 const route = useRoute();
@@ -101,6 +102,12 @@ const values = ref<Record<string, string>>({}),
   secrets = ref<Record<string, string>>({}),
   enabled = ref(false);
 
+watch(notice, (message) => {
+  if (!message) return;
+  showAdminNotice(noticeKind.value, message);
+  notice.value = '';
+});
+
 const defaultEmailBody = `<h2>{{projectName}} 验证码</h2><p>您好：</p><p>您正在进行<strong>{{purpose}}</strong>操作，本次验证码为：</p><blockquote><strong>{{code}}</strong></blockquote><p>验证码将在 {{minutes}} 分钟内有效，请勿告知他人。</p><p>如非本人操作，请忽略此邮件。</p>`;
 
 async function load(): Promise<void> {
@@ -153,6 +160,7 @@ async function saveAuthMode(): Promise<void> {
     noticeKind.value = 'success';
     notice.value = '用户端认证与验证码规则已更新。';
   } catch (error) {
+    noticeKind.value = 'error';
     notice.value =
       error instanceof Error && error.message === 'CUSTOMER_AUTH_FEATURE_BINDINGS_INCOMPLETE'
         ? '无法启用：请先完成对应登录和找回密码的短信或邮件功能绑定。'
@@ -207,6 +215,7 @@ async function bindFeature(
       binding.templateId,
     );
     bindings.value = bindings.value.map((item) => (item.code === updated.code ? updated : item));
+    noticeKind.value = 'success';
     notice.value = resourceId ? '功能绑定已保存。' : '已解除绑定，该功能将提示服务未配置。';
   } catch {
     noticeKind.value = 'error';
@@ -236,6 +245,7 @@ async function bindTemplate(
     templateId || null,
   );
   bindings.value = bindings.value.map((item) => (item.code === updated.code ? updated : item));
+  noticeKind.value = 'success';
   notice.value = '消息模板绑定已保存。';
 }
 function openTemplate(template?: MessageTemplateSummary): void {
@@ -288,6 +298,7 @@ async function saveTemplate(): Promise<void> {
     else await createMessageTemplate(input);
     editingTemplate.value = undefined;
     creatingTemplate.value = false;
+    noticeKind.value = 'success';
     notice.value = '消息模板已保存。';
     await load();
   } catch {
@@ -298,6 +309,7 @@ async function saveTemplate(): Promise<void> {
 async function removeTemplate(template: MessageTemplateSummary): Promise<void> {
   try {
     await deleteMessageTemplate(template.id);
+    noticeKind.value = 'success';
     notice.value = '消息模板已删除。';
     await load();
   } catch {
@@ -311,6 +323,7 @@ async function testCurrentDelivery(): Promise<void> {
   testingDelivery.value = true;
   try {
     await testIntegrationDelivery(channel, testTarget.value.trim(), testPurpose.value);
+    noticeKind.value = 'success';
     notice.value = '测试验证码已发送，请检查接收端。';
   } catch (error) {
     const code = error instanceof Error ? error.message : '';
@@ -419,11 +432,13 @@ async function removeResource(): Promise<void> {
   saving.value = true;
   try {
     await deleteServiceResource(deletingResource.value.id);
+    noticeKind.value = 'success';
     notice.value = `已删除“${deletingResource.value.name}”。`;
     deletingResource.value = undefined;
     await load();
   } catch (error) {
     const code = error instanceof Error ? error.message : '';
+    noticeKind.value = 'error';
     notice.value =
       code === 'SERVICE_RESOURCE_BOUND_TO_FEATURE'
         ? '该资源已被系统功能绑定，请先解除功能绑定。'
@@ -447,16 +462,6 @@ onMounted(load);
       </div>
       <button class="secondary-button" :disabled="loading" @click="load">刷新</button>
     </section>
-    <p
-      v-if="notice"
-      :key="notice"
-      class="operation-notice"
-      :class="`notice-${noticeKind}`"
-      :role="noticeKind === 'error' ? 'alert' : 'status'"
-    >
-      <span class="notice-icon" aria-hidden="true">{{ noticeKind === 'error' ? '!' : '✓' }}</span
-      >{{ notice }}
-    </p>
     <nav class="integration-subnav" aria-label="服务配置二级导航">
       <RouterLink to="/integrations/resources">
         <strong>服务资源</strong><small>配置外部服务与基础设施</small>

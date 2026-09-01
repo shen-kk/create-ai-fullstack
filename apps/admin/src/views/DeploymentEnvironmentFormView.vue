@@ -266,6 +266,7 @@ onMounted(async () => {
               @update:model-value="form.serverResourceId = $event"
               :options="resourceOptions('server')"
               aria-label="部署服务器"
+              placeholder="请选择部署服务器"
           /></label>
           <label
             ><span>Git 仓库资源 <b class="required-mark">*</b></span
@@ -274,9 +275,10 @@ onMounted(async () => {
               @update:model-value="form.gitResourceId = $event"
               :options="resourceOptions('git')"
               aria-label="Git 仓库资源"
+              placeholder="请选择 Git 仓库资源"
           /></label>
           <label class="wide"
-            ><span>实际部署路径 <b class="required-mark">*</b></span
+            ><span>实际部署路径</span
             ><input v-model.trim="form.deployPath" required placeholder="例如：/www/wwwroot/my-app"
           /></label>
           <label v-if="projectVariables.some((item) => item.resourceKind === 'sql')"
@@ -286,6 +288,7 @@ onMounted(async () => {
               @update:model-value="form.sqlResourceId = $event"
               :options="resourceOptions('sql')"
               aria-label="SQL 数据库"
+              placeholder="请选择 SQL 数据库"
           /></label>
           <label v-if="projectVariables.some((item) => item.resourceKind === 'redis')"
             ><span>Redis <b class="required-mark">*</b></span
@@ -294,6 +297,7 @@ onMounted(async () => {
               @update:model-value="form.redisResourceId = $event"
               :options="resourceOptions('redis')"
               aria-label="Redis"
+              placeholder="请选择 Redis"
           /></label>
         </div>
         <p class="permission-help">

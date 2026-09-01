@@ -18,6 +18,7 @@ import {
   rollbackDeploymentRelease,
 } from '../api/deployments';
 import DeploymentWorkerStatusPanel from '../components/DeploymentWorkerStatus.vue';
+import { showAdminNotice } from '../components/admin-notice';
 
 const router = useRouter();
 const route = useRoute();
@@ -39,7 +40,6 @@ const checkResults = ref<
 const loading = ref(true),
   refreshingWorker = ref(false),
   error = ref(''),
-  notice = ref(''),
   workingId = ref('');
 const statusText = { draft: '待检查', verified: '可部署', unreachable: '连接失败' } as const;
 const deploymentErrorMessages: Record<string, string> = {
@@ -95,14 +95,16 @@ async function load(): Promise<void> {
 }
 async function refreshWorkerStatus(): Promise<void> {
   refreshingWorker.value = true;
-  notice.value = '';
   try {
     workerStatus.value = await getDeploymentWorkerStatus();
-    notice.value = workerStatus.value.online
-      ? 'Deploy Worker 已恢复在线。'
-      : '检测完成，Deploy Worker 仍然离线。';
+    showAdminNotice(
+      workerStatus.value.online ? 'success' : 'error',
+      workerStatus.value.online
+        ? 'Deploy Worker 已恢复在线。'
+        : '检测完成，Deploy Worker 仍然离线。',
+    );
   } catch (cause) {
-    notice.value = cause instanceof Error ? cause.message : 'Worker 状态检测失败';
+    showAdminNotice('error', cause instanceof Error ? cause.message : 'Worker 状态检测失败');
   } finally {
     refreshingWorker.value = false;
   }
@@ -156,7 +158,7 @@ function closeCheckResult(id: string): void {
 }
 async function deploy(item: DeploymentEnvironmentSummary): Promise<void> {
   if (!workerStatus.value?.online) {
-    notice.value = 'Deploy Worker 离线，请先启动独立执行器再创建部署任务。';
+    showAdminNotice('error', 'Deploy Worker 离线，请先启动独立执行器再创建部署任务。');
     return;
   }
   workingId.value = item.id;
@@ -164,7 +166,7 @@ async function deploy(item: DeploymentEnvironmentSummary): Promise<void> {
     const run = await createDeploymentRun(item.id, {});
     await router.push(`/deployments/runs/${run.id}`);
   } catch (cause) {
-    notice.value = deploymentError(cause, '创建部署任务失败');
+    showAdminNotice('error', deploymentError(cause, '创建部署任务失败'));
   } finally {
     workingId.value = '';
   }
@@ -172,7 +174,7 @@ async function deploy(item: DeploymentEnvironmentSummary): Promise<void> {
 async function rollback(): Promise<void> {
   if (!rollbackChoice.value) return;
   if (!workerStatus.value?.online) {
-    notice.value = 'Deploy Worker 离线，请先启动独立执行器再创建回滚任务。';
+    showAdminNotice('error', 'Deploy Worker 离线，请先启动独立执行器再创建回滚任务。');
     return;
   }
   workingId.value = rollbackChoice.value.environmentId;
@@ -184,7 +186,7 @@ async function rollback(): Promise<void> {
     rollbackChoice.value = undefined;
     await router.push(`/deployments/runs/${run.id}`);
   } catch (cause) {
-    notice.value = cause instanceof Error ? cause.message : '创建回滚任务失败';
+    showAdminNotice('error', cause instanceof Error ? cause.message : '创建回滚任务失败');
   } finally {
     workingId.value = '';
   }
@@ -232,12 +234,6 @@ onMounted(load);
       :refreshing="refreshingWorker"
       @refresh="refreshWorkerStatus"
     />
-    <pre
-      v-if="notice"
-      :key="notice"
-      class="operation-notice deployment-notice"
-      :role="/失败|错误|不能|请检查|离线/.test(notice) ? 'alert' : 'status'"
-      >{{ notice }}</pre>
     <div v-if="loading" class="panel table-state">
       <span class="loading-ring" />正在加载部署环境…
     </div>

@@ -5,13 +5,13 @@ import { createRole, getPermissions, updateRole } from '../api/roles';
 import { getRoleOptions } from '../api/users';
 import AppCheckbox from '../components/AppCheckbox.vue';
 import AppDialog from '../components/AppDialog.vue';
+import { showAdminNotice } from '../components/admin-notice';
 
 const roles = ref<RoleOption[]>([]);
 const permissions = ref<PermissionOption[]>([]);
 const loading = ref(false);
 const saving = ref(false);
 const error = ref('');
-const notice = ref('');
 const dialogOpen = ref(false);
 const editingCode = ref('');
 const form = ref({ code: '', name: '', description: '', permissions: [] as string[] });
@@ -96,7 +96,6 @@ function openEdit(role: RoleOption): void {
 }
 async function submit(): Promise<void> {
   saving.value = true;
-  notice.value = '';
   try {
     const description = form.value.description.trim();
     if (editingCode.value)
@@ -113,10 +112,10 @@ async function submit(): Promise<void> {
         permissions: form.value.permissions,
       });
     dialogOpen.value = false;
-    notice.value = editingCode.value ? '角色已更新。' : '角色已创建。';
+    showAdminNotice('success', editingCode.value ? '角色已更新。' : '角色已创建。');
     await load();
   } catch {
-    notice.value = '保存失败：角色代码可能重复，或权限已不存在。';
+    showAdminNotice('error', '保存失败：角色代码可能重复，或权限已不存在。');
   } finally {
     saving.value = false;
   }
@@ -136,14 +135,6 @@ onMounted(load);
         ><button class="primary-button" @click="openCreate">＋ 新增角色</button>
       </div>
     </section>
-    <p
-      v-if="notice"
-      :key="notice"
-      class="operation-notice"
-      :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'"
-    >
-      {{ notice }}
-    </p>
     <div v-if="loading" class="panel table-state"><span class="loading-ring" />正在加载角色…</div>
     <div v-else-if="error" class="panel table-state error-state">
       <strong>加载失败</strong>

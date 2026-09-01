@@ -4,6 +4,7 @@ import { onMounted, ref } from 'vue';
 import { changeCustomerStatus, getCustomers } from '../api/customers';
 import AppSelect from '../components/AppSelect.vue';
 import AppPagination from '../components/AppPagination.vue';
+import { showAdminNotice } from '../components/admin-notice';
 
 const keyword = ref('');
 const selectedStatus = ref<'' | CustomerStatus>('');
@@ -13,7 +14,6 @@ const pageSize = ref(10);
 const total = ref(0);
 const loading = ref(false);
 const error = ref('');
-const notice = ref('');
 const savingId = ref('');
 const statusOptions = [
   { value: '', label: '全部状态' },
@@ -65,16 +65,17 @@ function reset(): void {
 async function setStatus(customer: CustomerSummary, status: CustomerStatus): Promise<void> {
   if (customer.status === status || savingId.value) return;
   savingId.value = customer.id;
-  notice.value = '';
   try {
     await changeCustomerStatus(customer.id, { status });
-    notice.value =
+    showAdminNotice(
+      'success',
       status === 'disabled'
         ? `已停用 ${customer.name}，其登录会话已全部撤销。`
-        : `已恢复 ${customer.name} 的账号。`;
+        : `已恢复 ${customer.name} 的账号。`,
+    );
     await loadCustomers();
   } catch {
-    notice.value = '状态更新失败，请检查权限后重试。';
+    showAdminNotice('error', '状态更新失败，请检查权限后重试。');
   } finally {
     savingId.value = '';
   }
@@ -92,14 +93,6 @@ onMounted(loadCustomers);
       </div>
       <span class="template-badge">可选模块</span>
     </section>
-    <p
-      v-if="notice"
-      :key="notice"
-      class="operation-notice"
-      :role="/失败|错误|不能|请检查/.test(notice) ? 'alert' : 'status'"
-    >
-      {{ notice }}
-    </p>
     <section class="panel filter-panel" aria-label="用户端用户筛选">
       <form class="filter-form" @submit.prevent="search">
         <label

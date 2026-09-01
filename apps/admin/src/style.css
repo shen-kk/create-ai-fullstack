@@ -2871,6 +2871,10 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
   align-items: center;
   line-height: 1;
 }
+.app-select-trigger > .app-select-placeholder {
+  color: #8a93a3;
+  font-weight: 400;
+}
 
 /* 表格内选择器只占用固定的紧凑触发器宽度；下拉菜单通过 absolute 浮层展开，
    不参与表格列宽计算，也不会把相邻列挤开。 */
@@ -3788,4 +3792,19 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
     min-width: 0;
     max-width: calc(100vw - 24px);
   }
+}
+
+/* 页面状态保持在内容流中；短暂操作反馈统一由 AppNotice 承载。 */
+.operation-notice[role='status'],
+.operation-notice[role='alert'] {
+  position: static;
+  min-width: 0;
+  max-width: none;
+  margin: -12px 0 18px;
+  padding: 12px 14px;
+  box-shadow: none;
+  animation: none;
+  opacity: 1;
+  transform: none;
+  visibility: visible;
 }
