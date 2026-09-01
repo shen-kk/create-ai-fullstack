@@ -12,7 +12,7 @@ import { Client, type ClientChannel, type ConnectConfig } from 'ssh2';
 import { PrismaService } from '../database/prisma.service.js';
 import { decryptDeploymentSecrets } from './deployment-secrets.js';
 import { parseDeploymentExecutionSnapshot } from './deployment-execution-snapshot.js';
-import { deploymentErrorCode } from './deployment-error.js';
+import { deploymentErrorCode, deploymentErrorMessage } from './deployment-error.js';
 import { deploymentSecretValues, redactDeploymentLog } from './deployment-log-redaction.js';
 import {
   deploymentBuildCommand,
@@ -718,6 +718,8 @@ export class DeploymentWorkerService implements OnApplicationBootstrap, OnApplic
     }
   }
   private safeMessage(error: unknown, runId: string): string {
+    const stableMessage = deploymentErrorMessage(error);
+    if (stableMessage) return stableMessage;
     const message = error instanceof Error ? error.message : String(error);
     return (
       redactDeploymentLog(message, this.sensitiveValues.get(runId) ?? []).slice(0, 1000) ||

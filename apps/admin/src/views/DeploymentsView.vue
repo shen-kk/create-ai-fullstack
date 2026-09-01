@@ -33,6 +33,9 @@ const runs = ref<Record<string, DeploymentRunSummary[]>>({});
 const releases = ref<Record<string, DeploymentReleaseSummary[]>>({});
 const workerStatus = ref<DeploymentWorkerStatus>();
 const rollbackChoice = ref<{ environmentId: string; releaseId: string }>();
+const checkResults = ref<
+  Record<string, { status: 'success' | 'error'; title: string; lines: string[] }>
+>({});
 const loading = ref(true),
   refreshingWorker = ref(false),
   error = ref(''),
@@ -45,6 +48,8 @@ const deploymentErrorMessages: Record<string, string> = {
   DEPLOYMENT_REDIS_RESOURCE_REQUIRED:
     '当前项目需要 Redis，请编辑部署环境并绑定一个已启用的 Redis 资源。',
   DEPLOYMENT_RESOURCE_BINDING_INVALID: '绑定的服务资源不存在、类型不匹配或已停用，请检查环境配置。',
+  DEPLOYMENT_SECRETS_REENTRY_REQUIRED:
+    '部署敏感配置无法解密，请确认 API 与 Worker 使用相同的 CONFIG_ENCRYPTION_KEY；旧密钥无法恢复时，请重新填写并保存相关资源密钥。',
 };
 const deploymentError = (cause: unknown, fallback: string): string => {
   const code = cause instanceof Error ? cause.message : '';
@@ -104,19 +109,50 @@ async function refreshWorkerStatus(): Promise<void> {
 }
 async function check(item: DeploymentEnvironmentSummary): Promise<void> {
   workingId.value = item.id;
-  notice.value = '';
+  const lines: string[] = [];
+  closeCheckResult(item.id);
   try {
     const git = await checkDeploymentGit(item.id);
+    lines.push(
+      ...git.checks.map(
+        (entry) =>
+          `${entry.status === 'passed' ? '通过' : '失败'} · ${entry.label}：${entry.message}`,
+      ),
+    );
     const server = await checkDeploymentServer(item.id);
-    notice.value = [...git.checks, ...server.checks]
-      .map((entry) => `${entry.status === 'passed' ? '✓' : '✕'} ${entry.label}：${entry.message}`)
-      .join('\n');
+    lines.push(
+      ...server.checks.map(
+        (entry) =>
+          `${entry.status === 'passed' ? '通过' : '失败'} · ${entry.label}：${entry.message}`,
+      ),
+    );
+    const success = git.success && server.success;
+    checkResults.value = {
+      ...checkResults.value,
+      [item.id]: {
+        status: success ? 'success' : 'error',
+        title: success ? '环境检查通过' : '环境检查未通过',
+        lines,
+      },
+    };
     await load();
   } catch (cause) {
-    notice.value = deploymentError(cause, '配置检查失败');
+    checkResults.value = {
+      ...checkResults.value,
+      [item.id]: {
+        status: 'error',
+        title: '环境检查未通过',
+        lines: [...lines, deploymentError(cause, '配置检查失败')],
+      },
+    };
   } finally {
     workingId.value = '';
   }
+}
+function closeCheckResult(id: string): void {
+  const next = { ...checkResults.value };
+  delete next[id];
+  checkResults.value = next;
 }
 async function deploy(item: DeploymentEnvironmentSummary): Promise<void> {
   if (!workerStatus.value?.online) {
@@ -243,6 +279,22 @@ onMounted(load);
           </div>
         </dl>
         <p class="latest-run">最近任务：{{ runs[item.id]?.[0]?.status || '暂无记录' }}</p>
+        <section
+          v-if="checkResults[item.id]"
+          class="environment-check-result"
+          :class="checkResults[item.id]?.status"
+          :role="checkResults[item.id]?.status === 'error' ? 'alert' : 'status'"
+        >
+          <header>
+            <strong>{{ checkResults[item.id]?.title }}</strong>
+            <button type="button" aria-label="关闭检查结果" @click="closeCheckResult(item.id)">
+              关闭
+            </button>
+          </header>
+          <ul>
+            <li v-for="line in checkResults[item.id]?.lines" :key="line">{{ line }}</li>
+          </ul>
+        </section>
         <div v-if="historicalReleases(item.id).length" class="release-list">
           <span>历史版本</span
           ><button
@@ -366,6 +418,44 @@ onMounted(load);
   padding-top: 14px;
   border-top: 1px solid #e8edf5;
   color: #64748b;
+}
+.environment-check-result {
+  display: grid;
+  gap: 10px;
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid #b7dfca;
+  border-radius: 12px;
+  color: #17633d;
+  background: #f2fbf6;
+}
+.environment-check-result.error {
+  color: #8a2f2a;
+  background: #fff7f6;
+  border-color: #f2c6c3;
+}
+.environment-check-result header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.environment-check-result header button {
+  padding: 2px 0;
+  color: inherit;
+  font-size: 12px;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+.environment-check-result ul {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.55;
 }
 .deployment-card footer {
   justify-content: flex-end;

@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DeploymentsService } from './deployments.service.js';
+
+const previousEncryptionKey = process.env.CONFIG_ENCRYPTION_KEY;
+afterEach(() => {
+  if (previousEncryptionKey === undefined) delete process.env.CONFIG_ENCRYPTION_KEY;
+  else process.env.CONFIG_ENCRYPTION_KEY = previousEncryptionKey;
+});
 
 const createService = (prisma: object): DeploymentsService =>
   new DeploymentsService(prisma as never, {} as never, {} as never);
@@ -64,5 +70,43 @@ describe('DeploymentsService worker availability', () => {
     await expect(service.createRun('environment-1', {}, { actorId: 'admin-1' })).rejects.toThrow(
       'DEPLOYMENT_SQL_RESOURCE_REQUIRED',
     );
+  });
+
+  it('rejects environment checks with a stable secret error and invalidates verification', async () => {
+    process.env.CONFIG_ENCRYPTION_KEY = 'current-key-that-cannot-decrypt-old-data';
+    const update = vi.fn(() => Promise.resolve());
+    const checkGit = vi.fn();
+    const service = new DeploymentsService(
+      {
+        deployEnvironment: {
+          findUnique: () =>
+            Promise.resolve({
+              id: 'environment-1',
+              gitResourceId: 'git-1',
+              repositoryUrl: 'https://example.com/project.git',
+              gitRef: 'main',
+              encryptedSecrets: 'ciphertext-from-another-key',
+              project: {},
+            }),
+          update,
+        },
+        serviceResource: { findFirst: () => Promise.resolve({ id: 'git-1' }) },
+      } as never,
+      { checkGit } as never,
+      {} as never,
+    );
+
+    await expect(service.checkGit('environment-1')).rejects.toThrow(
+      'DEPLOYMENT_SECRETS_REENTRY_REQUIRED',
+    );
+    expect(checkGit).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'environment-1' },
+      data: {
+        gitVerifiedAt: null,
+        status: 'UNREACHABLE',
+        lastVerifiedAt: null,
+      },
+    });
   });
 });

@@ -26,6 +26,8 @@ describe('deployment secrets', () => {
     process.env.CONFIG_ENCRYPTION_KEY = 'first-test-key-that-is-long-enough';
     const encrypted = encryptDeploymentSecrets({ gitToken: 'secret-token' });
     process.env.CONFIG_ENCRYPTION_KEY = 'second-test-key-that-is-long-enough';
-    expect(() => decryptDeploymentSecrets(encrypted)).toThrow();
+    expect(() => decryptDeploymentSecrets(encrypted)).toThrow(
+      'DEPLOYMENT_SECRETS_REENTRY_REQUIRED',
+    );
   });
 });

@@ -46,6 +46,7 @@ Deploy Worker 不属于任何业务部署项目的部署单元。部署 AIForge 
 ## 安全边界
 
 - Git Token、Git SSH 私钥、服务器密码和服务器私钥使用 AES-256-GCM 加密。
+- API 与 Deploy Worker 必须长期使用相同且稳定的 `CONFIG_ENCRYPTION_KEY`。任务入队前验证部署密钥可解密；密钥不一致时返回 `DEPLOYMENT_SECRETS_REENTRY_REQUIRED` 并要求重新保存相关资源，不得误报为 SSH 连接失败或暴露底层加密异常。
 - API 只返回 `configuredSecrets`，日志必须脱敏且不得记录执行命令中的凭据。
 - 正式环境部署、取消和回滚全部需要独立权限并写入审计日志。
 - Worker 与 API 进程隔离，只读取任务快照并写入进度和日志；不得把 Worker 加入它所管理的部署项目。

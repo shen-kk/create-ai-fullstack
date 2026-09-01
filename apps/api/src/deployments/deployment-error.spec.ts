@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { deploymentErrorCode } from './deployment-error.js';
+import { deploymentErrorCode, deploymentErrorMessage } from './deployment-error.js';
 
 describe('deploymentErrorCode', () => {
   it('classifies failures by the active deployment step', () => {
@@ -16,5 +16,11 @@ describe('deploymentErrorCode', () => {
     expect(deploymentErrorCode(null, new Error('DEPLOYMENT_SNAPSHOT_VERSION_UNSUPPORTED'))).toBe(
       'DEPLOYMENT_SNAPSHOT_VERSION_UNSUPPORTED',
     );
+  });
+
+  it('classifies secret decryption failures before the active step fallback', () => {
+    const error = new Error('DEPLOYMENT_SECRETS_REENTRY_REQUIRED');
+    expect(deploymentErrorCode('prepare', error)).toBe('DEPLOYMENT_SECRETS_REENTRY_REQUIRED');
+    expect(deploymentErrorMessage(error)).toContain('CONFIG_ENCRYPTION_KEY');
   });
 });

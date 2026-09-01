@@ -307,12 +307,18 @@ export class DeploymentsService {
   }
   async checkGit(id: string): Promise<DeploymentCheckResult> {
     const row = await this.requireEnvironment(id);
-    await this.requireEnabledResource(row.gitResourceId, 'git');
-    const result = await this.checker.checkGit(
-      row.repositoryUrl,
-      row.gitRef,
-      this.requiredDeploymentSecrets(row.encryptedSecrets),
-    );
+    let result: DeploymentCheckResult;
+    try {
+      await this.requireEnabledResource(row.gitResourceId, 'git');
+      result = await this.checker.checkGit(
+        row.repositoryUrl,
+        row.gitRef,
+        this.requiredDeploymentSecrets(row.encryptedSecrets),
+      );
+    } catch (error) {
+      await this.markEnvironmentCheckFailed(id, 'git');
+      throw error;
+    }
     const latest = await this.requireEnvironment(id);
     const now = result.success ? new Date() : null;
     const bindingsReady = this.hasRequiredResourceBindings(latest.project, latest);
@@ -334,17 +340,23 @@ export class DeploymentsService {
   }
   async checkServer(id: string): Promise<DeploymentCheckResult> {
     const row = await this.requireEnvironment(id);
-    await this.requireEnabledResource(row.serverResourceId, 'server');
-    const result = await this.checker.checkServer(
-      {
-        host: row.host,
-        port: row.sshPort,
-        user: row.sshUser,
-        authMode: row.sshAuthMode,
-        deployPath: row.deployPath,
-      },
-      this.requiredDeploymentSecrets(row.encryptedSecrets),
-    );
+    let result: DeploymentCheckResult;
+    try {
+      await this.requireEnabledResource(row.serverResourceId, 'server');
+      result = await this.checker.checkServer(
+        {
+          host: row.host,
+          port: row.sshPort,
+          user: row.sshUser,
+          authMode: row.sshAuthMode,
+          deployPath: row.deployPath,
+        },
+        this.requiredDeploymentSecrets(row.encryptedSecrets),
+      );
+    } catch (error) {
+      await this.markEnvironmentCheckFailed(id, 'server');
+      throw error;
+    }
     const latest = await this.requireEnvironment(id);
     const now = result.success ? new Date() : null;
     const bindingsReady = this.hasRequiredResourceBindings(latest.project, latest);
@@ -417,6 +429,7 @@ export class DeploymentsService {
     ]);
     if (environment.status !== PrismaEnvironmentStatus.VERIFIED)
       throw new BadRequestException('DEPLOYMENT_ENVIRONMENT_NOT_VERIFIED');
+    this.requiredDeploymentSecrets(environment.encryptedSecrets);
     const availableUnits = this.projectUnits(project).map((unit) => unit.key);
     const requested = [
       ...new Set(input.applications?.length ? input.applications : availableUnits),
@@ -852,6 +865,16 @@ export class DeploymentsService {
       select: { id: true },
     });
     if (!resource) throw new BadRequestException('DEPLOYMENT_RESOURCE_BINDING_INVALID');
+  }
+  private async markEnvironmentCheckFailed(id: string, target: 'git' | 'server'): Promise<void> {
+    await this.prisma.deployEnvironment.update({
+      where: { id },
+      data: {
+        ...(target === 'git' ? { gitVerifiedAt: null } : { serverVerifiedAt: null }),
+        status: PrismaEnvironmentStatus.UNREACHABLE,
+        lastVerifiedAt: null,
+      },
+    });
   }
   private async assertWorkerOnline(): Promise<void> {
     const worker = await this.prisma.deployWorker.findFirst({
