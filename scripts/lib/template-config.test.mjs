@@ -32,7 +32,7 @@ const valid = {
       businessComponents: 'shadcn-vue',
       motion: 'vueuse-motion',
       orchestration: 'gsap',
-      designStandard: 'apple-linear-vercel',
+      designStandard: 'project-defined',
     },
   },
   features: [],
@@ -40,6 +40,13 @@ const valid = {
   providers: { objectStorage: 'resource_library' },
 };
 test('accepts a valid core project', () => assert.deepEqual(validateProjectConfig(valid), []));
+test('rejects a template-owned Web visual standard', () =>
+  assert.ok(
+    validateProjectConfig({
+      ...valid,
+      ui: { web: { ...valid.ui.web, designStandard: 'apple-linear-vercel' } },
+    }).some((item) => item.includes('视觉标准由具体项目定义')),
+  ));
 test('rejects conflicting ports', () =>
   assert.ok(
     validateProjectConfig({
@@ -60,6 +67,8 @@ test('renders AI context without secrets', () => {
   const output = renderProjectContext(valid);
   assert.match(output, /demo-project/);
   assert.match(output, /基础平台/);
+  assert.match(output, /WEB_DESIGN\.md/);
+  assert.match(output, /pending/);
   assert.doesNotMatch(output, /DATABASE_URL|JWT_ACCESS_SECRET/);
 });
 test('rejects the removed memory mode', () =>

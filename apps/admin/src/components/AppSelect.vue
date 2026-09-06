@@ -23,9 +23,13 @@ const attrs = useAttrs(),
   activeIndex = ref(-1),
   listboxId = `app-select-${useId()}`;
 const selected = computed(() => props.options.find((item) => item.value === props.modelValue));
-const accessibleLabel = computed(() => props.ariaLabel ?? String(attrs['aria-label'] ?? '选择项'));
+const accessibleLabel = computed(() => {
+  const attributeLabel = attrs['aria-label'];
+  return props.ariaLabel ?? (typeof attributeLabel === 'string' ? attributeLabel : '选择项');
+});
 const rootAttrs = computed(() => {
-  const { 'aria-label': _ariaLabel, ...rest } = attrs;
+  const rest = { ...attrs };
+  delete rest['aria-label'];
   return rest;
 });
 function focusOption(index: number): void {

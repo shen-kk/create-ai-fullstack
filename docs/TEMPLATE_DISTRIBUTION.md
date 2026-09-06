@@ -19,7 +19,7 @@ CLI 会自动完成用户端选择、从官方 GitHub 仓库获取源码、代�
 也可以固定模板版本：
 
 ```bash
-npm create aiforge@0.2.4 my-project -- --ref=v0.2.4
+npm create aiforge@0.2.5 my-project -- --ref=v0.2.5
 ```
 
 ## 发布 CLI

@@ -61,7 +61,8 @@ function isSelected(code: string): boolean {
 }
 function togglePermission(code: string, checked: boolean): void {
   const next = new Set(form.value.permissions);
-  checked ? next.add(code) : next.delete(code);
+  if (checked) next.add(code);
+  else next.delete(code);
   form.value.permissions = [...next];
 }
 function groupItems(group: (typeof permissionGroups.value)[number]): PermissionOption[] {

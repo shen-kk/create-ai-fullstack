@@ -33,7 +33,7 @@
 - 用户端现有账户 API 已全部收口到 `useCustomerSession`：首次验证码登录自动创建账号、密码/验证码登录、找回密码、会话恢复与退出、资料编辑、邮箱绑定、修改密码和设备会话管理均使用共享契约的类型化方法。请求默认 12 秒超时，稳定错误码映射为中文；Access Token 过期时仅发起一次并发刷新并重试原请求。撤销设备会话后，API 对后续 Access Token 请求同步校验会话有效性。
 - 后台管理员与用户端账号的密码边界统一使用共享的 `PASSWORD_MIN_LENGTH = 6`；API DTO、Admin/Web 表单、初始化种子和 Doctor 必须保持一致，密码仍只保存 scrypt 哈希。
 - 验证码首次登录创建的用户端账号没有可用密码；个人中心首次设置密码不要求当前密码，设置或找回成功后记录 `passwordConfiguredAt`，后续修改必须验证当前密码。
-- 用户端以 shadcn-vue 作为业务组件基础，VueUse Motion 处理常规过渡，GSAP 只处理首页等高价值动画编排；自定义 Design System 采用 Apple 的克制与空间感、Linear 的交互密度和 Vercel 的黑白层级。`components/ui` 不依赖动效，`components/motion` 不承载业务状态，并尊重 SSR 与减少动态效果偏好。
+- 用户端以 shadcn-vue 作为业务组件基础，VueUse Motion 处理常规过渡，GSAP 只处理首页等高价值动画编排；模板不指定品牌或固定审美，现有页面仅是可替换 starter，具体项目自行定义视觉 Token 和组件 variants。`components/ui` 不依赖动效，`components/motion` 不承载业务状态，并尊重 SSR 与减少动态效果偏好；决策见 ADR-0017。
 - 用户端跨页面反馈统一使用右上角 `AppToast`，认证表单不再用撑开布局的行内服务端提示；页面使用统一轻量过渡，不允许只给同级内容中的个别卡片添加入场动画。所有按钮必须明确设计 hover、focus 和 disabled 对比度。
 
 - UI 默认语言为 `zh-CN`；状态枚举和错误码在 API/数据库保持英文稳定代码，Admin/Web 必须通过中文映射展示，不直接输出状态码。初始化声明包含 `localization`，未来增加多语言时必须让模板使用者显式选择。

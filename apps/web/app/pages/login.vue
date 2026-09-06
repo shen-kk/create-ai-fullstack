@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PASSWORD_MIN_LENGTH } from '@template/contracts';
+import { project } from '../generated/project';
 const { login, loginWithCode, sendVerification } = useCustomerSession();
 const { defaultChannel } = await useCustomerAuthSettings();
 const channel = ref(defaultChannel.value);
@@ -50,7 +51,7 @@ async function sendCode(): Promise<void> {
     sending.value = false;
   }
 }
-useSeoMeta({ title: '登录 · 澄序', description: '登录你的账号。' });
+useSeoMeta({ title: `登录 · ${project.displayName}`, description: '登录你的账号。' });
 </script>
 <template>
   <main class="auth-page">
@@ -74,28 +75,31 @@ useSeoMeta({ title: '登录 · 澄序', description: '登录你的账号。' });
             验证码登录
           </button>
         </div>
-        <label
-          >{{ channel === 'sms' ? '手机号' : '邮箱'
-          }}<input
-            v-model.trim="form.identifier"
+        <FormField :label="channel === 'sms' ? '手机号' : '邮箱'">
+          <Input
+            v-model="form.identifier"
+            trim
             required
             :inputmode="channel === 'sms' ? 'numeric' : 'email'"
             :type="channel === 'email' ? 'email' : 'text'"
             :autocomplete="channel === 'sms' ? 'tel' : 'email'"
             :maxlength="channel === 'sms' ? 11 : 120"
-            :placeholder="channel === 'sms' ? '请输入 11 位手机号' : '请输入邮箱地址'" /></label
-        ><label v-if="mode === 'password'"
-          >密码<input
+            :placeholder="channel === 'sms' ? '请输入 11 位手机号' : '请输入邮箱地址'"
+          />
+        </FormField>
+        <FormField v-if="mode === 'password'" label="密码">
+          <Input
             v-model="form.password"
             required
             type="password"
             autocomplete="current-password"
             :minlength="PASSWORD_MIN_LENGTH"
-            placeholder="请输入密码" /></label
-        ><label v-else
-          >{{ channel === 'sms' ? '短信验证码' : '邮件验证码' }}
+            placeholder="请输入密码"
+          />
+        </FormField>
+        <FormField v-else :label="channel === 'sms' ? '短信验证码' : '邮件验证码'">
           <div class="code-input">
-            <input v-model.trim="form.code" required maxlength="6" inputmode="numeric" /><button
+            <Input v-model="form.code" trim required maxlength="6" inputmode="numeric" /><button
               type="button"
               class="button button-light"
               :disabled="sending || remaining > 0"
@@ -103,8 +107,8 @@ useSeoMeta({ title: '登录 · 澄序', description: '登录你的账号。' });
             >
               {{ sending ? '发送中…' : remaining > 0 ? `${remaining} 秒后重试` : '获取验证码' }}
             </button>
-          </div></label
-        >
+          </div>
+        </FormField>
         <button class="button button-block" :disabled="loading">
           {{ loading ? '正在登录…' : '登录' }} <span>→</span>
         </button>

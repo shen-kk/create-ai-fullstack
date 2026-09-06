@@ -15,7 +15,9 @@ const stopSessionListener = onSessionChanged((user) => {
   currentUser.value = user;
 });
 onBeforeUnmount(stopSessionListener);
-const pageTitle = computed(() => String(route.meta.title ?? '管理后台'));
+const pageTitle = computed(() =>
+  typeof route.meta.title === 'string' ? route.meta.title : '管理后台',
+);
 const initials = computed(() => currentUser.value?.name.slice(0, 2).toUpperCase() || 'AD');
 watch(
   () => route.fullPath,

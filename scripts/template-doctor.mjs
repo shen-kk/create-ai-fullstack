@@ -34,6 +34,20 @@ try {
 add((await exists('AGENTS.md')) ? 'PASS' : 'FAIL', 'AI 入口', 'AGENTS.md');
 add((await exists('docs/ai/CONTEXT.md')) ? 'PASS' : 'FAIL', 'AI 上下文', 'docs/ai/CONTEXT.md');
 
+if (config?.features?.includes('customerWeb')) {
+  try {
+    const webDesign = await readFile(new URL('docs/ai/WEB_DESIGN.md', root), 'utf8');
+    const status = webDesign.match(/^> 状态：`(pending|confirmed)`$/m)?.[1];
+    add(
+      status ? 'PASS' : 'FAIL',
+      'Web 视觉简报',
+      status ? `状态为 ${status}` : '缺少 pending/confirmed 状态',
+    );
+  } catch {
+    add('FAIL', 'Web 视觉简报', '缺少 docs/ai/WEB_DESIGN.md');
+  }
+}
+
 if (config) {
   try {
     const actual = await readFile(new URL('docs/ai/PROJECT.md', root), 'utf8');

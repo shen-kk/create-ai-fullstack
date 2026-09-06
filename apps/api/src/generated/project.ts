@@ -26,7 +26,7 @@ export const project = {
       "businessComponents": "shadcn-vue",
       "motion": "vueuse-motion",
       "orchestration": "gsap",
-      "designStandard": "apple-linear-vercel"
+      "designStandard": "project-defined"
     }
   },
   "features": [

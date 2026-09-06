@@ -78,6 +78,9 @@ try {
   ]);
   const config = await readFile(join(target, 'project.config.json'), 'utf8');
   const context = await readFile(join(target, 'docs', 'ai', 'PROJECT.md'), 'utf8');
+  const webDesign = userWeb
+    ? await readFile(join(target, 'docs', 'ai', 'WEB_DESIGN.md'), 'utf8')
+    : '';
   const contractsPackage = JSON.parse(
     await readFile(join(target, 'packages', 'contracts', 'package.json'), 'utf8'),
   );
@@ -95,6 +98,8 @@ try {
   const initialized = JSON.parse(config);
   if (initialized.features.includes('customerWeb') !== userWeb)
     throw new Error(`用户端能力未按验收参数${userWeb ? '启用' : '停用'}`);
+  if (userWeb && !/^> 状态：`pending`$/m.test(webDesign))
+    throw new Error('新项目的 Web 视觉简报必须从 pending 状态开始');
   const productionCompose = await readFile(join(target, 'docker-compose.production.yml'), 'utf8');
   if (!userWeb && productionCompose.includes('apps/web/Dockerfile'))
     throw new Error('未选择用户端，但生产 Compose 仍引用用户端镜像');

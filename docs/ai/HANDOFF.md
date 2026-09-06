@@ -6,7 +6,7 @@
 
 - GitHub：`https://github.com/shen-kk/create-ai-fullstack`
 - npm：`create-aiforge`
-- 当前冻结版本：`0.2.4`
+- 当前冻结版本：`0.2.5`
 - 用户命令：`npm create aiforge@latest my-project`
 - 应用：Vue Admin、NestJS API、初始化时可选的 Nuxt Web。
 - 数据：运行时固定 PostgreSQL + Prisma，不允许内存模式或假数据回退。

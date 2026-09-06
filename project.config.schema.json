@@ -84,7 +84,7 @@
             "businessComponents": { "const": "shadcn-vue" },
             "motion": { "const": "vueuse-motion" },
             "orchestration": { "const": "gsap" },
-            "designStandard": { "const": "apple-linear-vercel" }
+            "designStandard": { "const": "project-defined" }
           },
           "additionalProperties": false
         }

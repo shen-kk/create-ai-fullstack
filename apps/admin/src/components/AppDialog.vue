@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
-// UI_STANDARD_EXCEPTION: docs/decisions/0012-admin-app-dialog.md
+// UI_STANDARD_EXCEPTION: docs/decisions/0018-admin-app-dialog.md
 const props = withDefaults(
   defineProps<{
     open: boolean;

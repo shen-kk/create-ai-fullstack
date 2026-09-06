@@ -71,12 +71,12 @@ try {
   for (const command of commands) {
     console.log(`[RUN] pnpm ${command.join(' ')}`);
     const commandArgs = pnpmEntry ? [pnpmEntry, ...command] : command;
-    const spawnExecutable = process.platform === 'win32' && !pnpmEntry
-      ? process.env.ComSpec ?? 'cmd.exe'
-      : executable;
-    const spawnArgs = process.platform === 'win32' && !pnpmEntry
-      ? ['/d', '/s', '/c', executable, ...commandArgs]
-      : commandArgs;
+    const spawnExecutable =
+      process.platform === 'win32' && !pnpmEntry ? (process.env.ComSpec ?? 'cmd.exe') : executable;
+    const spawnArgs =
+      process.platform === 'win32' && !pnpmEntry
+        ? ['/d', '/s', '/c', executable, ...commandArgs]
+        : commandArgs;
     const result = spawnSync(spawnExecutable, spawnArgs, {
       cwd: rootPath,
       env: childEnv,

@@ -81,10 +81,20 @@ const editingResource = ref<ServiceResourceSummary>();
 const deletingResource = ref<ServiceResourceSummary>();
 const editingTemplate = ref<MessageTemplateSummary>();
 const creatingTemplate = ref(false);
-const templateForm = ref({
+const templateForm = ref<{
+  code: string;
+  name: string;
+  channel: MessageTemplateChannel;
+  subject: string;
+  textBody: string;
+  htmlBody: string;
+  providerTemplateId: string;
+  parameterMapping: string;
+  enabled: boolean;
+}>({
   code: '',
   name: '',
-  channel: 'email' as MessageTemplateChannel,
+  channel: 'email',
   subject: '',
   textBody: '',
   htmlBody: '',

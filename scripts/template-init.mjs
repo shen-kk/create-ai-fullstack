@@ -74,7 +74,7 @@ const config = {
   schemaVersion: 2,
   template: {
     name: 'adminback-template',
-    version: '0.2.4',
+    version: '0.2.5',
     repository: 'https://github.com/shen-kk/create-ai-fullstack',
   },
   project: { name, packageScope, displayName, description: `${displayName} 全栈项目` },
@@ -86,7 +86,7 @@ const config = {
       businessComponents: 'shadcn-vue',
       motion: 'vueuse-motion',
       orchestration: 'gsap',
-      designStandard: 'apple-linear-vercel',
+      designStandard: 'project-defined',
     },
   },
   features,

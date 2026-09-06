@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { IntegrationKind, UpsertServiceResourceRequest } from '@template/contracts';
+import type { IntegrationKind } from '@template/contracts';
 import {
   decryptDeploymentSecrets,
   encryptDeploymentSecrets,
@@ -232,7 +232,7 @@ describe('IntegrationsService', () => {
         enabled: true,
         values,
         secrets,
-      } as UpsertServiceResourceRequest);
+      });
 
       expect(environmentUpdates[0]).toMatchObject({
         ...expectedData,

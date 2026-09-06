@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type {
-  DeploymentUnitDefinition,
   DeploymentVariableDefinition,
   UpsertDeploymentProjectRequest,
 } from '@template/contracts';

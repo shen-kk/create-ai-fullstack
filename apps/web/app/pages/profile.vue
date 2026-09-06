@@ -178,7 +178,7 @@ function formatDate(value: string): string {
     minute: '2-digit',
   }).format(new Date(value));
 }
-useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
+useSeoMeta({ title: `个人中心 · ${project.displayName}`, robots: 'noindex,nofollow' });
 </script>
 <template>
   <main class="profile-page">
@@ -287,14 +287,15 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
                   @change="selectAvatar"
                 />
               </div>
-              <label class="full"
-                >显示名称<input
-                  v-model.trim="profile.name"
+              <FormField class="full" label="显示名称" help="最多 40 个字符">
+                <Input
+                  v-model="profile.name"
+                  trim
                   required
                   maxlength="40"
                   placeholder="请输入显示名称"
-                /><small>最多 40 个字符</small></label
-              >
+                />
+              </FormField>
               <div class="form-actions full settings-footer">
                 <p>保存后立即同步到当前账号。</p>
                 <button class="button" type="submit">保存更改</button>
@@ -323,21 +324,24 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
               class="form-grid contact-form"
               @submit.prevent="bindEmail"
             >
-              <label class="full"
-                >邮箱地址<input
-                  v-model.trim="emailBinding.email"
+              <FormField
+                class="full"
+                label="邮箱地址"
+                :help="profile.email ? `当前已绑定 ${profile.email}` : '绑定后可用于接收账号通知。'"
+              >
+                <Input
+                  v-model="emailBinding.email"
+                  trim
                   required
                   type="email"
                   :placeholder="profile.email || 'name@example.com'"
-                /><small>{{
-                  profile.email ? `当前已绑定 ${profile.email}` : '绑定后可用于接收账号通知。'
-                }}</small></label
-              >
-              <label class="full"
-                >邮箱验证码
+                />
+              </FormField>
+              <FormField class="full" label="邮箱验证码">
                 <div class="code-input">
-                  <input
-                    v-model.trim="emailBinding.code"
+                  <Input
+                    v-model="emailBinding.code"
+                    trim
                     required
                     maxlength="6"
                     placeholder="6 位验证码"
@@ -357,7 +361,7 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
                     }}
                   </button>
                 </div>
-              </label>
+              </FormField>
               <div class="form-actions full settings-footer">
                 <p>邮箱变更必须先完成验证。</p>
                 <button class="button" type="submit">验证并绑定</button>
@@ -380,33 +384,36 @@ useSeoMeta({ title: '个人中心 · 澄序', robots: 'noindex,nofollow' });
               </div>
             </div>
             <form class="form-grid" @submit.prevent="changePassword">
-              <label v-if="customer.passwordConfigured" class="full"
-                >当前密码<input
+              <FormField v-if="customer.passwordConfigured" class="full" label="当前密码">
+                <Input
                   v-model="passwords.currentPassword"
                   required
                   type="password"
                   autocomplete="current-password"
                   :minlength="PASSWORD_MIN_LENGTH"
                   placeholder="输入当前密码"
-              /></label>
-              <label
-                >新密码<input
+                />
+              </FormField>
+              <FormField label="新密码">
+                <Input
                   v-model="passwords.newPassword"
                   required
                   type="password"
                   autocomplete="new-password"
                   :minlength="PASSWORD_MIN_LENGTH"
                   :placeholder="`至少 ${PASSWORD_MIN_LENGTH} 位`"
-              /></label>
-              <label
-                >确认新密码<input
+                />
+              </FormField>
+              <FormField label="确认新密码">
+                <Input
                   v-model="passwords.confirmPassword"
                   required
                   type="password"
                   autocomplete="new-password"
                   :minlength="PASSWORD_MIN_LENGTH"
                   placeholder="再次输入"
-              /></label>
+                />
+              </FormField>
               <div class="password-advice full"><i />建议包含大小写字母、数字和特殊符号。</div>
               <div class="form-actions full settings-footer">
                 <p>

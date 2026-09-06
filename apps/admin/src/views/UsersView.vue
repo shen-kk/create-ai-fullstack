@@ -40,11 +40,6 @@ const rolesTarget = ref<UserSummary | null>(null);
 const roleOptions = ref<RoleOption[]>([]);
 const selectedRoleCodes = ref<string[]>([]);
 
-const statusLabels: Record<UserStatus, string> = {
-  active: '正常',
-  disabled: '已停用',
-  pending: '待激活',
-};
 const statusOptions = [
   { value: '', label: '全部状态' },
   { value: 'active', label: '正常' },
@@ -172,7 +167,8 @@ async function submitRoles(): Promise<void> {
 }
 function toggleRole(code: string, checked: boolean): void {
   const next = new Set(selectedRoleCodes.value);
-  checked ? next.add(code) : next.delete(code);
+  if (checked) next.add(code);
+  else next.delete(code);
   selectedRoleCodes.value = [...next];
 }
 

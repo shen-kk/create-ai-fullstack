@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
-    "lint": "eslint nuxt.config.ts --max-warnings=0",
+    "lint": "nuxt prepare && eslint app nuxt.config.ts --ext .ts,.vue --max-warnings=0",
     "typecheck": "nuxt typecheck",
     "test": "vitest run --passWithNoTests"
   },
