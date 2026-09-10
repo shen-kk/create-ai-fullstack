@@ -12,6 +12,32 @@ import type {
 const testPhone = '13800000000';
 const testPassword = 'TestAdmin@123456';
 
+it('uses current administrator permissions and rejects disabled identities', async () => {
+  const current = {
+    id: 'admin',
+    name: 'Admin',
+    phone: testPhone,
+    email: null,
+    avatarUrl: null,
+    permissions: [],
+  };
+  const findActiveById = vi.fn().mockResolvedValue(current);
+  const service = new AuthService(
+    {
+      verifyAsync: () =>
+        Promise.resolve({ ...current, permissions: ['users.write'], sessionId: 'session' }),
+    } as never,
+    { findActiveById } as never,
+    { isActive: () => Promise.resolve(true) } as never,
+  );
+  await expect(service.verifyAccess('token')).resolves.toMatchObject({
+    permissions: [],
+    sessionId: 'session',
+  });
+  findActiveById.mockResolvedValueOnce(null);
+  await expect(service.verifyAccess('token')).rejects.toThrow('INVALID_ACCESS_TOKEN');
+});
+
 class TestAuthIdentityRepository implements AuthIdentityRepository {
   private readonly user: AuthUser = {
     id: 'adm_test',

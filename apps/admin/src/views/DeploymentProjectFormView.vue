@@ -82,6 +82,7 @@ async function load(): Promise<void> {
   }
 }
 async function save(): Promise<void> {
+  if (saving.value) return;
   error.value = '';
   if (!form.value.units.length) {
     error.value = '请至少添加一个部署单元。';

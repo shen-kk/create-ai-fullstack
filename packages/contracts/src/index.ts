@@ -350,7 +350,6 @@ export type VerificationDeliveryListResponse = PageResult<VerificationDeliverySu
 export interface UpdateCustomerProfileRequest {
   name: string;
   email?: string | null;
-  avatarUrl?: string | null;
 }
 export interface ChangeCustomerPasswordRequest {
   currentPassword?: string;

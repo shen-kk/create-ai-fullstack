@@ -2,11 +2,12 @@ import { spawnSync } from 'node:child_process';
 import { readFile, rm } from 'node:fs/promises';
 import process from 'node:process';
 import { createInterface } from 'node:readline/promises';
+import { fileURLToPath } from 'node:url';
 import { checkRedisConnection } from './lib/infrastructure-checks.mjs';
 import { parseEnv, provisionCommands, validateProjectConfig } from './lib/template-config.mjs';
 
 const root = new URL('../', import.meta.url);
-const rootPath = decodeURIComponent(root.pathname.replace(/^\/(?=[A-Za-z]:)/, ''));
+const rootPath = fileURLToPath(root);
 const args = new Set(process.argv.slice(2));
 const dryRun = args.has('--dry-run');
 const confirmed = args.has('--yes');
@@ -54,9 +55,7 @@ try {
   const bootstrapUrl = new URL('.template-bootstrap.json', root);
   try {
     const bootstrap = JSON.parse(await readFile(bootstrapUrl, 'utf8'));
-    childEnv.TEMPLATE_BOOTSTRAP_FILE = decodeURIComponent(
-      bootstrapUrl.pathname.replace(/^\/(?=[A-Za-z]:)/, ''),
-    );
+    childEnv.TEMPLATE_BOOTSTRAP_FILE = fileURLToPath(bootstrapUrl);
     const redis = bootstrap.integrations?.find((item) => item.kind === 'redis' && item.enabled);
     if (redis) {
       console.log('[CHECK] 正在校验 Redis 连接与鉴权。');

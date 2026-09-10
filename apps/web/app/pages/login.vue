@@ -1,27 +1,25 @@
 <script setup lang="ts">
 import { PASSWORD_MIN_LENGTH } from '@template/contracts';
 import { project } from '../generated/project';
-const { login, loginWithCode, sendVerification } = useCustomerSession();
+const { login, loginWithCode } = useCustomerSession();
 const { defaultChannel } = await useCustomerAuthSettings();
 const channel = ref(defaultChannel.value);
 const form = reactive({ identifier: '', password: '', code: '' });
 const mode = ref<'password' | 'code'>('password');
-const sending = ref(false);
 const loading = ref(false);
-const { showSuccess, showError } = useAppToast();
+const { showError } = useAppToast();
 const {
+  sending,
   remaining,
-  restore: restoreCountdown,
-  start: startCountdown,
-} = useVerificationCountdown('login');
-watch(
-  [channel, () => form.identifier],
-  ([nextChannel, identifier]) => {
-    restoreCountdown(`${nextChannel}:${identifier}`);
-  },
-  { immediate: true },
-);
+  label: codeLabel,
+  send: sendCode,
+} = useVerificationCode('login', () => ({
+  channel: channel.value,
+  target: form.identifier,
+  purpose: 'login',
+}));
 async function submit(): Promise<void> {
+  if (loading.value) return;
   loading.value = true;
   try {
     if (mode.value === 'password')
@@ -35,22 +33,7 @@ async function submit(): Promise<void> {
     loading.value = false;
   }
 }
-async function sendCode(): Promise<void> {
-  sending.value = true;
-  try {
-    const result = await sendVerification({
-      channel: channel.value,
-      target: form.identifier,
-      purpose: 'login',
-    });
-    startCountdown(result.retryAfter, `${channel.value}:${form.identifier}`);
-    showSuccess(`验证码已发送，${Math.ceil(result.expiresIn / 60)} 分钟内有效`);
-  } catch (error) {
-    showError(error instanceof Error ? error.message : '发送失败');
-  } finally {
-    sending.value = false;
-  }
-}
+
 useSeoMeta({ title: `登录 · ${project.displayName}`, description: '登录你的账号。' });
 </script>
 <template>
@@ -99,13 +82,20 @@ useSeoMeta({ title: `登录 · ${project.displayName}`, description: '登录你�
         </FormField>
         <FormField v-else :label="channel === 'sms' ? '短信验证码' : '邮件验证码'">
           <div class="code-input">
-            <Input v-model="form.code" trim required maxlength="6" inputmode="numeric" /><button
+            <Input
+              v-model="form.code"
+              trim
+              required
+              maxlength="6"
+              inputmode="numeric"
+              placeholder="请输入6位验证码"
+            /><button
               type="button"
               class="button button-light"
               :disabled="sending || remaining > 0"
               @click="sendCode"
             >
-              {{ sending ? '发送中…' : remaining > 0 ? `${remaining} 秒后重试` : '获取验证码' }}
+              {{ codeLabel }}
             </button>
           </div>
         </FormField>

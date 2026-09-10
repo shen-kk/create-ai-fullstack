@@ -76,14 +76,24 @@ export class CustomerRepository {
     identifier: string,
     passwordHash: string,
   ): Promise<boolean> {
-    const result = await this.prisma.customer.updateMany({
-      where: {
+    return this.prisma.$transaction(async (tx) => {
+      const where = {
         ...(channel === 'sms' ? { phone: identifier } : { email: identifier }),
         status: UserStatus.ACTIVE,
-      },
-      data: { passwordHash, passwordConfiguredAt: new Date() },
+      };
+      const customer = await tx.customer.findFirst({ where, select: { id: true } });
+      if (!customer) return false;
+      const result = await tx.customer.updateMany({
+        where: { ...where, id: customer.id },
+        data: { passwordHash, passwordConfiguredAt: new Date() },
+      });
+      if (result.count !== 1) return false;
+      await tx.customerRefreshSession.updateMany({
+        where: { customerId: customer.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      return true;
     });
-    return result.count > 0;
   }
 
   async bindContact(

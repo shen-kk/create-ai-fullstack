@@ -15,6 +15,7 @@ import {
   getUsers,
   updateUser,
 } from '../api/users';
+import AppDialog from '../components/AppDialog.vue';
 import AppSelect from '../components/AppSelect.vue';
 import AppPagination from '../components/AppPagination.vue';
 import AppCheckbox from '../components/AppCheckbox.vue';
@@ -90,6 +91,7 @@ function reset(): void {
   void loadUsers();
 }
 async function submitCreate(): Promise<void> {
+  if (saving.value) return;
   saving.value = true;
   try {
     await createUser(createForm.value);
@@ -123,6 +125,7 @@ function openEdit(user: UserSummary): void {
   editOpen.value = true;
 }
 async function submitEdit(): Promise<void> {
+  if (saving.value) return;
   saving.value = true;
   try {
     const email = editForm.value.email.trim();
@@ -152,6 +155,7 @@ async function openRoles(user: UserSummary): Promise<void> {
   }
 }
 async function submitRoles(): Promise<void> {
+  if (saving.value) return;
   if (!rolesTarget.value) return;
   saving.value = true;
   try {
@@ -279,17 +283,15 @@ onMounted(loadUsers);
         @change="loadUsers"
       />
     </section>
-    <div v-if="createOpen" class="dialog-backdrop">
-      <form class="user-dialog" @submit.prevent="submitCreate">
-        <header>
-          <div>
-            <p class="eyebrow">系统管理</p>
-            <h2>新增管理员</h2>
-          </div>
-          <button type="button" class="dialog-close" aria-label="关闭" @click="createOpen = false">
-            ×
-          </button>
-        </header>
+    <AppDialog
+      v-if="createOpen"
+      :open="true"
+      size="md"
+      eyebrow="系统管理"
+      title="新增管理员"
+      @close="createOpen = false"
+    >
+      <form id="submitCreate-form" class="dialog-form" @submit.prevent="submitCreate">
         <label
           ><span>姓名</span
           ><input v-model.trim="createForm.name" required minlength="2" maxlength="80" /></label
@@ -315,25 +317,23 @@ onMounted(loadUsers);
             autocomplete="new-password"
           /><small>至少 {{ PASSWORD_MIN_LENGTH }} 个字符，服务端仅保存 scrypt 哈希。</small></label
         >
-        <footer>
-          <button type="button" class="secondary-button" @click="createOpen = false">取消</button
-          ><button class="primary-button" :disabled="saving">
-            {{ saving ? '正在创建…' : '创建管理员' }}
-          </button>
-        </footer>
       </form>
-    </div>
-    <div v-if="editOpen" class="dialog-backdrop">
-      <form class="user-dialog" @submit.prevent="submitEdit">
-        <header>
-          <div>
-            <p class="eyebrow">系统管理</p>
-            <h2>编辑管理员</h2>
-          </div>
-          <button type="button" class="dialog-close" aria-label="关闭" @click="editOpen = false">
-            ×
-          </button>
-        </header>
+      <template #footer>
+        <button type="button" class="secondary-button" @click="createOpen = false">取消</button
+        ><button type="submit" form="submitCreate-form" class="primary-button" :disabled="saving">
+          {{ saving ? '正在创建…' : '创建管理员' }}
+        </button>
+      </template>
+    </AppDialog>
+    <AppDialog
+      v-if="editOpen"
+      :open="true"
+      size="md"
+      eyebrow="系统管理"
+      title="编辑管理员"
+      @close="editOpen = false"
+    >
+      <form id="submitEdit-form" class="dialog-form" @submit.prevent="submitEdit">
         <label
           ><span>姓名</span
           ><input v-model.trim="editForm.name" required minlength="2" maxlength="80" /></label
@@ -349,25 +349,23 @@ onMounted(loadUsers);
           ><span>邮箱（可选）</span
           ><input v-model.trim="editForm.email" type="email" maxlength="254"
         /></label>
-        <footer>
-          <button type="button" class="secondary-button" @click="editOpen = false">取消</button
-          ><button class="primary-button" :disabled="saving">
-            {{ saving ? '正在保存…' : '保存修改' }}
-          </button>
-        </footer>
       </form>
-    </div>
-    <div v-if="rolesOpen" class="dialog-backdrop">
-      <form class="user-dialog" @submit.prevent="submitRoles">
-        <header>
-          <div>
-            <p class="eyebrow">角色权限</p>
-            <h2>分配角色 · {{ rolesTarget?.name }}</h2>
-          </div>
-          <button type="button" class="dialog-close" aria-label="关闭" @click="rolesOpen = false">
-            ×
-          </button>
-        </header>
+      <template #footer>
+        <button type="button" class="secondary-button" @click="editOpen = false">取消</button
+        ><button type="submit" form="submitEdit-form" class="primary-button" :disabled="saving">
+          {{ saving ? '正在保存…' : '保存修改' }}
+        </button>
+      </template>
+    </AppDialog>
+    <AppDialog
+      v-if="rolesOpen"
+      :open="true"
+      size="md"
+      eyebrow="角色权限"
+      :title="'分配角色 · ' + rolesTarget?.name"
+      @close="rolesOpen = false"
+    >
+      <form id="submitRoles-form" class="dialog-form" @submit.prevent="submitRoles">
         <div class="role-options">
           <div v-for="role in roleOptions" :key="role.code" class="role-option">
             <AppCheckbox
@@ -381,13 +379,13 @@ onMounted(loadUsers);
             <i v-if="role.system">系统</i>
           </div>
         </div>
-        <footer>
-          <button type="button" class="secondary-button" @click="rolesOpen = false">取消</button
-          ><button class="primary-button" :disabled="saving">
-            {{ saving ? '正在保存…' : '保存角色' }}
-          </button>
-        </footer>
       </form>
-    </div>
+      <template #footer>
+        <button type="button" class="secondary-button" @click="rolesOpen = false">取消</button
+        ><button type="submit" form="submitRoles-form" class="primary-button" :disabled="saving">
+          {{ saving ? '正在保存…' : '保存角色' }}
+        </button>
+      </template>
+    </AppDialog>
   </div>
 </template>

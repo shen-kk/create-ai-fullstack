@@ -51,6 +51,7 @@ async function revokeOthers(): Promise<void> {
 }
 
 async function saveProfile(): Promise<void> {
+  if (saving.value) return;
   saving.value = true;
   try {
     const updated = await updateProfile({ name: profile.value.name });
@@ -63,6 +64,7 @@ async function saveProfile(): Promise<void> {
   }
 }
 async function selectAvatar(event: Event): Promise<void> {
+  if (uploading.value) return;
   const input = event.target as HTMLInputElement,
     file = input.files?.[0];
   input.value = '';
@@ -89,6 +91,7 @@ async function selectAvatar(event: Event): Promise<void> {
   }
 }
 async function savePassword(): Promise<void> {
+  if (saving.value) return;
   if (password.value.newPassword !== password.value.confirmPassword) {
     showAdminNotice('error', '两次输入的新密码不一致。');
     return;

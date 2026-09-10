@@ -1,42 +1,25 @@
 <script setup lang="ts">
 import { PASSWORD_MIN_LENGTH } from '@template/contracts';
 import { project } from '../generated/project';
-const { resetPassword, sendVerification } = useCustomerSession();
+const { resetPassword } = useCustomerSession();
 const { defaultChannel } = await useCustomerAuthSettings();
 const channel = ref(defaultChannel.value);
 const form = reactive({ identifier: '', code: '', newPassword: '', confirmPassword: '' });
 const loading = ref(false);
-const sending = ref(false);
 const { showSuccess, showError } = useAppToast();
 const {
+  sending,
   remaining,
-  restore: restoreCountdown,
-  start: startCountdown,
-} = useVerificationCountdown('reset-password');
-watch(
-  [channel, () => form.identifier],
-  ([nextChannel, identifier]) => {
-    restoreCountdown(`${nextChannel}:${identifier}`);
-  },
-  { immediate: true },
-);
-async function sendCode(): Promise<void> {
-  sending.value = true;
-  try {
-    const result = await sendVerification({
-      channel: channel.value,
-      target: form.identifier,
-      purpose: 'reset_password',
-    });
-    startCountdown(result.retryAfter, `${channel.value}:${form.identifier}`);
-    showSuccess(`验证码已发送，${Math.ceil(result.expiresIn / 60)} 分钟内有效`);
-  } catch (error) {
-    showError(error instanceof Error ? error.message : '发送失败');
-  } finally {
-    sending.value = false;
-  }
-}
+  label: codeLabel,
+  send: sendCode,
+} = useVerificationCode('reset-password', () => ({
+  channel: channel.value,
+  target: form.identifier,
+  purpose: 'reset_password',
+}));
+
 async function submit(): Promise<void> {
+  if (loading.value) return;
   if (form.newPassword !== form.confirmPassword) {
     showError('两次密码不一致');
     return;
@@ -49,10 +32,8 @@ async function submit(): Promise<void> {
       code: form.code,
       newPassword: form.newPassword,
     });
-    showSuccess('密码已重置，即将返回登录');
-    setTimeout(() => {
-      void navigateTo('/login');
-    }, 900);
+    showSuccess('密码已重置，请重新登录');
+    await navigateTo('/login');
   } catch (error) {
     showError(error instanceof Error ? error.message : '重置失败');
   } finally {
@@ -72,6 +53,7 @@ useSeoMeta({ title: `找回密码 · ${project.displayName}`, robots: 'noindex,n
       <div>
         <p class="auth-kicker">账号安全</p>
         <h2>找回密码</h2>
+        <p class="muted"><NuxtLink to="/login">返回登录</NuxtLink></p>
       </div>
       <form class="form-grid" @submit.prevent="submit">
         <FormField class="full" :label="channel === 'sms' ? '手机号' : '邮箱'">
@@ -82,23 +64,32 @@ useSeoMeta({ title: `找回密码 · ${project.displayName}`, robots: 'noindex,n
             :inputmode="channel === 'sms' ? 'numeric' : 'email'"
             :type="channel === 'email' ? 'email' : 'text'"
             :maxlength="channel === 'sms' ? 11 : 120"
+            :placeholder="channel === 'sms' ? '请输入手机号' : '请输入邮箱地址'"
           />
         </FormField>
         <FormField class="full" :label="channel === 'sms' ? '短信验证码' : '邮件验证码'">
           <div class="code-input">
-            <Input v-model="form.code" trim required maxlength="6" inputmode="numeric" /><button
+            <Input
+              v-model="form.code"
+              trim
+              required
+              maxlength="6"
+              inputmode="numeric"
+              placeholder="请输入6位验证码"
+            /><button
               type="button"
               class="button button-light"
               :disabled="sending || remaining > 0"
               @click="sendCode"
             >
-              {{ sending ? '发送中…' : remaining > 0 ? `${remaining} 秒后重试` : '获取验证码' }}
+              {{ codeLabel }}
             </button>
           </div>
         </FormField>
         <FormField label="新密码">
           <Input
             v-model="form.newPassword"
+            :placeholder="`请设置至少${PASSWORD_MIN_LENGTH}位的新密码`"
             required
             type="password"
             :minlength="PASSWORD_MIN_LENGTH"
@@ -107,6 +98,7 @@ useSeoMeta({ title: `找回密码 · ${project.displayName}`, robots: 'noindex,n
         <FormField label="确认密码">
           <Input
             v-model="form.confirmPassword"
+            placeholder="请再次输入新密码"
             required
             type="password"
             :minlength="PASSWORD_MIN_LENGTH"

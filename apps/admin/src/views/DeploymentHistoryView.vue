@@ -4,7 +4,10 @@ import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { listDeploymentEnvironments, listDeploymentRuns } from '../api/deployments';
 import AppSelect from '../components/AppSelect.vue';
-import { deploymentProjectPath } from '../deployments/view-model';
+import {
+  deploymentProjectPath,
+  deploymentRunStatusText as statusText,
+} from '../deployments/view-model';
 
 const router = useRouter();
 const route = useRoute();
@@ -15,15 +18,7 @@ const environments = ref<DeploymentEnvironmentSummary[]>([]);
 const runs = ref<{ run: DeploymentRunSummary; environment: DeploymentEnvironmentSummary }[]>([]);
 const loading = ref(true);
 const error = ref('');
-const statusText = {
-  queued: '等待中',
-  running: '执行中',
-  succeeded: '已成功',
-  failed: '已失败',
-  cancelled: '已取消',
-  rolling_back: '正在回滚',
-  rolled_back: '已回滚',
-} as const;
+
 const statusFilter = ref('');
 const environmentFilter = ref('');
 const environmentOptions = computed(() => [

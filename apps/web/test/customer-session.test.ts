@@ -26,11 +26,59 @@ beforeEach(() => {
     if (!states.has(key)) states.set(key, ref(initialize()));
     return states.get(key);
   });
+  const app = {};
+  vi.stubGlobal('useNuxtApp', () => app);
   vi.stubGlobal('useRuntimeConfig', () => ({ public: { apiBaseUrl: 'http://api.test' } }));
   vi.restoreAllMocks();
 });
 
 describe('customer session API client', () => {
+  it('does not restore an identity when refresh finishes after logout', async () => {
+    const pending = Promise.withResolvers<Response>();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((url: string) =>
+        url.endsWith('/refresh')
+          ? pending.promise
+          : Promise.resolve(new Response(null, { status: 204 })),
+      ),
+    );
+    const { useCustomerSession } = await import('../app/composables/useCustomerSession.js');
+    const api = useCustomerSession();
+    const restoring = api.restore();
+    await api.logout();
+    pending.resolve(Response.json(session('late-token')));
+    await restoring;
+    expect(api.customer.value).toBeNull();
+    expect(api.accessToken.value).toBe('');
+  });
+  it('awaits a shared restore for simultaneous authenticated calls', async () => {
+    const fetchMock = vi.fn((url: string) =>
+      Promise.resolve(
+        url.endsWith('/refresh') ? Response.json(session('restored-token')) : Response.json([]),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { useCustomerSession } = await import('../app/composables/useCustomerSession.js');
+    const first = useCustomerSession();
+    const second = useCustomerSession();
+    await expect(Promise.all([first.listSessions(), second.listSessions()])).resolves.toEqual([
+      [],
+      [],
+    ]);
+    expect(fetchMock.mock.calls.filter(([url]) => url.endsWith('/refresh'))).toHaveLength(1);
+  });
+
+  it('does not share an in-flight refresh between separate Nuxt applications', async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(Response.json(session('token'))));
+    vi.stubGlobal('fetch', fetchMock);
+    const { useCustomerSession } = await import('../app/composables/useCustomerSession.js');
+    const first = useCustomerSession();
+    vi.stubGlobal('useNuxtApp', () => ({}));
+    const second = useCustomerSession();
+    await Promise.all([first.restore(true), second.restore(true)]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
   it('maps stable API error codes to Chinese user messages', async () => {
     vi.stubGlobal(
       'fetch',
@@ -49,7 +97,7 @@ describe('customer session API client', () => {
       await import('../app/composables/useCustomerSession.js');
 
     const error = await useCustomerSession()
-      .login({ phone: '13800000000', password: 'wrong-password' })
+      .login({ channel: 'sms', identifier: '13800000000', password: 'wrong-password' })
       .catch((reason: unknown) => reason);
 
     expect(error).toBeInstanceOf(CustomerApiError);
@@ -77,7 +125,7 @@ describe('customer session API client', () => {
     const { useCustomerSession } = await import('../app/composables/useCustomerSession.js');
     const api = useCustomerSession();
 
-    await api.login({ phone: '13800000000', password: 'Customer@123' });
+    await api.login({ channel: 'sms', identifier: '13800000000', password: 'Customer@123' });
     await expect(api.listSessions()).resolves.toEqual([]);
     expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/refresh'))).toHaveLength(
       1,
@@ -94,7 +142,7 @@ describe('customer session API client', () => {
     const { useCustomerSession } = await import('../app/composables/useCustomerSession.js');
     const api = useCustomerSession();
 
-    await api.login({ phone: '13800000000', password: 'Customer@123' });
+    await api.login({ channel: 'sms', identifier: '13800000000', password: 'Customer@123' });
     await expect(api.logout()).rejects.toThrow('网络连接失败，请稍后重试');
     expect(api.customer.value).toBeNull();
     expect(api.accessToken.value).toBe('');
@@ -109,7 +157,7 @@ describe('customer session API client', () => {
     const { useCustomerSession } = await import('../app/composables/useCustomerSession.js');
     const api = useCustomerSession();
 
-    await api.login({ phone: '13800000000', password: 'Customer@123' });
+    await api.login({ channel: 'sms', identifier: '13800000000', password: 'Customer@123' });
     expect(api.customer.value?.passwordConfigured).toBe(false);
     await api.changePassword({ newPassword: 'Customer@456' });
     expect(api.customer.value?.passwordConfigured).toBe(true);

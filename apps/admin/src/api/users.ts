@@ -8,43 +8,16 @@ import type {
   UserListResponse,
   UserSummary,
 } from '@template/contracts';
-import { getAccessToken } from '../auth/session';
-import { apiBaseUrl } from './base';
+import { request, queryString } from './request';
 
-export async function getUsers(query: UserListQuery): Promise<UserListResponse> {
-  const params = new URLSearchParams();
-  if (query.keyword) params.set('keyword', query.keyword);
-  if (query.status) params.set('status', query.status);
-  if (query.page) params.set('page', String(query.page));
-  if (query.pageSize) params.set('pageSize', String(query.pageSize));
+export const getUsers = (query: UserListQuery): Promise<UserListResponse> =>
+  request(`/users?${queryString(query)}`);
 
-  const token = getAccessToken();
-  const response = await fetch(`${apiBaseUrl}/users?${params}`, {
-    signal: AbortSignal.timeout(6000),
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!response.ok) throw new Error(`Users request failed: ${response.status}`);
-  return response.json() as Promise<UserListResponse>;
-}
-
-async function writeUser(
+const writeUser = (
   path: string,
   method: 'POST' | 'PATCH',
   body: CreateUserRequest | UpdateUserRequest | ChangeUserStatusRequest | AssignUserRolesRequest,
-): Promise<UserSummary> {
-  const token = getAccessToken();
-  const response = await fetch(`${apiBaseUrl}${path}`, {
-    method,
-    signal: AbortSignal.timeout(6000),
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-  if (!response.ok) throw new Error(`User write failed: ${response.status}`);
-  return response.json() as Promise<UserSummary>;
-}
+): Promise<UserSummary> => request(path, { method, body: JSON.stringify(body) });
 
 export const createUser = (input: CreateUserRequest): Promise<UserSummary> =>
   writeUser('/users', 'POST', input);
@@ -57,12 +30,4 @@ export const changeUserStatus = (
 export const assignUserRoles = (id: string, input: AssignUserRolesRequest): Promise<UserSummary> =>
   writeUser(`/users/${encodeURIComponent(id)}/roles`, 'PATCH', input);
 
-export async function getRoleOptions(): Promise<RoleOption[]> {
-  const token = getAccessToken();
-  const response = await fetch(`${apiBaseUrl}/roles`, {
-    signal: AbortSignal.timeout(6000),
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (!response.ok) throw new Error(`Roles request failed: ${response.status}`);
-  return response.json() as Promise<RoleOption[]>;
-}
+export const getRoleOptions = (): Promise<RoleOption[]> => request('/roles');

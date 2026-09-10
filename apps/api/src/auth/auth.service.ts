@@ -72,7 +72,9 @@ export class AuthService {
     const payload = await this.jwt.verifyAsync<AuthAccessToken>(token);
     if (!payload.sessionId || !(await this.refreshSessions.isActive(payload.id, payload.sessionId)))
       throw new UnauthorizedException('INVALID_ACCESS_TOKEN');
-    return payload;
+    const user = await this.identities.findActiveById(payload.id);
+    if (!user) throw new UnauthorizedException('INVALID_ACCESS_TOKEN');
+    return { ...user, sessionId: payload.sessionId };
   }
   async updateProfile(id: string, name: string, avatarUrl?: string | null): Promise<AuthUser> {
     const current = avatarUrl === undefined ? await this.identities.findActiveById(id) : null;

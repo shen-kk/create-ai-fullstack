@@ -3,10 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
-const source = decodeURIComponent(
-  new URL('../', import.meta.url).pathname.replace(/^\/(?=[A-Za-z]:)/, ''),
-).replace(/[\\/]$/, '');
+const source = fileURLToPath(new URL('../', import.meta.url)).replace(/[\\/]$/, '');
 const target = await mkdtemp(join(tmpdir(), 'adminback-template-verify-'));
 const keep = process.argv.includes('--keep');
 const full = process.argv.includes('--full');
@@ -35,16 +34,6 @@ const filter = (path) => {
     return false;
   return true;
 };
-const run = (script, args = []) => {
-  const result = spawnSync(process.execPath, [join(target, 'scripts', script), ...args], {
-    cwd: target,
-    encoding: 'utf8',
-  });
-  if (result.stdout) process.stdout.write(result.stdout);
-  if (result.stderr) process.stderr.write(result.stderr);
-  if (result.status !== 0)
-    throw new Error(`${script} 执行失败，退出码 ${result.status ?? 'unknown'}`);
-};
 const runCommand = (command, args) => {
   const result = spawnSync(command, args, {
     cwd: target,
@@ -58,6 +47,8 @@ const runCommand = (command, args) => {
   if (result.status !== 0)
     throw new Error(`${command} ${args.join(' ')} 执行失败，退出码 ${result.status ?? 'unknown'}`);
 };
+const run = (script, args = []) =>
+  runCommand(process.execPath, [join(target, 'scripts', script), ...args]);
 
 try {
   console.log(`[COPY] 创建干净副本：${target}`);

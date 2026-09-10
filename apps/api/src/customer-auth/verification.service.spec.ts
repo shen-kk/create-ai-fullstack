@@ -21,6 +21,68 @@ const createService = (): VerificationService =>
 describe('VerificationService', () => {
   afterEach(() => vi.unstubAllGlobals());
 
+  it.each(['Ok', 'FailedOperation.InsufficientBalance', undefined])(
+    'checks the individual SMS result: %s',
+    async (status) => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({ Response: { SendStatusSet: status ? [{ Code: status }] : [] } }),
+        }),
+      );
+      const update = vi.fn().mockResolvedValue({});
+      const service = new VerificationService(
+        {
+          verificationCode: {
+            findFirst: () => Promise.resolve(null),
+            create: () => Promise.resolve({}),
+            update,
+          },
+        } as never,
+        {
+          assertCustomerAuthChannel: () => Promise.resolve(),
+          getCustomerAuthSettings: () =>
+            Promise.resolve({
+              verificationTtlSeconds: 300,
+              verificationRetrySeconds: 60,
+            }),
+          runtimeConfig: () =>
+            Promise.resolve({
+              enabled: true,
+              values: {
+                provider: 'tencent_sms',
+                appId: 'app',
+                signName: 'sign',
+                accessKeyId: 'key',
+              },
+              secrets: { accessKeySecret: 'secret' },
+              template: { providerTemplateId: '1', parameterMapping: { code: '{{code}}' } },
+            }),
+        } as never,
+      );
+      if (status === 'Ok') {
+        await expect(service.send('sms', '13800000000', 'login')).resolves.toEqual({
+          expiresIn: 300,
+          retryAfter: 60,
+        });
+        expect(update).toHaveBeenCalledWith(
+          expect.objectContaining({ data: { deliveryStatus: 'sent', failureCode: null } }),
+        );
+        return;
+      }
+      await expect(service.send('sms', '13800000000', 'login')).rejects.toThrow(
+        'SMS_DELIVERY_FAILED',
+      );
+      expect(update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { deliveryStatus: 'failed', failureCode: 'SMS_DELIVERY_FAILED' },
+        }),
+      );
+    },
+  );
+
   it('rejects an invalid phone before accessing persistence', async () => {
     await expect(createService().send('sms', '123', 'login')).rejects.toThrow('INVALID_PHONE');
   });

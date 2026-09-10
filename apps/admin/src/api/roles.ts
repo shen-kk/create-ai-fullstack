@@ -4,23 +4,7 @@ import type {
   RoleOption,
   UpdateRoleRequest,
 } from '@template/contracts';
-import { getAccessToken } from '../auth/session';
-import { apiBaseUrl } from './base';
-
-const base = apiBaseUrl;
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getAccessToken();
-  const response = await fetch(`${base}${path}`, {
-    ...init,
-    signal: AbortSignal.timeout(6000),
-    headers: {
-      ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-  if (!response.ok) throw new Error(`Role request failed: ${response.status}`);
-  return response.json() as Promise<T>;
-}
+import { request } from './request';
 export const getPermissions = (): Promise<PermissionOption[]> => request('/roles/permissions');
 export const createRole = (input: CreateRoleRequest): Promise<RoleOption> =>
   request('/roles', { method: 'POST', body: JSON.stringify(input) });

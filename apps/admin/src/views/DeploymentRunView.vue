@@ -13,7 +13,10 @@ import {
   listDeploymentLogs,
   streamDeploymentRun,
 } from '../api/deployments';
-import { deploymentProjectPath } from '../deployments/view-model';
+import {
+  deploymentProjectPath,
+  deploymentRunStatusText as statusText,
+} from '../deployments/view-model';
 
 const route = useRoute(),
   router = useRouter();
@@ -26,15 +29,7 @@ const run = ref<DeploymentRunSummary>(),
   autoScroll = ref(true);
 const terminal = ref<HTMLElement>();
 const controller = new AbortController();
-const statusText = {
-  queued: '等待中',
-  running: '执行中',
-  succeeded: '已成功',
-  failed: '已失败',
-  cancelled: '已取消',
-  rolling_back: '正在回滚',
-  rolled_back: '已回滚',
-} as const;
+
 const active = computed(
   () => run.value && ['queued', 'running', 'rolling_back'].includes(run.value.status),
 );

@@ -64,7 +64,7 @@ export class CustomerApiError extends Error {
   }
 }
 
-let refreshPromise: Promise<CustomerSession> | null = null;
+const refreshes = new WeakMap<object, Promise<CustomerSession>>();
 
 async function parseError(response: Response): Promise<CustomerApiError> {
   const fallback = `请求失败（${response.status}）`;
@@ -83,24 +83,22 @@ async function parseError(response: Response): Promise<CustomerApiError> {
 }
 
 async function fetchApi(url: string, init: RequestInit = {}): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12_000);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    return await fetch(url, { ...init, signal: init.signal ?? AbortSignal.timeout(12_000) });
   } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError')
+    if (error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name))
       throw new CustomerApiError('REQUEST_TIMEOUT', '请求超时，请检查网络后重试', 0);
     throw new CustomerApiError('NETWORK_ERROR', '网络连接失败，请稍后重试', 0);
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
 export function useCustomerSession() {
+  const app = useNuxtApp();
   const customer = useState<CustomerProfile | null>('customer-profile', () => null);
   const accessToken = useState('customer-access-token', () => '');
   const restoring = useState('customer-restoring', () => false);
   const restored = useState('customer-restored', () => false);
+  const version = useState('customer-session-version', () => 0);
   const apiBase = () => useRuntimeConfig().public.apiBaseUrl;
 
   function applySession(session: CustomerSession): CustomerSession {
@@ -111,32 +109,38 @@ export function useCustomerSession() {
   }
 
   function clearSession(): void {
+    version.value += 1;
     customer.value = null;
     accessToken.value = '';
     restored.value = true;
   }
 
   async function requestSession(path: string, init: RequestInit): Promise<CustomerSession> {
+    const startedVersion = version.value;
     const response = await fetchApi(`${apiBase()}/customer-auth${path}`, {
       ...init,
       credentials: 'include',
       headers: { 'Content-Type': 'application/json', ...init.headers },
     });
     if (!response.ok) throw await parseError(response);
-    return applySession((await response.json()) as CustomerSession);
+    const session = (await response.json()) as CustomerSession;
+    if (version.value !== startedVersion)
+      throw new CustomerApiError('AUTHENTICATION_REQUIRED', '登录状态已失效，请重新登录', 401);
+    return applySession(session);
   }
 
   async function refreshSession(): Promise<CustomerSession> {
-    if (!refreshPromise) {
-      refreshPromise = requestSession('/refresh', { method: 'POST' }).finally(() => {
-        refreshPromise = null;
-      });
-    }
-    return refreshPromise;
+    const pending = refreshes.get(app);
+    if (pending) return pending;
+    const refresh = requestSession('/refresh', { method: 'POST' }).finally(() =>
+      refreshes.delete(app),
+    );
+    refreshes.set(app, refresh);
+    return refresh;
   }
 
   async function restore(force = false): Promise<void> {
-    if ((!force && restored.value) || restoring.value) return;
+    if (!force && restored.value) return;
     restoring.value = true;
     try {
       await refreshSession();
@@ -152,6 +156,7 @@ export function useCustomerSession() {
     if (!accessToken.value) await restore();
     if (!accessToken.value)
       throw new CustomerApiError('AUTHENTICATION_REQUIRED', '登录状态已失效，请重新登录', 401);
+    const token = accessToken.value;
     const response = await fetchApi(`${apiBase()}/customer-auth${path}`, {
       ...init,
       credentials: 'include',
@@ -159,19 +164,20 @@ export function useCustomerSession() {
         ...(init.body && !(typeof FormData !== 'undefined' && init.body instanceof FormData)
           ? { 'Content-Type': 'application/json' }
           : {}),
-        Authorization: `Bearer ${accessToken.value}`,
+        Authorization: `Bearer ${token}`,
         ...init.headers,
       },
     });
     if (response.status === 401 && retry) {
       try {
-        await refreshSession();
-        return authenticated<T>(path, init, false);
+        if (accessToken.value === token) await refreshSession();
       } catch {
         clearSession();
         throw new CustomerApiError('AUTHENTICATION_REQUIRED', '登录状态已失效，请重新登录', 401);
       }
+      return authenticated<T>(path, init, false);
     }
+    if (response.status === 401) clearSession();
     if (!response.ok) throw await parseError(response);
     return response.status === 204 ? (undefined as T) : ((await response.json()) as T);
   }
@@ -203,6 +209,7 @@ export function useCustomerSession() {
     if (!response.ok) throw await parseError(response);
   }
   async function logout(): Promise<void> {
+    clearSession();
     try {
       await fetchApi(`${apiBase()}/customer-auth/logout`, {
         method: 'POST',

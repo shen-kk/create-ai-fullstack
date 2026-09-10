@@ -13,6 +13,7 @@ const phone = ref(''),
 const router = useRouter(),
   route = useRoute();
 async function submit(): Promise<void> {
+  if (submitting.value) return;
   submitting.value = true;
   error.value = '';
   try {

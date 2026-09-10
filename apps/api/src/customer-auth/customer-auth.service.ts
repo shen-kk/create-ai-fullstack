@@ -149,7 +149,8 @@ export class CustomerAuthService {
     const result = await this.customers.update(id, {
       name: input.name.trim(),
       email: current.email,
-      avatarUrl: input.avatarUrl?.trim() || null,
+      avatarUrl:
+        input.avatarUrl === undefined ? current.avatarUrl : input.avatarUrl?.trim() || null,
     });
     if (!result) throw new NotFoundException('CUSTOMER_NOT_FOUND');
     return result;

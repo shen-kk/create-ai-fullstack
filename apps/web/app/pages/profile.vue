@@ -11,19 +11,17 @@ const {
   listSessions,
   revokeSession,
   revokeOtherSessions,
-  sendVerification,
 } = useCustomerSession();
 const profile = reactive({ name: '', email: '', avatarUrl: '' });
 const passwords = reactive({ currentPassword: '', newPassword: '', confirmPassword: '' });
-const profileMessage = ref('');
-const passwordMessage = ref('');
 const emailBinding = reactive({ email: '', code: '' });
-const emailMessage = ref('');
 const devices = ref<CustomerSessionDevice[]>([]);
-const deviceMessage = ref('');
 const avatarInput = ref<HTMLInputElement | null>(null);
 const avatarUploading = ref(false);
-const emailCodeSending = ref(false);
+const profileSaving = ref(false);
+const emailSaving = ref(false);
+const passwordSaving = ref(false);
+const deviceSaving = ref(false);
 type ProfileSection = 'profile' | 'contact' | 'security' | 'devices';
 const activeSection = ref<ProfileSection>('profile');
 const sections: Array<{ id: ProfileSection; label: string; description: string }> = [
@@ -34,46 +32,46 @@ const sections: Array<{ id: ProfileSection; label: string; description: string }
 ];
 const { showSuccess, showError } = useAppToast();
 const {
+  sending: emailCodeSending,
   remaining: emailCodeRemaining,
-  restore: restoreEmailCountdown,
-  start: startEmailCountdown,
-} = useVerificationCountdown('bind-email');
-watch(
-  () => emailBinding.email,
-  (email) => restoreEmailCountdown(email),
-  { immediate: true },
-);
-function success(target: { value: string }, message: string): void {
-  target.value = message;
-  showSuccess(message);
-}
-function failure(target: { value: string }, message: string): void {
-  target.value = message;
-  showError(message);
-}
+  label: emailCodeLabel,
+  send: sendEmailCode,
+} = useVerificationCode('bind-email', () => ({
+  channel: 'email',
+  target: emailBinding.email,
+  purpose: 'bind_contact',
+}));
 async function loadDevices(): Promise<void> {
   try {
     devices.value = await listSessions();
   } catch {
-    failure(deviceMessage, '登录设备加载失败');
+    showError('登录设备加载失败');
   }
 }
 async function revokeDevice(id: string): Promise<void> {
+  if (deviceSaving.value) return;
+  deviceSaving.value = true;
   try {
     await revokeSession(id);
-    success(deviceMessage, '该设备已退出');
+    showSuccess('该设备已退出');
     await loadDevices();
   } catch {
-    failure(deviceMessage, '退出设备失败');
+    showError('退出设备失败');
+  } finally {
+    deviceSaving.value = false;
   }
 }
 async function revokeOthers(): Promise<void> {
+  if (deviceSaving.value) return;
+  deviceSaving.value = true;
   try {
     await revokeOtherSessions();
-    success(deviceMessage, '其他设备已全部退出');
+    showSuccess('其他设备已全部退出');
     await loadDevices();
   } catch {
-    failure(deviceMessage, '操作失败');
+    showError('操作失败');
+  } finally {
+    deviceSaving.value = false;
   }
 }
 onMounted(loadDevices);
@@ -90,21 +88,15 @@ watch(
   { immediate: true },
 );
 async function saveProfile(): Promise<void> {
-  profileMessage.value = '';
+  if (profileSaving.value) return;
+  profileSaving.value = true;
   try {
-    const result = await updateProfile({
-      name: profile.name,
-      email: profile.email || null,
-      avatarUrl: profile.avatarUrl || null,
-    });
-    Object.assign(profile, {
-      name: result.name,
-      email: result.email ?? '',
-      avatarUrl: result.avatarUrl ?? '',
-    });
-    success(profileMessage, '资料已保存');
+    await updateProfile({ name: profile.name });
+    showSuccess('资料已保存');
   } catch (error) {
-    failure(profileMessage, error instanceof Error ? error.message : '保存失败');
+    showError(error instanceof Error ? error.message : '保存失败');
+  } finally {
+    profileSaving.value = false;
   }
 }
 async function selectAvatar(event: Event): Promise<void> {
@@ -113,60 +105,49 @@ async function selectAvatar(event: Event): Promise<void> {
   if (!file) return;
   avatarUploading.value = true;
   try {
-    const updated = await uploadAvatar(file);
-    profile.avatarUrl = updated.avatarUrl ?? '';
-    success(profileMessage, '头像已更新');
+    await uploadAvatar(file);
+    showSuccess('头像已更新');
   } catch (error) {
-    failure(profileMessage, error instanceof Error ? error.message : '头像上传失败');
+    showError(error instanceof Error ? error.message : '头像上传失败');
   } finally {
     avatarUploading.value = false;
     input.value = '';
   }
 }
-async function sendEmailCode(): Promise<void> {
-  emailCodeSending.value = true;
-  try {
-    const result = await sendVerification({
-      channel: 'email',
-      target: emailBinding.email,
-      purpose: 'bind_contact',
-    });
-    startEmailCountdown(result.retryAfter, emailBinding.email);
-    success(emailMessage, `验证邮件已发送，${Math.ceil(result.expiresIn / 60)} 分钟内有效`);
-  } catch (error) {
-    failure(emailMessage, error instanceof Error ? error.message : '发送失败');
-  } finally {
-    emailCodeSending.value = false;
-  }
-}
 async function bindEmail(): Promise<void> {
+  if (emailSaving.value) return;
+  emailSaving.value = true;
   try {
-    const updated = await bindContact({
+    await bindContact({
       channel: 'email',
       target: emailBinding.email,
       code: emailBinding.code,
     });
-    profile.email = updated.email ?? '';
-    success(emailMessage, '邮箱已验证并绑定');
+    showSuccess('邮箱已验证并绑定');
   } catch (error) {
-    failure(emailMessage, error instanceof Error ? error.message : '绑定失败');
+    showError(error instanceof Error ? error.message : '绑定失败');
+  } finally {
+    emailSaving.value = false;
   }
 }
 async function changePassword(): Promise<void> {
-  passwordMessage.value = '';
+  if (passwordSaving.value) return;
   if (passwords.newPassword !== passwords.confirmPassword) {
-    failure(passwordMessage, '两次输入的新密码不一致');
+    showError('两次输入的新密码不一致');
     return;
   }
+  passwordSaving.value = true;
   try {
     await changeCustomerPassword({
       ...(customer.value?.passwordConfigured ? { currentPassword: passwords.currentPassword } : {}),
       newPassword: passwords.newPassword,
     });
     Object.assign(passwords, { currentPassword: '', newPassword: '', confirmPassword: '' });
-    success(passwordMessage, '密码已更新');
+    showSuccess('密码已更新');
   } catch (error) {
-    failure(passwordMessage, error instanceof Error ? error.message : '修改失败');
+    showError(error instanceof Error ? error.message : '修改失败');
+  } finally {
+    passwordSaving.value = false;
   }
 }
 function formatDate(value: string): string {
@@ -298,7 +279,7 @@ useSeoMeta({ title: `个人中心 · ${project.displayName}`, robots: 'noindex,n
               </FormField>
               <div class="form-actions full settings-footer">
                 <p>保存后立即同步到当前账号。</p>
-                <button class="button" type="submit">保存更改</button>
+                <button class="button" type="submit" :disabled="profileSaving">保存更改</button>
               </div>
             </form>
           </section>
@@ -352,19 +333,13 @@ useSeoMeta({ title: `个人中心 · ${project.displayName}`, robots: 'noindex,n
                     :disabled="emailCodeSending || emailCodeRemaining > 0"
                     @click="sendEmailCode"
                   >
-                    {{
-                      emailCodeSending
-                        ? '发送中…'
-                        : emailCodeRemaining > 0
-                          ? `${emailCodeRemaining} 秒后重试`
-                          : '获取验证码'
-                    }}
+                    {{ emailCodeLabel }}
                   </button>
                 </div>
               </FormField>
               <div class="form-actions full settings-footer">
                 <p>邮箱变更必须先完成验证。</p>
-                <button class="button" type="submit">验证并绑定</button>
+                <button class="button" type="submit" :disabled="emailSaving">验证并绑定</button>
               </div>
             </form>
           </section>
@@ -423,7 +398,7 @@ useSeoMeta({ title: `个人中心 · ${project.displayName}`, robots: 'noindex,n
                       : '密码设置后立即生效。'
                   }}
                 </p>
-                <button class="button" type="submit">
+                <button class="button" type="submit" :disabled="passwordSaving">
                   {{ customer.passwordConfigured ? '更新密码' : '设置密码' }}
                 </button>
               </div>
@@ -465,6 +440,7 @@ useSeoMeta({ title: `个人中心 · ${project.displayName}`, robots: 'noindex,n
                 <button
                   v-if="!device.current"
                   class="button button-light button-small"
+                  :disabled="deviceSaving"
                   @click="revokeDevice(device.id)"
                 >
                   退出
@@ -473,7 +449,9 @@ useSeoMeta({ title: `个人中心 · ${project.displayName}`, robots: 'noindex,n
             </div>
             <div class="form-actions settings-footer">
               <p>如发现陌生设备，建议立即退出并修改密码。</p>
-              <button class="button button-outline" @click="revokeOthers">退出其他设备</button>
+              <button class="button button-outline" :disabled="deviceSaving" @click="revokeOthers">
+                退出其他设备
+              </button>
             </div>
           </section>
         </div>

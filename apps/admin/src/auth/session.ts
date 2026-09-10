@@ -7,6 +7,8 @@ const versionKey = 'template_session_version';
 const expiryKey = 'template_access_expires_at';
 const currentSessionVersion = '4';
 let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+let refreshPromise: Promise<boolean> | undefined;
+let sessionVersion = 0;
 const sessionListeners = new Set<(user: AuthUser | null) => void>();
 
 function notifySessionChanged(): void {
@@ -31,6 +33,7 @@ export function getCurrentUser(): AuthUser | null {
   }
 }
 export function clearSession(): void {
+  sessionVersion += 1;
   if (refreshTimer !== undefined) globalThis.clearTimeout(refreshTimer);
   refreshTimer = undefined;
   sessionStorage.removeItem(tokenKey);
@@ -43,16 +46,10 @@ function saveSession(session: AuthSession): void {
   sessionStorage.setItem(tokenKey, session.accessToken);
   sessionStorage.setItem(userKey, JSON.stringify(session.user));
   sessionStorage.setItem(versionKey, currentSessionVersion);
-  const expiresAt = Date.now() + Math.max(60, session.expiresIn - 60) * 1000;
-  sessionStorage.setItem(expiryKey, String(Date.now() + session.expiresIn * 1000));
+  const expiresAt = Date.now() + session.expiresIn * 1000;
+  sessionStorage.setItem(expiryKey, String(expiresAt));
   notifySessionChanged();
-  if (refreshTimer !== undefined) globalThis.clearTimeout(refreshTimer);
-  refreshTimer = globalThis.setTimeout(
-    () => {
-      void refreshAccessToken();
-    },
-    Math.max(1000, expiresAt - Date.now()),
-  );
+  scheduleRefresh(expiresAt);
 }
 export function saveCurrentUser(user: AuthUser): void {
   sessionStorage.setItem(userKey, JSON.stringify(user));
@@ -63,6 +60,7 @@ export async function login(input: LoginRequest): Promise<AuthUser> {
   const response = await fetch(`${apiBaseUrl}/auth/login`, {
     method: 'POST',
     credentials: 'include',
+    signal: AbortSignal.timeout(6000),
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   });
@@ -83,11 +81,13 @@ export async function restoreSession(): Promise<boolean> {
     }
     if (token) {
       const me = await fetch(`${apiBaseUrl}/auth/me`, {
+        signal: AbortSignal.timeout(6000),
         headers: { Authorization: `Bearer ${token}` },
       });
       if (me.ok && expiresAt > Date.now()) {
         sessionStorage.setItem(userKey, JSON.stringify((await me.json()) as AuthUser));
         notifySessionChanged();
+        scheduleRefresh(expiresAt);
         return true;
       }
       clearSession();
@@ -107,16 +107,28 @@ function scheduleRefresh(expiresAt: number): void {
   );
 }
 
-async function refreshAccessToken(): Promise<boolean> {
+export function refreshAccessToken(): Promise<boolean> {
+  refreshPromise ??= performRefresh().finally(() => {
+    refreshPromise = undefined;
+  });
+  return refreshPromise;
+}
+
+async function performRefresh(): Promise<boolean> {
+  const version = sessionVersion;
   try {
     const response = await fetch(`${apiBaseUrl}/auth/refresh`, {
       method: 'POST',
       credentials: 'include',
+      signal: AbortSignal.timeout(6000),
     });
     if (!response.ok) throw new Error('REFRESH_FAILED');
-    saveSession((await response.json()) as AuthSession);
+    const session = (await response.json()) as AuthSession;
+    if (version !== sessionVersion) return false;
+    saveSession(session);
     return true;
   } catch {
+    if (version !== sessionVersion) return false;
     clearSession();
     window.dispatchEvent(new CustomEvent('template-auth-expired'));
     return false;
@@ -124,8 +136,13 @@ async function refreshAccessToken(): Promise<boolean> {
 }
 
 export async function logout(): Promise<void> {
+  clearSession();
   try {
-    await fetch(`${apiBaseUrl}/auth/logout`, { method: 'POST', credentials: 'include' });
+    await fetch(`${apiBaseUrl}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+      signal: AbortSignal.timeout(6000),
+    });
   } catch {
     /* Local logout must still complete when the API is unavailable. */
   }

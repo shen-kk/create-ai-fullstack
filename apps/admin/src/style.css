@@ -936,6 +936,13 @@ tbody tr:hover {
 }
 .dialog-backdrop {
   position: fixed;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  color: inherit;
   inset: 0;
   z-index: 20;
   display: grid;
@@ -946,43 +953,6 @@ tbody tr:hover {
 }
 body.dialog-open {
   overflow: hidden;
-}
-.user-dialog {
-  width: min(440px, 100%);
-  padding: 24px;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 24px 70px #18203835;
-}
-.user-dialog header,
-.user-dialog footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.user-dialog header {
-  margin-bottom: 20px;
-}
-.user-dialog footer {
-  justify-content: flex-end;
-  margin-top: 24px;
-}
-.user-dialog label {
-  display: grid;
-  gap: 7px;
-  margin-top: 14px;
-  font-size: 13px;
-  font-weight: 600;
-}
-.user-dialog label small {
-  color: #777f94;
-  font-weight: 400;
-}
-.user-dialog input {
-  padding: 10px 12px;
-  border: 1px solid #dfe2ee;
-  border-radius: 8px;
 }
 .dialog-close {
   padding: 4px 10px;
@@ -1932,8 +1902,7 @@ select:hover {
 .filter-form input:focus,
 .filter-form select:focus,
 .audit-filter-form input:focus,
-.audit-filter-form select:focus,
-.user-dialog input:focus {
+.audit-filter-form select:focus {
   border-color: #6673dc;
   box-shadow: 0 0 0 4px #5965eb14;
 }
@@ -2018,42 +1987,6 @@ td {
   backdrop-filter: blur(7px);
   animation: dialog-fade 0.18s ease-out;
 }
-.user-dialog {
-  display: flex;
-  flex-direction: column;
-  width: min(620px, 100%);
-  max-height: calc(100vh - 64px);
-  padding: 30px 32px 0;
-  overflow: hidden;
-  border: 1px solid #ffffffb8;
-  border-radius: 20px;
-  box-shadow: 0 32px 90px #10172d42;
-  animation: dialog-rise 0.22s ease-out;
-}
-.dialog-scroll-content {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  margin-right: -32px;
-  padding: 0 32px 24px 0;
-  scrollbar-width: thin;
-}
-.user-dialog > header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  flex: 0 0 auto;
-  background: #fff;
-  margin-bottom: 0 !important;
-}
-.user-dialog > footer {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  flex: 0 0 auto;
-  background: #fff;
-  margin: 28px -32px 0 !important;
-}
 .role-options .role-option {
   display: flex;
   align-items: center;
@@ -2078,37 +2011,6 @@ td {
   width: 18px;
   height: 18px;
   flex: 0 0 18px;
-}
-.user-dialog header {
-  margin-bottom: 24px;
-  padding-bottom: 18px;
-  border-bottom: 1px solid #edf0f5;
-}
-.user-dialog header h2 {
-  margin: 0;
-  color: #1b2435;
-  font-size: 24px;
-}
-.user-dialog label {
-  gap: 8px;
-  margin-top: 18px;
-  color: #465166;
-  font-size: 13px;
-}
-.user-dialog input {
-  width: 100%;
-  min-height: 46px;
-  padding: 11px 14px;
-  font-size: 14px;
-}
-.user-dialog footer {
-  position: sticky;
-  bottom: -30px;
-  margin: 28px -32px -30px;
-  padding: 19px 32px;
-  background: #fffffff5;
-  border-top: 1px solid #e9edf3;
-  backdrop-filter: blur(10px);
 }
 .dialog-close {
   display: grid;
@@ -2292,6 +2194,33 @@ td {
 }
 .app-dialog--sm {
   width: min(440px, calc(100vw - 32px));
+}
+.app-dialog--md {
+  width: min(620px, calc(100vw - 32px));
+}
+.dialog-form {
+  display: grid;
+  gap: 18px;
+  padding-bottom: 8px;
+}
+.dialog-form > label {
+  display: grid;
+  gap: 8px;
+  color: #465166;
+  font-size: 13px;
+  font-weight: 600;
+}
+.dialog-form input:not([type='checkbox']) {
+  width: 100%;
+  min-height: 46px;
+  padding: 11px 14px;
+  border: 1px solid #dfe2ee;
+  border-radius: 8px;
+  font-size: 14px;
+}
+.dialog-form label small {
+  color: #777f94;
+  font-weight: 400;
 }
 .app-dialog--lg {
   width: min(720px, calc(100vw - 32px));
@@ -2580,16 +2509,6 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
   }
   .dialog-backdrop {
     padding: 12px;
-  }
-  .user-dialog {
-    max-height: calc(100vh - 24px);
-    padding: 24px 20px;
-    border-radius: 16px;
-  }
-  .user-dialog footer {
-    bottom: -24px;
-    margin: 24px -20px -24px;
-    padding: 16px 20px;
   }
   .permission-module-grid {
     grid-template-columns: 1fr;
@@ -3117,53 +3036,9 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
 .integration-card .secondary-button {
   margin-top: auto;
 }
-.integration-dialog {
-  width: min(680px, 100%);
-}
-.template-editor-dialog {
-  width: min(920px, 100%);
-}
-.template-editor-dialog > label,
 .template-editor-section > label,
 .template-advanced-content > label {
   margin-top: 0;
-}
-.template-dialog-content {
-  overscroll-behavior: contain;
-}
-.template-editor-dialog textarea {
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 132px;
-  padding: 14px 16px;
-  resize: vertical;
-  color: #283248;
-  background: #fff;
-  border: 1px solid #dce3f0;
-  border-radius: 12px;
-  font: inherit;
-  font-size: 13px;
-  line-height: 1.65;
-  outline: none;
-  transition:
-    border-color 0.18s ease,
-    box-shadow 0.18s ease;
-}
-.template-editor-dialog textarea:hover {
-  border-color: #c6cedf;
-}
-.template-editor-dialog textarea:focus {
-  border-color: #6672e5;
-  box-shadow: 0 0 0 3px rgb(89 101 216 / 12%);
-}
-.template-editor-dialog .code-textarea {
-  min-height: 150px;
-  color: #303a52;
-  background: #f8f9fc;
-  font-family: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
-  font-size: 12px;
-  line-height: 1.7;
-  tab-size: 2;
 }
 .template-editor-section {
   display: grid;
@@ -3315,15 +3190,6 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
   width: 18px !important;
   min-height: 18px !important;
   accent-color: #5965d8;
-}
-.integration-dialog label em {
-  margin-left: 6px;
-  color: #188060;
-  font-size: 10px;
-  font-style: normal;
-}
-.integration-dialog input[type='password'] {
-  letter-spacing: 0.08em;
 }
 .integration-binding-panel {
   margin-bottom: 22px;
@@ -3779,8 +3645,7 @@ label.variable-field:has(.password-input input:required) > span:first-child::aft
     width: 100%;
   }
   .modal,
-  .dialog,
-  .user-dialog {
+  .dialog {
     width: calc(100vw - 24px);
     max-width: none;
     max-height: calc(100vh - 24px);

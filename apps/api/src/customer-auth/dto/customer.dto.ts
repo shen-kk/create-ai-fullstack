@@ -8,6 +8,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { PASSWORD_MIN_LENGTH } from '@template/contracts';
+import { Transform } from 'class-transformer';
 
 export class SendVerificationCodeDto {
   @IsIn(['sms', 'email']) channel!: 'sms' | 'email';
@@ -33,13 +34,17 @@ export class BindCustomerContactDto {
 }
 export class CustomerLoginDto {
   @IsIn(['sms', 'email']) channel!: 'sms' | 'email';
-  @IsString() @MaxLength(120) identifier!: string;
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim().toLowerCase() : value,
+  )
+  @IsString()
+  @MaxLength(120)
+  identifier!: string;
   @IsString() @MinLength(PASSWORD_MIN_LENGTH) @MaxLength(72) password!: string;
 }
 export class UpdateCustomerProfileDto {
   @IsString() @MinLength(2) @MaxLength(40) name!: string;
   @IsOptional() @IsEmail() @MaxLength(120) email?: string | null;
-  @IsOptional() @IsString() @MaxLength(2048) avatarUrl?: string | null;
 }
 export class ChangeCustomerPasswordDto {
   @IsOptional() @IsString() @MinLength(PASSWORD_MIN_LENGTH) @MaxLength(72) currentPassword?: string;

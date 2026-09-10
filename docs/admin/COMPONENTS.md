@@ -9,7 +9,7 @@
 | Select           | `src/components/AppSelect.vue`         | 已建立，唯一选择器入口         |
 | Icon             | `src/components/AppIcon.vue`           | 已建立，统一线性图标           |
 | Button           | `AppButton`                            | 待收口，新增前优先完成公共组件 |
-| Dialog           | `AppDialog`                            | 待收口，不复制历史弹窗结构     |
+| Dialog           | `src/components/AppDialog.vue`         | 已建立，统一模态与焦点管理     |
 | Input/FormField  | `AppInput` / `AppFormField`            | 待收口                         |
 | Toast            | `src/components/AppNotice.vue`         | 已建立，写操作反馈唯一入口     |
 | Confirm          | `AppConfirm`                           | 待收口                         |

@@ -4,50 +4,16 @@ import type {
   ChangePasswordRequest,
   UpdateProfileRequest,
 } from '@template/contracts';
-import { getAccessToken } from '../auth/session';
-import { apiBaseUrl } from './base';
-const base = apiBaseUrl;
-async function request<T>(
-  path: string,
-  method: 'DELETE' | 'GET' | 'PATCH' | 'POST',
-  body?: object,
-): Promise<T> {
-  const token = getAccessToken();
-  const response = await fetch(`${base}${path}`, {
-    method,
-    credentials: 'include',
-    signal: AbortSignal.timeout(6000),
-    headers: {
-      ...(body ? { 'Content-Type': 'application/json' } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  if (!response.ok) throw new Error(`Profile request failed: ${response.status}`);
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
-}
+import { request } from './request';
 export const updateProfile = (input: UpdateProfileRequest): Promise<AuthUser> =>
-  request('/auth/profile', 'PATCH', input);
+  request('/auth/profile', { method: 'PATCH', body: JSON.stringify(input) });
 export const changePassword = (input: ChangePasswordRequest): Promise<void> =>
-  request('/auth/password', 'POST', input);
-export const listAuthSessions = (): Promise<AuthSessionDevice[]> =>
-  request('/auth/sessions', 'GET');
+  request('/auth/password', { method: 'POST', body: JSON.stringify(input) });
+export const listAuthSessions = (): Promise<AuthSessionDevice[]> => request('/auth/sessions');
 export const revokeOtherAuthSessions = (): Promise<void> =>
-  request('/auth/sessions/others', 'DELETE');
-export async function uploadAvatar(file: File): Promise<AuthUser> {
-  const token = getAccessToken();
+  request('/auth/sessions/others', { method: 'DELETE' });
+export function uploadAvatar(file: File): Promise<AuthUser> {
   const body = new FormData();
   body.append('file', file);
-  const response = await fetch(`${base}/auth/avatar`, {
-    method: 'POST',
-    signal: AbortSignal.timeout(30000),
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body,
-  });
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => undefined)) as { code?: string } | undefined;
-    throw new Error(payload?.code ?? `AVATAR_UPLOAD_FAILED_${response.status}`);
-  }
-  return response.json() as Promise<AuthUser>;
+  return request('/auth/avatar', { method: 'POST', body }, 30_000);
 }

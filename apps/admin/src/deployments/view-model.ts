@@ -27,3 +27,13 @@ export function deploymentVariableSecretValue(
 export function deploymentProjectPath(projectId?: string): string {
   return projectId ? `/deployments/projects/${encodeURIComponent(projectId)}` : '/deployments';
 }
+
+export const deploymentRunStatusText = {
+  queued: '等待中',
+  running: '执行中',
+  succeeded: '已成功',
+  failed: '已失败',
+  cancelled: '已取消',
+  rolling_back: '正在回滚',
+  rolled_back: '已回滚',
+} as const;

@@ -96,6 +96,7 @@ function openEdit(role: RoleOption): void {
   dialogOpen.value = true;
 }
 async function submit(): Promise<void> {
+  if (saving.value) return;
   saving.value = true;
   try {
     const description = form.value.description.trim();

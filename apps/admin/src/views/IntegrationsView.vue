@@ -9,7 +9,7 @@ import type {
   MessageTemplateChannel,
   VerificationPurpose,
 } from '@template/contracts';
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import {
   createServiceResource,
@@ -74,8 +74,7 @@ const verificationTtlMinutes = ref(5);
 const verificationRetrySeconds = ref(60);
 const loading = ref(false),
   saving = ref(false),
-  error = ref(''),
-  notice = ref('');
+  error = ref('');
 const editing = ref<IntegrationConfigSummary>();
 const editingResource = ref<ServiceResourceSummary>();
 const deletingResource = ref<ServiceResourceSummary>();
@@ -103,7 +102,6 @@ const templateForm = ref<{
   enabled: true,
 });
 const testTarget = ref('');
-const noticeKind = ref<'success' | 'error'>('success');
 const revealingResourceSecrets = ref(false);
 const testPurpose = ref<VerificationPurpose>('login');
 const testingDelivery = ref(false);
@@ -111,12 +109,6 @@ const resourceName = ref('');
 const values = ref<Record<string, string>>({}),
   secrets = ref<Record<string, string>>({}),
   enabled = ref(false);
-
-watch(notice, (message) => {
-  if (!message) return;
-  showAdminNotice(noticeKind.value, message);
-  notice.value = '';
-});
 
 const defaultEmailBody = `<h2>{{projectName}} 验证码</h2><p>您好：</p><p>您正在进行<strong>{{purpose}}</strong>操作，本次验证码为：</p><blockquote><strong>{{code}}</strong></blockquote><p>验证码将在 {{minutes}} 分钟内有效，请勿告知他人。</p><p>如非本人操作，请忽略此邮件。</p>`;
 
@@ -160,6 +152,7 @@ const testPurposeOptions = computed(() => [
   },
 ]);
 async function saveAuthMode(): Promise<void> {
+  if (saving.value) return;
   saving.value = true;
   try {
     authSettings.value = await updateCustomerAuthSettings({
@@ -167,14 +160,14 @@ async function saveAuthMode(): Promise<void> {
       verificationTtlSeconds: verificationTtlMinutes.value * 60,
       verificationRetrySeconds: verificationRetrySeconds.value,
     });
-    noticeKind.value = 'success';
-    notice.value = '用户端认证与验证码规则已更新。';
+    showAdminNotice('success', '用户端认证与验证码规则已更新。');
   } catch (error) {
-    noticeKind.value = 'error';
-    notice.value =
+    showAdminNotice(
+      'error',
       error instanceof Error && error.message === 'CUSTOMER_AUTH_FEATURE_BINDINGS_INCOMPLETE'
         ? '无法启用：请先完成对应登录和找回密码的短信或邮件功能绑定。'
-        : '认证设置保存失败，请刷新后重试。';
+        : '认证设置保存失败，请刷新后重试。',
+    );
     authMode.value = authSettings.value.mode;
     verificationTtlMinutes.value = authSettings.value.verificationTtlSeconds / 60;
     verificationRetrySeconds.value = authSettings.value.verificationRetrySeconds;
@@ -225,11 +218,12 @@ async function bindFeature(
       binding.templateId,
     );
     bindings.value = bindings.value.map((item) => (item.code === updated.code ? updated : item));
-    noticeKind.value = 'success';
-    notice.value = resourceId ? '功能绑定已保存。' : '已解除绑定，该功能将提示服务未配置。';
+    showAdminNotice(
+      'success',
+      resourceId ? '功能绑定已保存。' : '已解除绑定，该功能将提示服务未配置。',
+    );
   } catch {
-    noticeKind.value = 'error';
-    notice.value = '功能绑定失败，请确认资源已启用且类型匹配。';
+    showAdminNotice('error', '功能绑定失败，请确认资源已启用且类型匹配。');
   }
 }
 function templateOptions(binding: ServiceFeatureBindingSummary) {
@@ -245,18 +239,20 @@ async function bindTemplate(
   templateId: string,
 ): Promise<void> {
   if (!binding.resourceId) {
-    noticeKind.value = 'error';
-    notice.value = '请先绑定发送服务资源。';
+    showAdminNotice('error', '请先绑定发送服务资源。');
     return;
   }
-  const updated = await updateServiceFeatureBinding(
-    binding.code,
-    binding.resourceId,
-    templateId || null,
-  );
-  bindings.value = bindings.value.map((item) => (item.code === updated.code ? updated : item));
-  noticeKind.value = 'success';
-  notice.value = '消息模板绑定已保存。';
+  try {
+    const updated = await updateServiceFeatureBinding(
+      binding.code,
+      binding.resourceId,
+      templateId || null,
+    );
+    bindings.value = bindings.value.map((item) => (item.code === updated.code ? updated : item));
+    showAdminNotice('success', '消息模板绑定已保存。');
+  } catch {
+    showAdminNotice('error', '消息模板绑定失败，请检查服务资源与模板后重试。');
+  }
 }
 function openTemplate(template?: MessageTemplateSummary): void {
   editingTemplate.value = template;
@@ -286,11 +282,12 @@ function openTemplate(template?: MessageTemplateSummary): void {
       };
 }
 async function saveTemplate(): Promise<void> {
+  if (saving.value) return;
+  saving.value = true;
   try {
     const form = templateForm.value;
     if (form.channel === 'email' && !form.htmlBody.trim()) {
-      noticeKind.value = 'error';
-      notice.value = '请填写邮件正文。';
+      showAdminNotice('error', '请填写邮件正文。');
       return;
     }
     const input = {
@@ -308,33 +305,31 @@ async function saveTemplate(): Promise<void> {
     else await createMessageTemplate(input);
     editingTemplate.value = undefined;
     creatingTemplate.value = false;
-    noticeKind.value = 'success';
-    notice.value = '消息模板已保存。';
+    showAdminNotice('success', '消息模板已保存。');
     await load();
   } catch {
-    noticeKind.value = 'error';
-    notice.value = '模板保存失败，请检查模板变量和参数映射 JSON。';
+    showAdminNotice('error', '模板保存失败，请检查模板变量和参数映射 JSON。');
+  } finally {
+    saving.value = false;
   }
 }
 async function removeTemplate(template: MessageTemplateSummary): Promise<void> {
   try {
     await deleteMessageTemplate(template.id);
-    noticeKind.value = 'success';
-    notice.value = '消息模板已删除。';
+    showAdminNotice('success', '消息模板已删除。');
     await load();
   } catch {
-    noticeKind.value = 'error';
-    notice.value = '模板正在被功能使用，不能删除。';
+    showAdminNotice('error', '模板正在被功能使用，不能删除。');
   }
 }
 async function testCurrentDelivery(): Promise<void> {
+  if (testingDelivery.value) return;
   const channel = authMode.value === 'email' ? 'email' : 'sms';
   if (!testTarget.value.trim()) return;
   testingDelivery.value = true;
   try {
     await testIntegrationDelivery(channel, testTarget.value.trim(), testPurpose.value);
-    noticeKind.value = 'success';
-    notice.value = '测试验证码已发送，请检查接收端。';
+    showAdminNotice('success', '测试验证码已发送，请检查接收端。');
   } catch (error) {
     const code = error instanceof Error ? error.message : '';
     const messages: Record<string, string> = {
@@ -345,8 +340,7 @@ async function testCurrentDelivery(): Promise<void> {
       SMS_DELIVERY_FAILED: '短信发送失败，请检查短信服务配置。',
       VERIFICATION_RETRY_LATER: '发送过于频繁，请等待 60 秒后重试。',
     };
-    noticeKind.value = 'error';
-    notice.value = messages[code] ?? '测试发送失败，请检查所选场景的服务和模板绑定。';
+    showAdminNotice('error', messages[code] ?? '测试发送失败，请检查所选场景的服务和模板绑定。');
   } finally {
     testingDelivery.value = false;
   }
@@ -386,13 +380,14 @@ async function revealResourceSecrets(): Promise<void> {
     };
   } catch (cause) {
     const code = cause instanceof Error ? cause.message : '';
-    noticeKind.value = 'error';
-    notice.value =
+    showAdminNotice(
+      'error',
       code === 'FORBIDDEN' || code.includes('403')
         ? '当前账号没有“查看敏感配置明文”权限。'
         : code === 'INTEGRATION_SECRETS_REENTRY_REQUIRED'
           ? '历史密钥已无法解密，请重新填写并保存。'
-          : '敏感配置读取失败，请检查权限或 API。';
+          : '敏感配置读取失败，请检查权限或 API。',
+    );
   } finally {
     revealingResourceSecrets.value = false;
   }
@@ -404,9 +399,9 @@ function visibleFields(item: IntegrationConfigSummary) {
   );
 }
 async function save(): Promise<void> {
+  if (saving.value) return;
   if (!editing.value) return;
   saving.value = true;
-  notice.value = '';
   try {
     const input = {
       name: resourceName.value,
@@ -419,8 +414,7 @@ async function save(): Promise<void> {
     if (editingResource.value) await updateServiceResource(editingResource.value.id, input);
     else await createServiceResource(input);
     editing.value = undefined;
-    noticeKind.value = 'success';
-    notice.value = '服务资源已安全保存，部署环境现在可以绑定该资源。';
+    showAdminNotice('success', '服务资源已安全保存，部署环境现在可以绑定该资源。');
     await load();
   } catch (cause) {
     const code = cause instanceof Error ? cause.message : '';
@@ -431,30 +425,30 @@ async function save(): Promise<void> {
       SERVICE_DEPLOY_ROOT_INVALID: '部署根目录必须是合法的 Linux 绝对路径。',
       INTEGRATION_OPTION_INVALID: '所选服务平台或配置选项无效，请重新选择。',
     };
-    noticeKind.value = 'error';
-    notice.value = messages[code] ?? '保存失败，请检查必填字段、平台类型和加密配置。';
+    showAdminNotice('error', messages[code] ?? '保存失败，请检查必填字段、平台类型和加密配置。');
   } finally {
     saving.value = false;
   }
 }
 async function removeResource(): Promise<void> {
+  if (saving.value) return;
   if (!deletingResource.value) return;
   saving.value = true;
   try {
     await deleteServiceResource(deletingResource.value.id);
-    noticeKind.value = 'success';
-    notice.value = `已删除“${deletingResource.value.name}”。`;
+    showAdminNotice('success', `已删除“${deletingResource.value.name}”。`);
     deletingResource.value = undefined;
     await load();
   } catch (error) {
     const code = error instanceof Error ? error.message : '';
-    noticeKind.value = 'error';
-    notice.value =
+    showAdminNotice(
+      'error',
       code === 'SERVICE_RESOURCE_BOUND_TO_FEATURE'
         ? '该资源已被系统功能绑定，请先解除功能绑定。'
         : code === 'SERVICE_RESOURCE_BOUND_TO_DEPLOYMENT'
           ? '该资源已被部署环境使用，请先修改对应部署环境。'
-          : '删除失败，请刷新后重试。';
+          : '删除失败，请刷新后重试。',
+    );
   } finally {
     saving.value = false;
   }
@@ -712,209 +706,195 @@ onMounted(load);
         </article>
       </section>
     </template>
-    <div v-if="editing" class="dialog-backdrop">
-      <form class="user-dialog integration-dialog" @submit.prevent="save">
-        <header>
-          <div>
-            <p class="eyebrow">服务配置</p>
-            <h2>{{ editingResource ? '编辑' : '新增' }}{{ editing.name }}</h2>
-          </div>
-          <button type="button" class="dialog-close" aria-label="关闭" @click="editing = undefined">
-            ×
-          </button>
-        </header>
-        <div class="dialog-scroll-content">
+    <AppDialog
+      v-if="editing"
+      :open="true"
+      size="lg"
+      eyebrow="服务配置"
+      :title="editingResource ? '编辑' : '新增' + editing.name"
+      @close="editing = undefined"
+    >
+      <form id="save-form" class="dialog-form" @submit.prevent="save">
+        <label
+          ><span>配置名称</span
+          ><input v-model.trim="resourceName" required placeholder="例如：测试环境"
+        /></label>
+        <label class="enable-row"
+          ><input v-model="enabled" type="checkbox" /><span>启用此服务</span></label
+        >
+        <template v-for="field in visibleFields(editing)" :key="field.key">
           <label
-            ><span>配置名称</span
-            ><input v-model.trim="resourceName" required placeholder="例如：测试环境"
-          /></label>
-          <label class="enable-row"
-            ><input v-model="enabled" type="checkbox" /><span>启用此服务</span></label
-          >
-          <template v-for="field in visibleFields(editing)" :key="field.key">
+            ><span
+              >{{ field.label }}
+              <em v-if="field.secret && hasConfiguredSecret(field.key)">已配置</em></span
+            >
+            <AppPasswordInput
+              v-if="field.secret"
+              :model-value="secrets[field.key] ?? ''"
+              @update:model-value="secrets[field.key] = $event"
+              @reveal="revealResourceSecrets"
+              :revealable="Boolean(editingResource && hasConfiguredSecret(field.key))"
+              :revealing="revealingResourceSecrets"
+              :required="field.required && !hasConfiguredSecret(field.key)"
+              :placeholder="
+                hasConfiguredSecret(field.key) ? '••••••••（已加密保存）' : '请输入密钥'
+              "
+              autocomplete="new-password"
+            />
+            <AppSelect
+              v-else-if="field.options"
+              :model-value="values[field.key] ?? ''"
+              :options="field.options"
+              :aria-label="field.label"
+              @update:model-value="values[field.key] = $event"
+            />
+            <input v-else v-model.trim="values[field.key]" :required="field.required" />
+          </label>
+        </template>
+        <p class="permission-help">
+          密钥经过 AES-256-GCM 加密存储。对象存储不提供本地文件兜底；头像上传当前支持腾讯云 COS。
+        </p>
+      </form>
+      <template #footer>
+        <button type="button" class="secondary-button" @click="editing = undefined">取消</button
+        ><button type="submit" form="save-form" class="primary-button" :disabled="saving">
+          {{ saving ? '保存中…' : '安全保存' }}
+        </button>
+      </template>
+    </AppDialog>
+    <AppDialog
+      v-if="editingTemplate || creatingTemplate"
+      :open="true"
+      size="xl"
+      eyebrow="消息模板"
+      :title="editingTemplate ? '编辑模板' : '新增模板'"
+      @close="
+        editingTemplate = undefined;
+        creatingTemplate = false;
+      "
+    >
+      <form id="saveTemplate-form" class="dialog-form" @submit.prevent="saveTemplate">
+        <section class="template-editor-section">
+          <div class="template-section-heading">
+            <h3>基础信息</h3>
+            <p>用于在功能绑定中识别和选择这条模板。</p>
+          </div>
+          <div class="template-form-grid">
             <label
-              ><span
-                >{{ field.label }}
-                <em v-if="field.secret && hasConfiguredSecret(field.key)">已配置</em></span
-              >
-              <AppPasswordInput
-                v-if="field.secret"
-                :model-value="secrets[field.key] ?? ''"
-                @update:model-value="secrets[field.key] = $event"
-                @reveal="revealResourceSecrets"
-                :revealable="Boolean(editingResource && hasConfiguredSecret(field.key))"
-                :revealing="revealingResourceSecrets"
-                :required="field.required && !hasConfiguredSecret(field.key)"
+              ><span>模板代码</span
+              ><input
+                v-model.trim="templateForm.code"
+                :readonly="Boolean(editingTemplate)"
+                required
+                pattern="[a-z][a-z0-9_]*"
+              /><small>系统调用使用，创建后不可修改，例如 email_password_reset。</small></label
+            >
+            <label
+              ><span>模板名称</span><input v-model.trim="templateForm.name" required /><small
+                >显示给管理员看的中文名称。</small
+              ></label
+            >
+            <label
+              ><span class="required-field-label">发送渠道</span
+              ><AppSelect
+                v-model="templateForm.channel"
+                :options="[
+                  { value: 'email', label: '邮件' },
+                  { value: 'sms', label: '短信' },
+                ]"
+                aria-label="发送渠道"
+              /><small>决定该模板可以绑定到邮件还是短信功能。</small></label
+            >
+            <label v-if="templateForm.channel === 'email'"
+              ><span>邮件标题</span><input v-model="templateForm.subject" required /><small
+                >支持下方列出的模板变量。</small
+              ></label
+            >
+          </div>
+        </section>
+        <section v-if="templateForm.channel === 'email'" class="template-editor-section">
+          <div class="template-section-heading">
+            <h3>邮件内容</h3>
+            <p>编辑用户最终收到的邮件内容，可直接设置标题、列表和重点文字。</p>
+          </div>
+          <label class="rich-text-field"
+            ><span class="required-field-label">邮件正文</span
+            ><AppRichTextEditor
+              v-model="templateForm.htmlBody"
+              aria-label="邮件富文本正文"
+              placeholder="输入邮件正文，可使用下方模板变量"
+            /><small>填写后优先发送该内容；不要粘贴脚本或不可信 HTML。</small></label
+          >
+        </section>
+        <details
+          class="template-advanced-settings"
+          :open="templateForm.channel === 'sms' || Boolean(templateForm.providerTemplateId)"
+        >
+          <summary>
+            <span
+              ><strong>服务商高级配置</strong
+              ><small>{{
+                templateForm.channel === 'email'
+                  ? '仅使用 SES API 等模板型邮件服务时填写；SMTP 可留空'
+                  : '短信平台发送所需配置'
+              }}</small></span
+            ><span class="details-toggle">展开设置</span>
+          </summary>
+          <div class="template-advanced-content">
+            <label
+              ><span>服务商模板 ID</span
+              ><input
+                v-model.trim="templateForm.providerTemplateId"
+                :required="templateForm.channel === 'sms'"
                 :placeholder="
-                  hasConfiguredSecret(field.key) ? '••••••••（已加密保存）' : '请输入密钥'
+                  templateForm.channel === 'sms'
+                    ? '填写短信平台审核通过的模板 ID'
+                    : '仅 SES API 等模板型邮件服务需要'
                 "
-                autocomplete="new-password"
-              />
-              <AppSelect
-                v-else-if="field.options"
-                :model-value="values[field.key] ?? ''"
-                :options="field.options"
-                :aria-label="field.label"
-                @update:model-value="values[field.key] = $event"
-              />
-              <input v-else v-model.trim="values[field.key]" :required="field.required" />
-            </label>
-          </template>
-          <p class="permission-help">
-            密钥经过 AES-256-GCM 加密存储。对象存储不提供本地文件兜底；头像上传当前支持腾讯云 COS。
-          </p>
-        </div>
-        <footer>
-          <button type="button" class="secondary-button" @click="editing = undefined">取消</button
-          ><button class="primary-button" :disabled="saving">
-            {{ saving ? '保存中…' : '安全保存' }}
-          </button>
-        </footer>
-      </form>
-    </div>
-    <div v-if="editingTemplate || creatingTemplate" class="dialog-backdrop">
-      <form
-        class="user-dialog integration-dialog template-editor-dialog"
-        @submit.prevent="saveTemplate"
-      >
-        <header>
-          <div>
-            <p class="eyebrow">消息模板</p>
-            <h2>{{ editingTemplate ? '编辑模板' : '新增模板' }}</h2>
-          </div>
-          <button
-            type="button"
-            class="dialog-close"
-            aria-label="关闭"
-            @click="
-              editingTemplate = undefined;
-              creatingTemplate = false;
-            "
-          >
-            ×
-          </button>
-        </header>
-        <div class="dialog-scroll-content template-dialog-content">
-          <section class="template-editor-section">
-            <div class="template-section-heading">
-              <h3>基础信息</h3>
-              <p>用于在功能绑定中识别和选择这条模板。</p>
-            </div>
-            <div class="template-form-grid">
-              <label
-                ><span>模板代码</span
-                ><input
-                  v-model.trim="templateForm.code"
-                  :readonly="Boolean(editingTemplate)"
-                  required
-                  pattern="[a-z][a-z0-9_]*"
-                /><small>系统调用使用，创建后不可修改，例如 email_password_reset。</small></label
-              >
-              <label
-                ><span>模板名称</span><input v-model.trim="templateForm.name" required /><small
-                  >显示给管理员看的中文名称。</small
-                ></label
-              >
-              <label
-                ><span class="required-field-label">发送渠道</span
-                ><AppSelect
-                  v-model="templateForm.channel"
-                  :options="[
-                    { value: 'email', label: '邮件' },
-                    { value: 'sms', label: '短信' },
-                  ]"
-                  aria-label="发送渠道"
-                /><small>决定该模板可以绑定到邮件还是短信功能。</small></label
-              >
-              <label v-if="templateForm.channel === 'email'"
-                ><span>邮件标题</span><input v-model="templateForm.subject" required /><small
-                  >支持下方列出的模板变量。</small
-                ></label
-              >
-            </div>
-          </section>
-          <section v-if="templateForm.channel === 'email'" class="template-editor-section">
-            <div class="template-section-heading">
-              <h3>邮件内容</h3>
-              <p>编辑用户最终收到的邮件内容，可直接设置标题、列表和重点文字。</p>
-            </div>
-            <label class="rich-text-field"
-              ><span class="required-field-label">邮件正文</span
-              ><AppRichTextEditor
-                v-model="templateForm.htmlBody"
-                aria-label="邮件富文本正文"
-                placeholder="输入邮件正文，可使用下方模板变量"
-              /><small>填写后优先发送该内容；不要粘贴脚本或不可信 HTML。</small></label
+              /><small>SMTP 直接发送上方正文，不需要填写此项。</small></label
             >
-          </section>
-          <details
-            class="template-advanced-settings"
-            :open="templateForm.channel === 'sms' || Boolean(templateForm.providerTemplateId)"
-          >
-            <summary>
-              <span
-                ><strong>服务商高级配置</strong
-                ><small>{{
-                  templateForm.channel === 'email'
-                    ? '仅使用 SES API 等模板型邮件服务时填写；SMTP 可留空'
-                    : '短信平台发送所需配置'
-                }}</small></span
-              ><span class="details-toggle">展开设置</span>
-            </summary>
-            <div class="template-advanced-content">
-              <label
-                ><span>服务商模板 ID</span
-                ><input
-                  v-model.trim="templateForm.providerTemplateId"
-                  :required="templateForm.channel === 'sms'"
-                  :placeholder="
-                    templateForm.channel === 'sms'
-                      ? '填写短信平台审核通过的模板 ID'
-                      : '仅 SES API 等模板型邮件服务需要'
-                  "
-                /><small>SMTP 直接发送上方正文，不需要填写此项。</small></label
-              >
-              <label
-                ><span>参数映射（JSON）</span
-                ><textarea
-                  v-model="templateForm.parameterMapping"
-                  class="code-textarea"
-                  rows="5"
-                  required
-                /><small>把本系统变量映射到服务商模板参数；普通 SMTP 保留默认值即可。</small></label
-              >
-            </div>
-          </details>
-          <div v-pre class="template-variable-help">
-            <strong>可用变量</strong>
-            <span
-              ><em>验证码</em><code>{{ code }}</code></span
-            >
-            <span
-              ><em>有效分钟数</em><code>{{ minutes }}</code></span
-            >
-            <span
-              ><em>项目名称</em><code>{{ projectName }}</code></span
-            >
-            <span
-              ><em>发送用途</em><code>{{ purpose }}</code></span
+            <label
+              ><span>参数映射（JSON）</span
+              ><textarea
+                v-model="templateForm.parameterMapping"
+                class="code-textarea"
+                rows="5"
+                required
+              /><small>把本系统变量映射到服务商模板参数；普通 SMTP 保留默认值即可。</small></label
             >
           </div>
-        </div>
-        <footer>
-          <button
-            type="button"
-            class="secondary-button"
-            @click="
-              editingTemplate = undefined;
-              creatingTemplate = false;
-            "
+        </details>
+        <div v-pre class="template-variable-help">
+          <strong>可用变量</strong>
+          <span
+            ><em>验证码</em><code>{{ code }}</code></span
           >
-            取消</button
-          ><button class="primary-button">保存模板</button>
-        </footer>
+          <span
+            ><em>有效分钟数</em><code>{{ minutes }}</code></span
+          >
+          <span
+            ><em>项目名称</em><code>{{ projectName }}</code></span
+          >
+          <span
+            ><em>发送用途</em><code>{{ purpose }}</code></span
+          >
+        </div>
       </form>
-    </div>
+      <template #footer>
+        <button
+          type="button"
+          class="secondary-button"
+          @click="
+            editingTemplate = undefined;
+            creatingTemplate = false;
+          "
+        >
+          取消</button
+        ><button type="submit" form="saveTemplate-form" class="primary-button" :disabled="saving">
+          保存模板
+        </button>
+      </template>
+    </AppDialog>
     <AppDialog
       v-if="deletingResource"
       :open="true"

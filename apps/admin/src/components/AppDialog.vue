@@ -12,49 +12,42 @@ const props = withDefaults(
   { size: 'md' },
 );
 const emit = defineEmits<{ close: [] }>();
-const dialog = ref<HTMLElement | null>(null);
+const dialog = ref<HTMLDialogElement | null>(null);
 let previousFocus: HTMLElement | null = null;
 
-function syncPageScroll(locked: boolean): void {
-  document.body.classList.toggle('dialog-open', locked);
-}
-function handleKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') emit('close');
+function close(): void {
+  dialog.value?.close();
+  document.body.classList.toggle('dialog-open', Boolean(document.querySelector('dialog[open]')));
+  previousFocus?.focus();
+  previousFocus = null;
 }
 
 watch(
   () => props.open,
   async (open) => {
-    syncPageScroll(open);
     if (open) {
       previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-      window.addEventListener('keydown', handleKeydown);
       await nextTick();
-      dialog.value?.focus();
+      if (!props.open || !dialog.value) return;
+      dialog.value.showModal();
+      document.body.classList.add('dialog-open');
       return;
     }
-    window.removeEventListener('keydown', handleKeydown);
-    previousFocus?.focus();
-    previousFocus = null;
+    close();
   },
   { immediate: true },
 );
-onBeforeUnmount(() => {
-  syncPageScroll(false);
-  window.removeEventListener('keydown', handleKeydown);
-});
+onBeforeUnmount(close);
 </script>
 <template>
-  <div v-if="open" class="dialog-backdrop">
-    <section
-      ref="dialog"
-      class="app-dialog"
-      :class="`app-dialog--${size}`"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="title"
-      tabindex="-1"
-    >
+  <dialog
+    v-if="open"
+    ref="dialog"
+    class="dialog-backdrop"
+    :aria-label="title"
+    @cancel.prevent="emit('close')"
+  >
+    <section class="app-dialog" :class="`app-dialog--${size}`">
       <header class="app-dialog__header">
         <div>
           <p v-if="eyebrow" class="eyebrow">{{ eyebrow }}</p>
@@ -67,5 +60,5 @@ onBeforeUnmount(() => {
       <div class="app-dialog__content"><slot /></div>
       <footer v-if="$slots.footer" class="app-dialog__footer"><slot name="footer" /></footer>
     </section>
-  </div>
+  </dialog>
 </template>

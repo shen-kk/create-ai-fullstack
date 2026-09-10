@@ -150,6 +150,7 @@ async function load(): Promise<void> {
   }
 }
 async function save(): Promise<void> {
+  if (saving.value) return;
   if (!form.value.projectId) {
     error.value = '请选择部署项目';
     return;

@@ -141,8 +141,16 @@ export class VerificationService {
     if (record.attempts >= 5)
       throw new HttpException('VERIFICATION_ATTEMPTS_EXCEEDED', HttpStatus.TOO_MANY_REQUESTS);
     const valid = timingSafeEqual(Buffer.from(record.codeHash), Buffer.from(hash(code)));
-    await this.mark(record.id, valid);
-    if (!valid) throw new BadRequestException('VERIFICATION_CODE_INVALID');
+    const result = await this.prisma.verificationCode.updateMany({
+      where: {
+        id: record.id,
+        consumedAt: null,
+        expiresAt: { gt: new Date() },
+        attempts: { lt: 5 },
+      },
+      data: valid ? { consumedAt: new Date() } : { attempts: { increment: 1 } },
+    });
+    if (!valid || result.count !== 1) throw new BadRequestException('VERIFICATION_CODE_INVALID');
   }
 
   private normalize(channel: VerificationChannel, target: string): string {
@@ -193,12 +201,6 @@ export class VerificationService {
   }
   private async store(record: VerificationRecord): Promise<void> {
     await this.prisma.verificationCode.create({ data: record });
-  }
-  private async mark(id: string, valid: boolean): Promise<void> {
-    await this.prisma.verificationCode.update({
-      where: { id },
-      data: valid ? { consumedAt: new Date() } : { attempts: { increment: 1 } },
-    });
   }
   private async markDelivery(
     id: string,
@@ -283,8 +285,15 @@ export class VerificationService {
       },
       body: payload,
     });
-    const result = (await response.json()) as { Response?: { Error?: { Code: string } } };
-    if (!response.ok || result.Response?.Error)
+    const result = (await response.json()) as {
+      Response?: { Error?: { Code: string }; SendStatusSet?: { Code?: string }[] };
+    };
+    if (
+      !response.ok ||
+      result.Response?.Error ||
+      result.Response?.SendStatusSet?.length !== 1 ||
+      result.Response.SendStatusSet[0]?.Code !== 'Ok'
+    )
       throw new BadRequestException('SMS_DELIVERY_FAILED');
   }
   private async sendSmtp(

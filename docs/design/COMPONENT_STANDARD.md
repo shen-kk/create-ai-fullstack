@@ -29,7 +29,7 @@ UI_STANDARD_EXCEPTION: docs/decisions/xxxx-description.md
 | -------- | ----------------------------------------- | -------------------------------------------------- | ---------------------------------- |
 | 选择器   | `apps/admin/src/components/AppSelect.vue` | `apps/web/app/components/ui/select`                | 原生 `<select>`、自制 listbox      |
 | 按钮     | 现有语义类，待收口为 `AppButton`          | `apps/web/app/components/ui/button`                | 新增无状态样式按钮                 |
-| 弹窗     | 待收口为 `AppDialog`                      | 待生成 shadcn-vue Dialog                           | 点击遮罩关闭、自制弹窗结构         |
+| 弹窗     | `AppDialog`                               | 待生成 shadcn-vue Dialog                           | 点击遮罩关闭、自制弹窗结构         |
 | 输入字段 | 现有表单输入，待收口为公共组件            | `apps/web/app/components/ui/input` 与 `form-field` | 页面级重复标签和文本输入结构       |
 | 下拉菜单 | 页面现有账号菜单，待收口                  | `apps/web/app/components/ui/dropdown-menu`         | 页面级重复菜单开关与外部点击逻辑   |
 | 全局反馈 | `apps/admin/src/components/AppNotice.vue` | `apps/web/app/components/AppToast.vue`             | `alert()`、`confirm()`、只写控制台 |
@@ -68,7 +68,7 @@ UI_STANDARD_EXCEPTION: docs/decisions/xxxx-description.md
 ## 当前审计结论
 
 - 后台选择器已有唯一组件，已覆盖现有选择场景；组件需要持续作为唯一入口。
-- 后台弹窗仍分散在多个历史页面，且全局 CSS 存在分段叠加，下一阶段应优先迁移到 `AppDialog`。
+- 后台历史弹窗已迁移到 `AppDialog`，使用原生 dialog 管理模态与焦点；后续页面继续复用该入口（ADR-0020）。
 - 后台按钮仍以全局 class 为主，下一阶段应收口为 `AppButton` variants。
 - 用户端目前已有 Button、Input、FormField、DropdownMenu 和 Toast；Select、Dialog、Checkbox、Radio 及请求生命周期组件仍应在真实需求出现时补齐。
 - 在上述缺口补齐之前，新页面必须先补组件再组合页面，不能复制历史实现。

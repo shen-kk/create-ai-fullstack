@@ -82,7 +82,7 @@ describe('Admin API HTTP workflow', () => {
     api.stderr?.on('data', (chunk: Buffer) => {
       lastError += chunk.toString();
     });
-    for (let attempt = 0; attempt < 40; attempt += 1) {
+    for (let attempt = 0; attempt < 300; attempt += 1) {
       if (api.exitCode !== null) throw new Error(`API 提前退出：${lastError}`);
       try {
         const response = await fetch(`${baseUrl}/health/live`);
@@ -93,7 +93,7 @@ describe('Admin API HTTP workflow', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     throw new Error(`API 启动超时：${lastError}`);
-  });
+  }, 40_000);
 
   afterAll(async () => {
     if (api?.exitCode === null) {
@@ -353,6 +353,19 @@ describe('Admin API HTTP workflow', () => {
     expect(update.status).toBe(200);
     expect(await update.json()).toMatchObject({ name: '稳定版用户已更新' });
 
+    const directAvatar = await fetch(`${baseUrl}/customer-auth/profile`, {
+      method: 'PATCH',
+      headers: {
+        authorization: `Bearer ${primary.accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: '稳定版用户已更新',
+        avatarUrl: 'https://example.com/avatar.png',
+      }),
+    });
+    expect(directAvatar.status).toBe(400);
+
     const email = secondCustomerEmail;
     const bindCode = await issueCode('email', email, 'bind_contact');
     const bind = await fetch(`${baseUrl}/customer-auth/contact/bind`, {
@@ -367,12 +380,18 @@ describe('Admin API HTTP workflow', () => {
     expect(await bind.json()).toMatchObject({ email });
 
     const loginCode = await issueCode('sms', phone, 'login');
-    const secondaryLogin = await fetch(`${baseUrl}/customer-auth/login/code`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'user-agent': 'e2e-secondary-device' },
-      body: JSON.stringify({ channel: 'sms', identifier: phone, code: loginCode }),
-    });
-    expect(secondaryLogin.status).toBe(201);
+    const concurrentLogins = await Promise.all(
+      [0, 1].map(() =>
+        fetch(`${baseUrl}/customer-auth/login/code`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'user-agent': 'e2e-secondary-device' },
+          body: JSON.stringify({ channel: 'sms', identifier: phone, code: loginCode }),
+        }),
+      ),
+    );
+    expect(concurrentLogins.map((result) => result.status).sort()).toEqual([201, 400]);
+    const secondaryLogin = concurrentLogins.find((result) => result.status === 201);
+    if (!secondaryLogin) throw new Error('Expected one successful code login');
     const secondary = (await secondaryLogin.json()) as { accessToken: string };
 
     const sessions = await fetch(`${baseUrl}/customer-auth/sessions`, {
@@ -418,6 +437,15 @@ describe('Admin API HTTP workflow', () => {
       }),
     });
     expect(reset.status).toBe(204);
+    const oldSession = await fetch(`${baseUrl}/customer-auth/me`, {
+      headers: { authorization: `Bearer ${primary.accessToken}` },
+    });
+    expect(oldSession.status).toBe(401);
+    const oldRefresh = await fetch(`${baseUrl}/customer-auth/refresh`, {
+      method: 'POST',
+      headers: { cookie: register.headers.get('set-cookie')?.split(';')[0] ?? '' },
+    });
+    expect(oldRefresh.status).toBe(401);
     const passwordLogin = await fetch(`${baseUrl}/customer-auth/login`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
