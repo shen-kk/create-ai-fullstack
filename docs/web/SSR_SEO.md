@@ -1,6 +1,7 @@
 # Web SSR、SEO 与弱网规范
 
 - 公开页面默认 SSR；首屏所需数据使用 `useFetch` / `useAsyncData`。
+- 登录与找回密码配置请求将 `PUBLIC_API_BASE_URL` 按当前请求 origin 解析为绝对 HTTP 地址，保证 SSR 刷新也经过开发代理或生产入口代理，避免相对 `/api` 落入 Nitro 内部路由。浏览器复用 SSR payload 时不需要再次请求 settings；配置失败必须明确报错，不得回退为虚构的手机号配置。
 - 仅浏览器交互才使用客户端请求，不无故把公开页面退化为 CSR。
 - 每个公开页面设置标题、描述、canonical；需要分享时补充 Open Graph 信息。
 - 认证数据不得进入公共缓存；只有 `NUXT_PUBLIC_*` 可以暴露给浏览器。
